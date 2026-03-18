@@ -1,0 +1,110 @@
+import React, { useState } from "react";
+import { base44 } from "@/api/base44Client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus, Trash2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+const STATUS_COLORS = {
+  not_started: "bg-gray-100 text-gray-700",
+  in_progress: "bg-blue-100 text-blue-700",
+  complete: "bg-emerald-100 text-emerald-700",
+};
+
+export default function ProjectsProof({ app, onUpdate }) {
+  const [projects, setProjects] = useState(app.projects_proof || []);
+  const [newProject, setNewProject] = useState({
+    project_name: "",
+    skill_proven: "",
+    status: "not_started",
+  });
+
+  const handleAdd = () => {
+    if (!newProject.project_name || !newProject.skill_proven) return;
+    const updated = [...projects, newProject];
+    setProjects(updated);
+    saveProjects(updated);
+    setNewProject({ project_name: "", skill_proven: "", status: "not_started" });
+  };
+
+  const handleRemove = (index) => {
+    const updated = projects.filter((_, i) => i !== index);
+    setProjects(updated);
+    saveProjects(updated);
+  };
+
+  const handleUpdate = (index, field, value) => {
+    const updated = projects.map((p, i) => (i === index ? { ...p, [field]: value } : p));
+    setProjects(updated);
+    saveProjects(updated);
+  };
+
+  const saveProjects = async (updated) => {
+    await base44.entities.Application.update(app.id, { projects_proof: updated });
+    onUpdate();
+  };
+
+  return (
+    <div className="space-y-4">
+      <p className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium">
+        Projects to Prove Skills
+      </p>
+
+      {projects.length === 0 ? (
+        <p className="text-xs text-[#A3A3A3] py-4 text-center">
+          No projects yet. Add projects to build proof for missing skills.
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {projects.map((project, i) => (
+            <div key={i} className="bg-[#FAFAFA] rounded-lg p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-[#0A0A0A]">{project.project_name}</p>
+                  <p className="text-xs text-[#A3A3A3] mt-0.5">Proves: {project.skill_proven}</p>
+                  <Select
+                    value={project.status}
+                    onValueChange={(v) => handleUpdate(i, "status", v)}
+                  >
+                    <SelectTrigger className="mt-2 h-7 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="not_started">Not Started</SelectItem>
+                      <SelectItem value="in_progress">In Progress</SelectItem>
+                      <SelectItem value="complete">Complete</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <button onClick={() => handleRemove(i)} className="text-[#A3A3A3] hover:text-red-500">
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="border-t border-[#E5E5E5] pt-4 space-y-3">
+        <p className="text-xs font-medium text-[#525252]">Add New Project</p>
+        <Input
+          placeholder="Project name (e.g., SQL Data Analysis Project)"
+          value={newProject.project_name}
+          onChange={(e) => setNewProject({ ...newProject, project_name: e.target.value })}
+          className="text-sm"
+        />
+        <Input
+          placeholder="Skill it proves (e.g., SQL, Data Visualization)"
+          value={newProject.skill_proven}
+          onChange={(e) => setNewProject({ ...newProject, skill_proven: e.target.value })}
+          className="text-sm"
+        />
+        <Button onClick={handleAdd} className="bg-[#0A0A0A] hover:bg-[#262626] text-sm w-full">
+          <Plus className="w-4 h-4 mr-2" />
+          Add Project
+        </Button>
+      </div>
+    </div>
+  );
+}

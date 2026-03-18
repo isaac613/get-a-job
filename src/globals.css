@@ -1,0 +1,76 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+  --bg-primary: #FAFAFA;
+  --bg-surface: #FFFFFF;
+  --bg-elevated: #F5F5F5;
+  --text-primary: #0A0A0A;
+  --text-secondary: #525252;
+  --text-tertiary: #A3A3A3;
+  --border-default: #E5E5E5;
+  --border-subtle: #F0F0F0;
+  --accent-blue: #2563EB;
+  --accent-blue-light: #EFF6FF;
+  --tier1-color: #059669;
+  --tier1-bg: #ECFDF5;
+  --tier2-color: #D97706;
+  --tier2-bg: #FFFBEB;
+  --tier3-color: #6366F1;
+  --tier3-bg: #EEF2FF;
+  --status-success: #059669;
+  --status-warning: #D97706;
+  --status-error: #DC2626;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #D4D4D4 transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: #D4D4D4;
+  border-radius: 3px;
+}
+
+.prose-career {
+  line-height: 1.7;
+  letter-spacing: -0.01em;
+}
+
+.tier-badge-1 {
+  background: var(--tier1-bg);
+  color: var(--tier1-color);
+  border: 1px solid #D1FAE5;
+}
+
+.tier-badge-2 {
+  background: var(--tier2-bg);
+  color: var(--tier2-color);
+  border: 1px solid #FDE68A;
+}
+
+.tier-badge-3 {
+  background: var(--tier3-bg);
+  color: var(--tier3-color);
+  border: 1px solid #C7D2FE;
+}
