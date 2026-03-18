@@ -1,5 +1,6 @@
 import { useLocation } from 'react-router-dom';
-import { useAuth } from '@/components/AuthContext';
+import { useAuth } from '@/lib/AuthContext';
+
 import { useState, useEffect } from 'react';
 
 

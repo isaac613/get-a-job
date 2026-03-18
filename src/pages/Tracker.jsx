@@ -27,7 +27,8 @@ export default function Tracker() {
   const { user } = useAuth();
   const [showAdd, setShowAdd] = useState(false);
   const [filter, setFilter] = useState("all");
-  const [newApp, setNewApp] = useState({ role_title: "", company: "", status: "interested" });
+  const [newApp, setNewApp] = useState({ role_title: "", company: "", status: "interested", job_description: "" });
+
   const [jobUrl, setJobUrl] = useState("");
   const [jobDescription, setJobDescription] = useState("");
   const [importing, setImporting] = useState(false);

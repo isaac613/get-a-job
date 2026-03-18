@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/api/supabaseClient";
-import { useAuth } from "@/components/AuthContext";
+import { useAuth } from "@/lib/AuthContext";
+
 import { Button } from "@/components/ui/button";
 import { Loader2, Plus, MessageSquare, Briefcase, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
