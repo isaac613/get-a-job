@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { supabase } from "@/api/supabaseClient";
+import { useAuth } from "@/lib/AuthContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Plus, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -23,27 +24,29 @@ import ApplicationRow from "../components/tracker/ApplicationRow";
 
 export default function Tracker() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [showAdd, setShowAdd] = useState(false);
   const [filter, setFilter] = useState("all");
   const [newApp, setNewApp] = useState({ role_title: "", company: "", status: "interested" });
-  const [user, setUser] = useState(null);
   const [jobUrl, setJobUrl] = useState("");
   const [jobDescription, setJobDescription] = useState("");
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState("");
   const [addingApp, setAddingApp] = useState(false);
 
-  useEffect(() => {
-    base44.auth.me().then(setUser).catch(() => setUser(null));
-  }, []);
-
   const { data: applications, isLoading } = useQuery({
-    queryKey: ["applications", user?.email],
+    queryKey: ["applications", user?.id],
     queryFn: async () => {
-      if (!user?.email) return [];
-      return base44.entities.Application.filter({ created_by: user.email }, "-created_date");
+      if (!user?.id) return [];
+      const { data, error } = await supabase
+        .from("applications")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
     },
-    enabled: !!user?.email,
+    enabled: !!user?.id,
     initialData: [],
   });
 
@@ -52,41 +55,17 @@ export default function Tracker() {
     setAddingApp(true);
     const jd = jobDescription || newApp.job_description || "";
 
-    let tier = "tier_1";
-    let qualification_score = null;
+    // TODO: Phase 5 — LLM tier classification via Edge Function
+    const tier = "tier_1";
 
-    if (jd) {
-      const result = await base44.integrations.Core.InvokeLLM({
-        prompt: `You are a career coach evaluating a job posting. Based on the job description below, determine:
-1. The tier of this role:
-   - tier_1: Highly competitive, senior, leadership, specialized, or high-demand roles (Director, Senior Manager, Lead, Principal, Staff Engineer, etc.). Requires extensive experience and specific in-demand skills.
-   - tier_2: Mid-level, competitive roles (Manager, Analyst, Specialist, Associate, etc.). Broader skill requirements, some experience needed.
-   - tier_3: Entry-level, junior, or less competitive roles (Junior, Assistant, Coordinator, Intern, Graduate, etc.). Suitable for foundational skills or those new to the field.
-2. A rough qualification confidence score from 0.0 to 1.0 based on typical candidate difficulty (tier_1 = lower default score, tier_3 = higher).
-
-Job Description:
-${jd}
-
-Role Title: ${newApp.role_title}`,
-        response_json_schema: {
-          type: "object",
-          properties: {
-            tier: { type: "string", enum: ["tier_1", "tier_2", "tier_3"] },
-            qualification_score: { type: "number" },
-            reasoning: { type: "string" },
-          },
-        },
-      });
-      if (result?.tier) tier = result.tier;
-      if (result?.qualification_score != null) qualification_score = result.qualification_score;
-    }
-
-    await base44.entities.Application.create({
+    const { error } = await supabase.from("applications").insert({
+      user_id: user.id,
       ...newApp,
       tier,
-      ...(qualification_score != null && { qualification_score }),
       ...(jd && { job_description: jd }),
     });
+    if (error) console.error("Error adding application:", error);
+
     setNewApp({ role_title: "", company: "", status: "interested" });
     setJobUrl("");
     setJobDescription("");
@@ -99,37 +78,9 @@ Role Title: ${newApp.role_title}`,
     if (!jobUrl.trim()) return;
     setImporting(true);
     setImportError("");
-    const result = await base44.integrations.Core.InvokeLLM({
-      prompt: `Fetch the job posting at this URL and extract the job details: ${jobUrl}
-      
-Extract: job title, company name, location, full job description text, required skills, and whether it seems like a senior/mid/junior role.`,
-      add_context_from_internet: true,
-      model: "gemini_3_flash",
-      response_json_schema: {
-        type: "object",
-        properties: {
-          role_title: { type: "string" },
-          company: { type: "string" },
-          location: { type: "string" },
-          job_description: { type: "string", description: "Full job description text" },
-          required_skills: { type: "array", items: { type: "string" } },
-          seniority: { type: "string", description: "junior/mid/senior" },
-        },
-      },
-    });
+    // TODO: Phase 5 — LLM job import via Edge Function
+    setImportError("Job import via AI will be available after Edge Functions are set up.");
     setImporting(false);
-    if (result?.role_title) {
-      setNewApp({
-        role_title: result.role_title || "",
-        company: result.company || "",
-        status: "interested",
-        skills_required: (result.required_skills || []).map(s => ({ skill_name: s, status: "missing" })),
-        notes: result.location ? `Location: ${result.location}` : "",
-      });
-      if (result.job_description) setJobDescription(result.job_description);
-    } else {
-      setImportError("Couldn't extract job details from that URL. Try pasting the details manually.");
-    }
   };
 
   const filtered =

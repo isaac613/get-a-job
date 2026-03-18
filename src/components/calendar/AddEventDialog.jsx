@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { supabase } from "@/api/supabaseClient";
+import { useAuth } from "@/components/AuthContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 
 export default function AddEventDialog({ open, onClose, applications, onEventAdded }) {
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -34,7 +36,8 @@ export default function AddEventDialog({ open, onClose, applications, onEventAdd
       ? `${formData.end_date}T${formData.end_time}`
       : null;
 
-    await base44.entities.CalendarEvent.create({
+    await supabase.from("calendar_events").insert({
+      user_id: user?.id,
       title: formData.title,
       description: formData.description,
       event_type: formData.event_type,

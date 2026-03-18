@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { supabase } from "@/api/supabaseClient";
+import { useAuth } from "@/lib/AuthContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Plus, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,57 +17,65 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function AddInformation() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [user, setUser] = useState(null);
-
-  React.useEffect(() => {
-    base44.auth.me().then(setUser).catch(() => setUser(null));
-  }, []);
 
   const { data: profiles, isLoading: loadingProfile } = useQuery({
-    queryKey: ["userProfile", user?.email],
+    queryKey: ["userProfile", user?.id],
     queryFn: async () => {
-      if (!user?.email) return [];
-      return base44.entities.UserProfile.filter({ created_by: user.email });
+      if (!user?.id) return [];
+      const { data, error } = await supabase.from("profiles").select("*").eq("id", user.id);
+      if (error) throw error;
+      return data || [];
     },
-    enabled: !!user?.email,
+    enabled: !!user?.id,
     initialData: [],
   });
+
+  // TODO: Add courses table in migration if needed
   const { data: courses, isLoading: loadingCourses } = useQuery({
-    queryKey: ["courses", user?.email],
+    queryKey: ["courses", user?.id],
     queryFn: async () => {
-      if (!user?.email) return [];
-      return base44.entities.Course.filter({ created_by: user.email });
+      return [];
     },
-    enabled: !!user?.email,
+    enabled: !!user?.id,
     initialData: [],
   });
+
   const { data: certifications, isLoading: loadingCerts } = useQuery({
-    queryKey: ["certifications", user?.email],
+    queryKey: ["certifications", user?.id],
     queryFn: async () => {
-      if (!user?.email) return [];
-      return base44.entities.Certification.filter({ created_by: user.email });
+      if (!user?.id) return [];
+      const { data, error } = await supabase.from("certifications").select("*").eq("user_id", user.id);
+      if (error) throw error;
+      return data || [];
     },
-    enabled: !!user?.email,
+    enabled: !!user?.id,
     initialData: [],
   });
+
   const { data: projects, isLoading: loadingProjects } = useQuery({
-    queryKey: ["projects", user?.email],
+    queryKey: ["projects", user?.id],
     queryFn: async () => {
-      if (!user?.email) return [];
-      return base44.entities.Project.filter({ created_by: user.email });
+      if (!user?.id) return [];
+      const { data, error } = await supabase.from("projects").select("*").eq("user_id", user.id);
+      if (error) throw error;
+      return data || [];
     },
-    enabled: !!user?.email,
+    enabled: !!user?.id,
     initialData: [],
   });
+
   const { data: experiences, isLoading: loadingExp } = useQuery({
-    queryKey: ["experiences", user?.email],
+    queryKey: ["experiences", user?.id],
     queryFn: async () => {
-      if (!user?.email) return [];
-      return base44.entities.Experience.filter({ created_by: user.email });
+      if (!user?.id) return [];
+      const { data, error } = await supabase.from("experiences").select("*").eq("user_id", user.id);
+      if (error) throw error;
+      return data || [];
     },
-    enabled: !!user?.email,
+    enabled: !!user?.id,
     initialData: [],
   });
 
@@ -110,9 +119,9 @@ export default function AddInformation() {
   const saveProfile = async () => {
     setSaving(true);
     if (profile) {
-      await base44.entities.UserProfile.update(profile.id, profileForm);
+      await supabase.from("profiles").update(profileForm).eq("id", profile.id);
     } else {
-      await base44.entities.UserProfile.create(profileForm);
+      await supabase.from("profiles").insert({ id: user.id, ...profileForm });
     }
     queryClient.invalidateQueries({ queryKey: ["userProfile"] });
     setSaving(false);
@@ -133,38 +142,43 @@ export default function AddInformation() {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
-    if (profile) {
-      await base44.entities.UserProfile.update(profile.id, { resume_url: file_url });
-    }
-    queryClient.invalidateQueries({ queryKey: ["userProfile"] });
+    // TODO: Phase 5 — File upload via Supabase Storage
+    // For now, just show a message
+    alert("Resume upload will be available after Supabase Storage is configured (Phase 5).");
     setUploading(false);
   };
 
   const addCourse = async () => {
-    if (!courseForm.name) return;
-    await base44.entities.Course.create(courseForm);
-    setCourseForm({ name: "", provider: "", skills_gained: [], completion_status: "completed" });
-    queryClient.invalidateQueries({ queryKey: ["courses"] });
+    // TODO: Add courses table in migration if needed
+    alert("Course tracking will be available after the courses table is created.");
   };
 
   const addCert = async () => {
     if (!certForm.name) return;
-    await base44.entities.Certification.create(certForm);
+    await supabase.from("certifications").insert({
+      ...certForm,
+      user_id: user.id,
+    });
     setCertForm({ name: "", issuer: "", skills_validated: [] });
     queryClient.invalidateQueries({ queryKey: ["certifications"] });
   };
 
   const addProject = async () => {
     if (!projectForm.name) return;
-    await base44.entities.Project.create(projectForm);
+    await supabase.from("projects").insert({
+      ...projectForm,
+      user_id: user.id,
+    });
     setProjectForm({ name: "", description: "", skills_demonstrated: [], url: "" });
     queryClient.invalidateQueries({ queryKey: ["projects"] });
   };
 
   const addExperience = async () => {
     if (!expForm.title || !expForm.company) return;
-    await base44.entities.Experience.create(expForm);
+    await supabase.from("experiences").insert({
+      ...expForm,
+      user_id: user.id,
+    });
     setExpForm({ title: "", company: "", type: "internship", description: "", skills_used: [] });
     queryClient.invalidateQueries({ queryKey: ["experiences"] });
   };
@@ -341,23 +355,6 @@ export default function AddInformation() {
                 <Plus className="w-4 h-4 mr-2" />Add Course
               </Button>
             </div>
-
-            {courses.length > 0 && (
-              <div className="space-y-2">
-                <h3 className="text-xs uppercase tracking-wider text-[#A3A3A3] font-medium">Your Courses</h3>
-                {courses.map((c) => (
-                  <div key={c.id} className="bg-white rounded-lg border border-[#E5E5E5] px-4 py-3 flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-[#0A0A0A]">{c.name}</p>
-                      <p className="text-xs text-[#A3A3A3]">{c.provider} / {c.completion_status?.replace("_", " ")}</p>
-                    </div>
-                    <Button variant="ghost" size="sm" onClick={async () => { await base44.entities.Course.delete(c.id); queryClient.invalidateQueries({ queryKey: ["courses"] }); }}>
-                      <Trash2 className="w-4 h-4 text-[#A3A3A3] hover:text-red-500" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         </TabsContent>
 
@@ -388,7 +385,7 @@ export default function AddInformation() {
                       <p className="text-sm font-medium text-[#0A0A0A]">{c.name}</p>
                       <p className="text-xs text-[#A3A3A3]">{c.issuer}</p>
                     </div>
-                    <Button variant="ghost" size="sm" onClick={async () => { await base44.entities.Certification.delete(c.id); queryClient.invalidateQueries({ queryKey: ["certifications"] }); }}>
+                    <Button variant="ghost" size="sm" onClick={async () => { await supabase.from("certifications").delete().eq("id", c.id); queryClient.invalidateQueries({ queryKey: ["certifications"] }); }}>
                       <Trash2 className="w-4 h-4 text-[#A3A3A3] hover:text-red-500" />
                     </Button>
                   </div>
@@ -429,7 +426,7 @@ export default function AddInformation() {
                       <p className="text-sm font-medium text-[#0A0A0A]">{p.name}</p>
                       <p className="text-xs text-[#A3A3A3]">{p.description?.substring(0, 60)}{p.description?.length > 60 ? "..." : ""}</p>
                     </div>
-                    <Button variant="ghost" size="sm" onClick={async () => { await base44.entities.Project.delete(p.id); queryClient.invalidateQueries({ queryKey: ["projects"] }); }}>
+                    <Button variant="ghost" size="sm" onClick={async () => { await supabase.from("projects").delete().eq("id", p.id); queryClient.invalidateQueries({ queryKey: ["projects"] }); }}>
                       <Trash2 className="w-4 h-4 text-[#A3A3A3] hover:text-red-500" />
                     </Button>
                   </div>
@@ -483,7 +480,7 @@ export default function AddInformation() {
                       <p className="text-sm font-medium text-[#0A0A0A]">{e.title} at {e.company}</p>
                       <p className="text-xs text-[#A3A3A3]">{e.type?.replace("_", " ")}</p>
                     </div>
-                    <Button variant="ghost" size="sm" onClick={async () => { await base44.entities.Experience.delete(e.id); queryClient.invalidateQueries({ queryKey: ["experiences"] }); }}>
+                    <Button variant="ghost" size="sm" onClick={async () => { await supabase.from("experiences").delete().eq("id", e.id); queryClient.invalidateQueries({ queryKey: ["experiences"] }); }}>
                       <Trash2 className="w-4 h-4 text-[#A3A3A3] hover:text-red-500" />
                     </Button>
                   </div>

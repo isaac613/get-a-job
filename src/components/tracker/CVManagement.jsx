@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { supabase } from "@/api/supabaseClient";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -12,10 +12,10 @@ export default function CVManagement({ app, onUpdate }) {
   const [generating, setGenerating] = useState(false);
 
   const handleSave = async () => {
-    await base44.entities.Application.update(app.id, {
+    await supabase.from("applications").update({
       cv_version_name: cvName,
       cv_status: cvStatus,
-    });
+    }).eq("id", app.id);
     onUpdate();
   };
 
@@ -26,15 +26,8 @@ export default function CVManagement({ app, onUpdate }) {
     }
     setGenerating(true);
     try {
-      const response = await base44.functions.invoke("generateTailoredCV", {
-        application_id: app.id,
-      });
-      await base44.entities.Application.update(app.id, {
-        cv_url: response.data.cv_url,
-        cv_skills_emphasized: response.data.skills_emphasized,
-        cv_status: "ready",
-      });
-      onUpdate();
+      // TODO: Phase 5 — CV generation via Edge Function
+      alert("AI-powered CV generation will be available after Edge Functions are configured (Phase 5).");
     } catch (error) {
       alert("Failed to generate CV: " + error.message);
     }

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { supabase } from "@/api/supabaseClient";
+import { useAuth } from "@/lib/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Loader2, Linkedin, RefreshCw, ExternalLink, Briefcase, MapPin, CheckCircle2, PlusCircle } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -7,11 +8,13 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 function JobCard({ job }) {
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState(false);
+  const { user } = useAuth();
   const queryClient = useQueryClient();
 
   const handleAddToTracker = async () => {
     setAdding(true);
-    await base44.entities.Application.create({
+    await supabase.from("applications").insert({
+      user_id: user.id,
       role_title: job.title,
       company: job.company,
       tier: job.match_score >= 70 ? "tier_1" : "tier_2",
@@ -104,6 +107,7 @@ function JobCard({ job }) {
 }
 
 export default function JobSuggestions() {
+  const { user } = useAuth();
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState(null);
@@ -111,12 +115,14 @@ export default function JobSuggestions() {
   const [error, setError] = useState(null);
 
   const { data: profileData } = useQuery({
-    queryKey: ["userProfile"],
+    queryKey: ["userProfile", user?.id],
     queryFn: async () => {
-      const user = await base44.auth.me();
-      const profiles = await base44.entities.UserProfile.filter({ created_by: user.email });
-      return profiles[0] || null;
+      if (!user?.id) return null;
+      const { data, error } = await supabase.from("profiles").select("*").eq("id", user.id);
+      if (error) throw error;
+      return data?.[0] || null;
     },
+    enabled: !!user?.id,
   });
 
   useEffect(() => {
@@ -128,72 +134,10 @@ export default function JobSuggestions() {
     setLoading(true);
     setError(null);
 
-    const allSkills = [
-      ...(profile.hard_skills || []),
-      ...(profile.technical_skills || []),
-      ...(profile.tools_software || []),
-      ...(profile.analytical_skills || []),
-    ];
-
-    const result = await base44.integrations.Core.InvokeLLM({
-      prompt: `You are a job market expert with access to real-time LinkedIn and Glassdoor data. Search LinkedIn Jobs and Glassdoor RIGHT NOW for active job postings that match this candidate's profile. Find 8 specific CURRENTLY OPEN roles — not generic role descriptions.
-
-For each result:
-- Find a real company that has this role ACTIVELY POSTED on LinkedIn or Glassdoor right now
-- Use the exact job title as it appears in the real posting
-- Use real required skills from the actual job description
-
-CANDIDATE PROFILE:
-- Skills: ${allSkills.slice(0, 20).join(", ")}
-- Target roles: ${(profile.target_job_titles || []).join(", ") || "Not specified"}
-- Experience level: ${profile.years_experience || "unknown"} years
-- Location: ${profile.location || "Not specified"}
-- Education: ${profile.education_level || "unknown"} in ${profile.field_of_study || "unknown"}
-- Five-year goal: ${profile.five_year_role || "Not specified"}
-
-For each job suggestion:
-1. Calculate a real match_score (0-100) based on their actual skills
-2. List which of their skills match the role (matched_skills)
-3. List specific skills they're missing (missing_skills)
-4. Give a concrete reason why they're a good fit (why_good_fit)
-5. Generate a LinkedIn job search URL like: https://www.linkedin.com/jobs/search/?keywords=ROLE+TITLE&location=LOCATION
-6. Write a detailed job_description field — include the full responsibilities, required skills, qualifications, and any other details from the actual posting. This is critical for CV tailoring.
-
-Be realistic and honest about match scores. Include a mix of roles they can get now and stretch roles.`,
-      add_context_from_internet: true,
-      model: "gemini_3_flash",
-      response_json_schema: {
-        type: "object",
-        properties: {
-          jobs: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                title: { type: "string" },
-                company: { type: "string", description: "Example company hiring for this role" },
-                location: { type: "string" },
-                match_score: { type: "number" },
-                why_good_fit: { type: "string" },
-                matched_skills: { type: "array", items: { type: "string" } },
-                missing_skills: { type: "array", items: { type: "string" } },
-                linkedin_search_url: { type: "string" },
-                job_description: { type: "string", description: "Full job description including responsibilities, requirements, and qualifications as they would appear in the actual posting" },
-              },
-            },
-          },
-          summary: { type: "string" },
-        },
-      },
-    });
-
+    // TODO: Phase 5 — LLM job suggestion generation via Edge Function
+    // For now, show placeholder message
     setLoading(false);
-    if (result?.jobs) {
-      setJobs(result.jobs);
-      setLastGenerated(new Date().toLocaleTimeString());
-    } else {
-      setError("Could not generate suggestions. Please try again.");
-    }
+    setError("AI-powered job suggestions will be available after Edge Functions are configured (Phase 5). For now, use the Career Roadmap to explore matching roles.");
   };
 
   const noProfile = !profile && !loading;
@@ -245,7 +189,7 @@ Be realistic and honest about match scores. Include a mix of roles they can get 
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-600 mb-6">
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-700 mb-6">
           {error}
         </div>
       )}

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { supabase } from "@/api/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -37,7 +37,7 @@ export default function SkillsRequired({ app, onUpdate }) {
   };
 
   const saveSkills = async (updated) => {
-    await base44.entities.Application.update(app.id, { skills_required: updated });
+    await supabase.from("applications").update({ skills_required: updated }).eq("id", app.id);
     onUpdate();
   };
 

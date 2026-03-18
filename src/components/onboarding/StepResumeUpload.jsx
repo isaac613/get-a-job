@@ -1,5 +1,5 @@
 import React, { useState, useRef } from "react";
-import { base44 } from "@/api/base44Client";
+// base44 removed — File uploads and LLM extraction will use Supabase Storage + Edge Functions in Phase 5
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -107,57 +107,36 @@ export default function StepResumeUpload({ onNext, onExtracted, profileData, onC
     setError(null);
     setUploading(true);
 
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
+    // TODO: Phase 5 — Upload file to Supabase Storage, then extract via Edge Function / LLM
+    // For now, stub the extraction with a placeholder
     setUploading(false);
     setExtracting(true);
 
-    let extracted = null;
-
-    const result = await base44.integrations.Core.InvokeLLM({
-      prompt: `Extract ALL structured resume data from this document. Extract every work experience entry, education, skills, projects, certifications, and volunteering. Be thorough and do not skip any entries.`,
-      file_urls: [file_url],
-      response_json_schema: RESUME_SCHEMA,
-    });
-    extracted = result;
+    // Simulate extraction delay
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
     setExtracting(false);
-
-    if (extracted) {
-      onExtracted({ ...extracted, resume_url: file_url });
-      setDone(true);
-    } else {
-      setError("Could not extract data. Please try a PDF file.");
-    }
+    setError("Resume extraction requires AI Edge Functions (Phase 5). Please enter details manually for now, or skip this step.");
   };
 
   const handleLinkedinConnect = async () => {
     setConnectingLinkedin(true);
-    const result = await base44.functions.invoke("getLinkedinProfile", {});
+    // TODO: Phase 5 — LinkedIn connect via Edge Function
+    await new Promise((resolve) => setTimeout(resolve, 500));
     setConnectingLinkedin(false);
-    if (result?.data?.full_name) {
-      onChange({ full_name: result.data.full_name });
-      onExtracted({ full_name: result.data.full_name });
-      setLinkedinConnected(true);
-    }
+    setError("LinkedIn connect requires Edge Functions (Phase 5). Please enter your LinkedIn URL manually below.");
   };
 
   const handleLinkedinExtract = async () => {
     if (!linkedinUrl.trim()) return;
     setExtractingLinkedin(true);
     onChange({ linkedin_url: linkedinUrl });
-    const result = await base44.integrations.Core.InvokeLLM({
-      prompt: `Visit this LinkedIn profile page: ${linkedinUrl}
-      
-Extract the person's professional details including: name, current role, skills, experience history (companies, titles, dates), education, certifications.
-Return as much detail as possible.`,
-      add_context_from_internet: true,
-      response_json_schema: RESUME_SCHEMA,
-    });
+    // TODO: Phase 5 — LinkedIn extraction via Edge Function / LLM
+    await new Promise((resolve) => setTimeout(resolve, 500));
     setExtractingLinkedin(false);
-    if (result) {
-      onExtracted({ ...result, linkedin_url: linkedinUrl });
-      setLinkedinDone(true);
-    }
+    // Save the URL even though we can't extract yet
+    onExtracted({ linkedin_url: linkedinUrl });
+    setLinkedinDone(true);
   };
 
   const employmentOptions = [
@@ -255,7 +234,7 @@ Return as much detail as possible.`,
           {extractingLinkedin && (
             <p className="text-xs text-[#A3A3A3] mt-2">This uses AI + web search and takes ~15–30 seconds…</p>
           )}
-          {linkedinDone && <p className="text-xs text-emerald-600 mt-2">✓ LinkedIn profile extracted</p>}
+          {linkedinDone && <p className="text-xs text-emerald-600 mt-2">✓ LinkedIn URL saved</p>}
         </div>
       </div>
 
@@ -307,7 +286,7 @@ Return as much detail as possible.`,
       </div>
 
       {error && (
-        <p className="text-sm text-red-500 bg-red-50 px-4 py-3 rounded-lg">{error}</p>
+        <p className="text-sm text-amber-600 bg-amber-50 px-4 py-3 rounded-lg">{error}</p>
       )}
 
       <div className="flex justify-between items-center">

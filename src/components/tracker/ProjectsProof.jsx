@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { supabase } from "@/api/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -41,7 +41,7 @@ export default function ProjectsProof({ app, onUpdate }) {
   };
 
   const saveProjects = async (updated) => {
-    await base44.entities.Application.update(app.id, { projects_proof: updated });
+    await supabase.from("applications").update({ projects_proof: updated }).eq("id", app.id);
     onUpdate();
   };
 

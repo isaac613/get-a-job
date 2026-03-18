@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { supabase } from "@/api/supabaseClient";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { ChevronDown, ChevronUp, MessageSquare, Loader2 } from "lucide-react";
@@ -31,15 +31,9 @@ export default function ApplicationRow({ app, onUpdate }) {
 
   const handleOpenCVAgent = async () => {
     setStartingChat(true);
-    const convo = await base44.agents.createConversation({
-      agent_name: "application_cv_success_agent",
-      metadata: {
-        name: `${app.role_title}${app.company ? ` at ${app.company}` : ""}`,
-        application_id: app.id,
-      },
-    });
+    // TODO: Phase 5 — Agent chat via Edge Functions
+    alert("Agent chat will be available after Edge Functions are configured (Phase 5).");
     setStartingChat(false);
-    navigate(`/Subagents?conversation_id=${convo.id}`);
   };
   const [activeTab, setActiveTab] = useState("target");
   const [jdText, setJdText] = useState(app.job_description || "");
@@ -50,16 +44,16 @@ export default function ApplicationRow({ app, onUpdate }) {
   const status = STATUS_LABELS[app.status] || STATUS_LABELS.interested;
 
   const handleSaveJobDescription = async () => {
-    await base44.entities.Application.update(app.id, { job_description: jdText });
+    await supabase.from("applications").update({ job_description: jdText }).eq("id", app.id);
     onUpdate();
   };
 
   const handleSaveApplicationDetails = async () => {
-    await base44.entities.Application.update(app.id, {
+    await supabase.from("applications").update({
       applied_date: appliedDate,
       cv_version_used: cvVersionUsed,
       referral_attached: referralAttached,
-    });
+    }).eq("id", app.id);
     onUpdate();
   };
 
@@ -67,7 +61,7 @@ export default function ApplicationRow({ app, onUpdate }) {
 
   const handleChecklistChange = async (updated) => {
     setChecklist(updated);
-    await base44.entities.Application.update(app.id, { checklist: updated });
+    await supabase.from("applications").update({ checklist: updated }).eq("id", app.id);
     onUpdate();
   };
 

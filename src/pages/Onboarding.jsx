@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { supabase } from "@/api/supabaseClient";
+import { useAuth } from "@/lib/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Loader2 } from "lucide-react";
@@ -55,6 +56,7 @@ const EMPTY_PROFILE = {
 // Steps: 0=CV, 1=Education, 2=Experience, 3=Skills, 4=CareerDirection, 5=Constraints, 6=Survey, 7=TierReveal
 export default function Onboarding() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [step, setStep] = useState(0);
   const [profileData, setProfileData] = useState(EMPTY_PROFILE);
   const [experiences, setExperiences] = useState([]);
@@ -72,13 +74,13 @@ export default function Onboarding() {
   const [finalising, setFinalising] = useState(false);
 
   useEffect(() => {
-    checkExistingProfile();
-  }, []);
+    if (user) checkExistingProfile();
+    else setCheckingProfile(false);
+  }, [user]);
 
   const checkExistingProfile = async () => {
-    const user = await base44.auth.me().catch(() => null);
     if (!user) { setCheckingProfile(false); return; }
-    const profiles = await base44.entities.UserProfile.filter({ created_by: user.email });
+    const { data: profiles } = await supabase.from("profiles").select("*").eq("id", user.id);
     if (profiles?.[0]?.onboarding_complete) {
       navigate(createPageUrl("Home"));
     } else if (profiles?.[0]) {
@@ -138,13 +140,23 @@ export default function Onboarding() {
   };
 
   const saveProgress = async (stepNum) => {
-    const user = await base44.auth.me();
     const payload = { ...profileData, onboarding_step: stepNum };
+    // Remove non-DB fields
+    delete payload.id;
+    delete payload.created_at;
+    delete payload.updated_at;
+    
     if (existingProfileId) {
-      await base44.entities.UserProfile.update(existingProfileId, payload);
+      await supabase.from("profiles").update(payload).eq("id", existingProfileId);
     } else {
-      const created = await base44.entities.UserProfile.create({ ...payload, full_name: profileData.full_name || user.full_name || "User" });
-      setExistingProfileId(created.id);
+      const { data, error } = await supabase.from("profiles").insert({
+        id: user.id,
+        ...payload,
+        full_name: profileData.full_name || user.user_metadata?.full_name || "User",
+      }).select();
+      if (!error && data?.[0]) {
+        setExistingProfileId(data[0].id);
+      }
     }
   };
 
@@ -158,99 +170,44 @@ export default function Onboarding() {
     setStep(7);
     setGeneratingRoles(true);
 
-    const allSkills = [
-      ...(profileData.hard_skills || []),
-      ...(profileData.tools_software || []),
-      ...(profileData.technical_skills || []),
-      ...(profileData.analytical_skills || []),
-      ...(profileData.communication_skills || []),
-      ...(profileData.leadership_skills || []),
-      ...(profileData.skills || []),
+    // TODO: Phase 5 — LLM tier analysis via Edge Function
+    // For now, generate placeholder roles
+    const placeholderRoles = [
+      { title: "Data Analyst", tier: "tier_1", readiness_score: 0.4, matched_skills: profileData.hard_skills?.slice(0, 3) || [], missing_skills: ["SQL", "Tableau"], reasoning: "Placeholder — AI analysis coming soon.", action_items: [], alignment_to_goal: "" },
+      { title: "Business Analyst", tier: "tier_2", readiness_score: 0.3, matched_skills: [], missing_skills: [], reasoning: "Placeholder — AI analysis coming soon.", action_items: [], alignment_to_goal: "" },
     ];
 
-    const prompt = `Generate exactly 2 roles per tier (Tier 1, 2, 3) for this candidate.
+    setGeneratedRoles(placeholderRoles);
+    setQualificationLevel("To be determined by AI");
+    setOverallAssessment("AI-powered assessment will be available after Edge Functions are configured.");
 
-PROFILE:
-- Education: ${profileData.degree || profileData.education_level} in ${profileData.field_of_study || "N/A"}
-- Skills: ${[...new Set(allSkills)].slice(0, 15).join(", ") || "None"}
-- Experience: ${experiences.slice(0, 3).map((e) => `${e.title} at ${e.company}`).join("; ") || "None"}
-- Target: ${(profileData.target_job_titles || []).join(", ") || profileData.five_year_role || "Not specified"}
-- Challenge: ${Array.isArray(profileData.biggest_challenge) ? profileData.biggest_challenge[0] : profileData.biggest_challenge || "Not specified"}
-
-Generate conservative confidence scores (0.0-1.0). Tier 1 max 0.6 unless highly qualified.`;
-
-    const result = await base44.integrations.Core.InvokeLLM({
-      prompt,
-      model: "gemini_3_flash",
-      response_json_schema: {
-        type: "object",
-        properties: {
-          qualification_level: { type: "string" },
-          overall_assessment: { type: "string" },
-          roles: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                title: { type: "string" },
-                tier: { type: "string", enum: ["tier_1", "tier_2", "tier_3"] },
-                confidence_score: { type: "number" },
-                required_skills: { type: "array", items: { type: "string" } },
-                matched_skills: { type: "array", items: { type: "string" } },
-                missing_skills: { type: "array", items: { type: "string" } },
-                match_percentage: { type: "number" },
-                reasoning: { type: "string" },
-                action_items: { type: "array", items: { type: "string" } },
-                alignment_to_goal: { type: "string" },
-              },
-            },
-          },
-          skill_gaps: { type: "array", items: { type: "string" } },
-          weekly_actions: { type: "array", items: { type: "string" } },
-          current_tier1_role: { type: "string" },
-        },
-      },
-    });
-
-    if (result?.roles) {
-      setGeneratedRoles(result.roles);
-    }
-    setQualificationLevel(result?.qualification_level || "");
-    setOverallAssessment(result?.overall_assessment || "");
-
-    // Save roles and update profile
-    const user = await base44.auth.me();
-    const existingRoles = await base44.entities.CareerRole.filter({ created_by: user.email });
-    await Promise.all(existingRoles.map((r) => base44.entities.CareerRole.delete(r.id)));
-    if (result?.roles) {
-      const normalizedRoles = result.roles.map((r) => ({
-        ...r,
-        readiness_score: r.readiness_score ?? r.confidence_score ?? (r.match_percentage != null ? r.match_percentage / 100 : 0),
-      }));
-      await base44.entities.CareerRole.bulkCreate(normalizedRoles);
+    // Save placeholder roles to DB
+    if (user) {
+      const { data: existingRoles } = await supabase.from("career_roles").select("id").eq("user_id", user.id);
+      if (existingRoles?.length > 0) {
+        await supabase.from("career_roles").delete().eq("user_id", user.id);
+      }
+      await supabase.from("career_roles").insert(
+        placeholderRoles.map((r) => ({ ...r, user_id: user.id }))
+      );
     }
 
-    const tier1 = result?.roles?.find((r) => r.tier === "tier_1");
-    const profileId = existingProfileId;
-    if (profileId) {
-      await base44.entities.UserProfile.update(profileId, {
-        skill_gaps: result?.skill_gaps || [],
-        qualification_level: result?.qualification_level || "",
-        overall_assessment: result?.overall_assessment || "",
-        current_tier1_role: result?.current_tier1_role || tier1?.title || "",
+    if (existingProfileId) {
+      await supabase.from("profiles").update({
+        skill_gaps: [],
+        qualification_level: "To be determined by AI",
+        overall_assessment: "AI analysis pending.",
         last_reality_check_date: new Date().toISOString().split("T")[0],
-        weekly_action_plan: (result?.weekly_actions || []).map((a) => ({ action: a, completed: false })),
         onboarding_step: 7,
-      });
+      }).eq("id", existingProfileId);
     }
 
     setGeneratingRoles(false);
   };
 
-  // Final step: save everything, generate tasks, mark complete, navigate
+  // Final step: save everything, mark complete, navigate
   const handleFinalise = async () => {
     setFinalising(true);
-    const user = await base44.auth.me();
 
     const allSkills = [
       ...(profileData.hard_skills || []),
@@ -262,63 +219,70 @@ Generate conservative confidence scores (0.0-1.0). Tier 1 max 0.6 unless highly 
       ...(profileData.skills || []),
     ];
 
-    // Save experiences, projects, certifications + generate tasks — all in parallel
-    const tier1Roles = generatedRoles.filter((r) => r.tier === "tier_1");
-
     if (!existingProfileId) {
       setFinalising(false);
       return;
     }
-    const [taskResult] = await Promise.all([
-      base44.integrations.Core.InvokeLLM({
 
-      prompt: `Generate 8 specific tasks for this candidate.
+    // Save experiences, projects, certifications
+    const promises = [];
 
-- Skill Gaps: ${generatedRoles.flatMap((r) => r.missing_skills || []).slice(0, 5).join(", ") || "None"}
-- Challenge: ${Array.isArray(profileData.biggest_challenge) ? profileData.biggest_challenge[0] : profileData.biggest_challenge || "Unknown"}
-- Target Roles: ${tier1Roles.map((r) => r.title).join(", ") || "None"}
-
-Categories: skill, project, networking, cv, application.`,
-      model: "gemini_3_flash",
-      response_json_schema: {
-        type: "object",
-        properties: {
-          tasks: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                title: { type: "string" },
-                description: { type: "string" },
-                category: { type: "string", enum: ["skill", "project", "networking", "cv", "application"] },
-                role_title: { type: "string" },
-                skill_gap: { type: "string" },
-                priority: { type: "string", enum: ["high", "medium", "low"] },
-              },
-            },
-          },
-        },
-      },
-    }),
-      base44.entities.Experience.bulkCreate(experiences),
-      base44.entities.Project.bulkCreate(projects.map((proj) => ({ name: proj.name, description: proj.description, url: proj.url, skills_demonstrated: proj.skills_demonstrated || [] }))),
-      base44.entities.Certification.bulkCreate(certifications.map((cert) => ({ name: cert.name, issuer: cert.issuer, date_earned: cert.date_earned }))),
-    ]);
-
-    if (taskResult?.tasks) {
-      await base44.entities.Task.bulkCreate(taskResult.tasks.map((t) => ({ ...t, is_complete: false })));
+    if (experiences.length > 0) {
+      promises.push(
+        supabase.from("experiences").insert(
+          experiences.map((e) => ({ ...e, user_id: user.id }))
+        )
+      );
     }
+
+    if (projects.length > 0) {
+      promises.push(
+        supabase.from("projects").insert(
+          projects.map((proj) => ({
+            name: proj.name,
+            description: proj.description,
+            url: proj.url,
+            skills_demonstrated: proj.skills_demonstrated || [],
+            user_id: user.id,
+          }))
+        )
+      );
+    }
+
+    if (certifications.length > 0) {
+      promises.push(
+        supabase.from("certifications").insert(
+          certifications.map((cert) => ({
+            name: cert.name,
+            issuer: cert.issuer,
+            date_earned: cert.date_earned,
+            user_id: user.id,
+          }))
+        )
+      );
+    }
+
+    // TODO: Phase 5 — LLM task generation via Edge Function
+    // For now, insert placeholder tasks
+    promises.push(
+      supabase.from("tasks").insert([
+        { title: "Update your CV for target roles", description: "Tailor your CV based on skill gaps.", category: "cv", priority: "high", is_complete: false, user_id: user.id },
+        { title: "Research target companies", description: "Find active job postings.", category: "application", priority: "high", is_complete: false, user_id: user.id },
+      ])
+    );
+
+    await Promise.all(promises);
 
     // Mark onboarding complete
-    const profileId = existingProfileId;
-    if (profileId) {
-      await base44.entities.UserProfile.update(profileId, {
-        ...profileData,
-        skills: [...new Set(allSkills)],
-        onboarding_complete: true,
-        onboarding_step: 8,
-      });
-    }
+    await supabase.from("profiles").update({
+      ...profileData,
+      id: undefined,
+      created_at: undefined,
+      updated_at: undefined,
+      skills: [...new Set(allSkills)],
+      onboarding_complete: true,
+      onboarding_step: 8,
+    }).eq("id", existingProfileId);
 
     navigate(createPageUrl("Home"));
   };

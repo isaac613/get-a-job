@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { supabase } from "@/api/supabaseClient";
+import { useAuth } from "@/lib/AuthContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,32 +10,34 @@ import AddEventDialog from "../components/calendar/AddEventDialog";
 
 export default function Calendar() {
   const queryClient = useQueryClient();
-  const [user, setUser] = useState(null);
+  const { user } = useAuth();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showAddDialog, setShowAddDialog] = useState(false);
 
-  useEffect(() => {
-    base44.auth.me().then(setUser).catch(() => setUser(null));
-  }, []);
-
+  // TODO: calendar_events table needs to be created in a migration
   const { data: events, isLoading } = useQuery({
-    queryKey: ["calendarEvents", user?.email],
+    queryKey: ["calendarEvents", user?.id],
     queryFn: async () => {
-      if (!user?.email) return [];
-      return base44.entities.CalendarEvent.filter({ created_by: user.email });
+      if (!user?.id) return [];
+      // Calendar events table may not exist yet — return empty gracefully
+      const { data, error } = await supabase.from("calendar_events").select("*").eq("user_id", user.id);
+      if (error) return [];
+      return data || [];
     },
-    enabled: !!user?.email,
+    enabled: !!user?.id,
     initialData: [],
   });
 
   const { data: applications } = useQuery({
-    queryKey: ["applications", user?.email],
+    queryKey: ["applications", user?.id],
     queryFn: async () => {
-      if (!user?.email) return [];
-      return base44.entities.Application.filter({ created_by: user.email });
+      if (!user?.id) return [];
+      const { data, error } = await supabase.from("applications").select("*").eq("user_id", user.id);
+      if (error) throw error;
+      return data || [];
     },
-    enabled: !!user?.email,
+    enabled: !!user?.id,
     initialData: [],
   });
 

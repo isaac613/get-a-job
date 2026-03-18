@@ -1,5 +1,5 @@
 import React from "react";
-import { base44 } from "@/api/base44Client";
+import { supabase } from "@/api/supabaseClient";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CheckCircle2, Circle } from "lucide-react";
 
@@ -8,7 +8,7 @@ export default function FollowUp({ app, onUpdate }) {
 
   const handleToggle = async (field) => {
     const updated = { ...followUp, [field]: !followUp[field] };
-    await base44.entities.Application.update(app.id, { follow_up: updated });
+    await supabase.from("applications").update({ follow_up: updated }).eq("id", app.id);
     onUpdate();
   };
 

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { ExternalLink, Loader2, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { base44 } from "@/api/base44Client";
+// base44 removed — LLM course generation will use Edge Functions in Phase 5
 
 export default function SkillGapCourses({ skillGaps }) {
   const [courses, setCourses] = useState(null);
@@ -9,38 +9,10 @@ export default function SkillGapCourses({ skillGaps }) {
 
   const fetchCourses = async () => {
     setLoading(true);
-    const result = await base44.integrations.Core.InvokeLLM({
-      prompt: `You are a career development advisor. Generate course recommendations from Coursera, Udemy, or edX for these skill gaps: ${skillGaps.join(", ")}.
-
-For each skill gap, provide:
-- Course title
-- Platform (Coursera, Udemy, edX, LinkedIn Learning)
-- Brief description (1 line)
-- Estimated time commitment
-- Why it addresses the gap
-
-Return 2-3 courses per skill gap (total 5-8 courses max).`,
-      response_json_schema: {
-        type: "object",
-        properties: {
-          courses: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                skill_gap: { type: "string" },
-                course_title: { type: "string" },
-                platform: { type: "string" },
-                description: { type: "string" },
-                time_commitment: { type: "string" },
-                relevance: { type: "string" },
-              },
-            },
-          },
-        },
-      },
-    });
-    setCourses(result?.courses || []);
+    // TODO: Phase 5 — Course recommendations via Edge Function / LLM
+    setCourses([
+      { skill_gap: skillGaps[0] || "General", course_title: "Course Recommendations Coming Soon", platform: "TBD", description: "AI-powered course recommendations will be available after Edge Functions are configured.", time_commitment: "N/A", relevance: "Phase 5" }
+    ]);
     setLoading(false);
   };
 

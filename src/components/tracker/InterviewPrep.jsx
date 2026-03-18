@@ -1,5 +1,5 @@
 import React from "react";
-import { base44 } from "@/api/base44Client";
+import { supabase } from "@/api/supabaseClient";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CheckCircle2, Circle } from "lucide-react";
 
@@ -8,7 +8,7 @@ export default function InterviewPrep({ app, onUpdate }) {
 
   const handleToggle = async (field) => {
     const updated = { ...prep, [field]: !prep[field] };
-    await base44.entities.Application.update(app.id, { interview_prep: updated });
+    await supabase.from("applications").update({ interview_prep: updated }).eq("id", app.id);
     onUpdate();
   };
 

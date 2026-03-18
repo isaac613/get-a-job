@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { supabase } from "@/api/supabaseClient";
+import { useAuth } from "@/lib/AuthContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Brain, CheckCircle2, Circle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -43,41 +44,43 @@ const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 };
 
 export default function Tasks() {
   const queryClient = useQueryClient();
-  const [user, setUser] = React.useState(null);
+  const { user } = useAuth();
   const [generating, setGenerating] = useState(false);
   const [filter, setFilter] = useState("all");
 
-  React.useEffect(() => {
-    base44.auth.me().then(setUser).catch(() => setUser(null));
-  }, []);
-
   const { data: tasks, isLoading: loadingTasks } = useQuery({
-    queryKey: ["tasks", user?.email],
+    queryKey: ["tasks", user?.id],
     queryFn: async () => {
-      if (!user?.email) return [];
-      return base44.entities.Task.filter({ created_by: user.email });
+      if (!user?.id) return [];
+      const { data, error } = await supabase.from("tasks").select("*").eq("user_id", user.id);
+      if (error) throw error;
+      return data || [];
     },
-    enabled: !!user?.email,
+    enabled: !!user?.id,
     initialData: [],
   });
 
   const { data: profiles } = useQuery({
-    queryKey: ["userProfile", user?.email],
+    queryKey: ["userProfile", user?.id],
     queryFn: async () => {
-      if (!user?.email) return [];
-      return base44.entities.UserProfile.filter({ created_by: user.email });
+      if (!user?.id) return [];
+      const { data, error } = await supabase.from("profiles").select("*").eq("id", user.id);
+      if (error) throw error;
+      return data || [];
     },
-    enabled: !!user?.email,
+    enabled: !!user?.id,
     initialData: [],
   });
 
   const { data: roles } = useQuery({
-    queryKey: ["careerRoles", user?.email],
+    queryKey: ["careerRoles", user?.id],
     queryFn: async () => {
-      if (!user?.email) return [];
-      return base44.entities.CareerRole.filter({ created_by: user.email });
+      if (!user?.id) return [];
+      const { data, error } = await supabase.from("career_roles").select("*").eq("user_id", user.id);
+      if (error) throw error;
+      return data || [];
     },
-    enabled: !!user?.email,
+    enabled: !!user?.id,
     initialData: [],
   });
 
@@ -87,92 +90,31 @@ export default function Tasks() {
     if (!profile) return;
     setGenerating(true);
     try {
+      // TODO: Phase 5 — LLM task generation via Edge Function
+      // For now, generate placeholder tasks
+      const existingIncomplete = tasks.filter((t) => !t.is_complete);
+      
+      // Delete old incomplete tasks
+      if (existingIncomplete.length > 0) {
+        const ids = existingIncomplete.map((t) => t.id);
+        await supabase.from("tasks").delete().in("id", ids);
+      }
 
-    const tier1Roles = roles.filter((r) => r.tier === "tier_1");
-    const tier2Roles = roles.filter((r) => r.tier === "tier_2");
-    const allGaps = profile.skill_gaps || [];
-
-    const tier1RolesList = tier1Roles.map((r) => r.title).join(", ") || "None";
-    const tier2RolesList = tier2Roles.map((r) => r.title).join(", ") || "None";
-
-    const prompt = `You are a Career Task Engine. Generate a structured, prioritized task list for this job seeker.
-Tasks must be ASSIGNED — the user does not invent them. Every task must be specific, measurable, and directly close a gap or strengthen a role qualification.
-
-Use the internet to find REAL active job postings on LinkedIn and Glassdoor for this user's target roles (${tier1RolesList}).
-Reference specific real companies that are currently hiring for these roles in ${profile.location || "their location"}.
-For application tasks, cite real job postings — e.g. "Apply to Data Analyst role at [real company currently hiring on LinkedIn]".
-Do NOT invent companies. Only reference companies you find actively hiring for these roles right now.
-
-STUDENT PROFILE:
-- Name: ${profile.full_name}
-- Location: ${profile.location || "Not specified"}
-- Skill Gaps: ${allGaps.join(", ") || "None identified"}
-- Tier 1 Roles (apply now): ${tier1RolesList}
-- Missing Skills for Tier 1: ${tier1Roles.flatMap((r) => r.missing_skills || []).join(", ") || "None"}
-- Tier 2 Roles (stretch): ${tier2RolesList}
-- Missing Skills for Tier 2: ${tier2Roles.flatMap((r) => r.missing_skills || []).join(", ") || "None"}
-- 5-Year Goal: ${profile.five_year_role || "Not specified"}
-- Target Titles: ${profile.target_job_titles?.join(", ") || "Not specified"}
-
-TASK CATEGORIES:
-- skill: Complete a specific course or tutorial to close a gap (name the exact course + platform)
-- project: Build a specific project to prove competence (name the exact project)
-- networking: Reach out to a specific person/company type on LinkedIn, or attend a specific event
-- cv: Update a specific section of CV with specific content
-- application: Apply to a REAL specific job posting found on LinkedIn/Glassdoor (name the company and role)
-
-RULES:
-- High priority = directly unlocks Tier 1 applications
-- Medium priority = supports Tier 2 or strengthens Tier 1
-- Low priority = general improvement
-- Tasks must be hyper-specific (e.g. "Complete Google Data Analytics Certificate on Coursera – Week 3: Data Cleaning" not "Learn data analysis")
-- For application tasks: only reference real companies actively hiring for the role right now
-- Generate 8–12 tasks total across categories — include at least 3 application tasks pointing to real job listings
-- Each task must reference the specific role or gap it addresses`;
-
-    const result = await base44.integrations.Core.InvokeLLM({
-      prompt,
-      add_context_from_internet: true,
-      model: "gemini_3_flash",
-      response_json_schema: {
-        type: "object",
-        properties: {
-          tasks: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                title: { type: "string" },
-                description: { type: "string" },
-                category: { type: "string", enum: ["skill", "project", "networking", "cv", "application"] },
-                role_title: { type: "string" },
-                skill_gap: { type: "string" },
-                priority: { type: "string", enum: ["high", "medium", "low"] },
-              },
-            },
-          },
-        },
-      },
-    });
-
-    // Delete old incomplete tasks and replace with new ones
-    const existingIncomplete = tasks.filter((t) => !t.is_complete);
-    await Promise.all(existingIncomplete.map((t) => base44.entities.Task.delete(t.id)));
-
-    if (result?.tasks) {
-      await base44.entities.Task.bulkCreate(
-        result.tasks.map((t) => ({ ...t, is_complete: false }))
-      );
-    }
-
-    queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      // Placeholder: will be replaced by LLM-generated tasks in Phase 5
+      const placeholderTasks = [
+        { title: "Update your CV for target roles", description: "Tailor your CV based on skill gaps identified in your career roadmap.", category: "cv", priority: "high", is_complete: false, user_id: user.id },
+        { title: "Research companies hiring for your target roles", description: "Look for active postings on LinkedIn and Glassdoor.", category: "application", priority: "high", is_complete: false, user_id: user.id },
+      ];
+      
+      await supabase.from("tasks").insert(placeholderTasks);
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
     } finally {
       setGenerating(false);
     }
   };
 
   const toggleComplete = async (task) => {
-    await base44.entities.Task.update(task.id, { is_complete: !task.is_complete });
+    await supabase.from("tasks").update({ is_complete: !task.is_complete }).eq("id", task.id);
     queryClient.invalidateQueries({ queryKey: ["tasks"] });
   };
 

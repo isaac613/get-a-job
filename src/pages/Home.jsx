@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { base44 } from "@/api/base44Client";
+import { supabase } from "@/api/supabaseClient";
+import { useAuth } from "@/lib/AuthContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -12,80 +13,73 @@ import JobMatchChecker from "../components/dashboard/JobMatchChecker";
 export default function Home() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const [user, setUser] = React.useState(null);
-  const [authChecked, setAuthChecked] = React.useState(false);
-
-  React.useEffect(() => {
-    base44.auth.me()
-      .then((u) => { setUser(u); setAuthChecked(true); })
-      .catch(() => { base44.auth.redirectToLogin(createPageUrl("Home")); });
-  }, []);
+  const { user } = useAuth();
 
   const { data: profiles, isLoading: loadingProfile } = useQuery({
-    queryKey: ["userProfile", user?.email],
-    queryFn: () => base44.entities.UserProfile.filter({ created_by: user.email }),
-    enabled: !!user?.email,
+    queryKey: ["userProfile", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("profiles").select("*").eq("id", user.id);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id,
     initialData: [],
   });
 
   const { data: roles, isLoading: loadingRoles } = useQuery({
-    queryKey: ["careerRoles", user?.email],
-    queryFn: () => base44.entities.CareerRole.filter({ created_by: user.email }),
-    enabled: !!user?.email,
+    queryKey: ["careerRoles", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("career_roles").select("*").eq("user_id", user.id);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id,
     initialData: [],
   });
 
   const { data: applications, isLoading: loadingApps } = useQuery({
-    queryKey: ["applications", user?.email],
-    queryFn: () => base44.entities.Application.filter({ created_by: user.email }),
-    enabled: !!user?.email,
+    queryKey: ["applications", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("applications").select("*").eq("user_id", user.id);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id,
     initialData: [],
   });
 
   const { data: experiences } = useQuery({
-    queryKey: ["experiences", user?.email],
-    queryFn: () => base44.entities.Experience.filter({ created_by: user.email }),
-    enabled: !!user?.email,
+    queryKey: ["experiences", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("experiences").select("*").eq("user_id", user.id);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id,
     initialData: [],
   });
 
   const { data: tasks } = useQuery({
-    queryKey: ["tasks", user?.email],
-    queryFn: () => base44.entities.Task.filter({ created_by: user.email }),
-    enabled: !!user?.email,
+    queryKey: ["tasks", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("tasks").select("*").eq("user_id", user.id);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id,
     initialData: [],
   });
 
-  // Real-time subscriptions — refresh dashboard whenever data changes
-  React.useEffect(() => {
-    if (!user?.email) return;
-    const unsubs = [
-      base44.entities.UserProfile.subscribe(() => {
-        queryClient.invalidateQueries({ queryKey: ["userProfile", user.email] });
-      }),
-      base44.entities.CareerRole.subscribe(() => {
-        queryClient.invalidateQueries({ queryKey: ["careerRoles", user.email] });
-      }),
-      base44.entities.Application.subscribe(() => {
-        queryClient.invalidateQueries({ queryKey: ["applications", user.email] });
-      }),
-      base44.entities.Task.subscribe(() => {
-        queryClient.invalidateQueries({ queryKey: ["tasks", user.email] });
-      }),
-    ];
-    return () => unsubs.forEach((u) => u());
-  }, [user?.email]);
-
   const profile = profiles?.[0] || null;
-  const isLoading = !authChecked || loadingProfile || loadingRoles || loadingApps;
+  const isLoading = loadingProfile || loadingRoles || loadingApps;
 
   React.useEffect(() => {
-    if (authChecked && user && !loadingProfile && profiles?.length === 0) {
+    if (user && !loadingProfile && profiles?.length === 0) {
       navigate(createPageUrl("Onboarding"));
-    } else if (authChecked && user && !loadingProfile && profile && !profile.onboarding_complete) {
+    } else if (user && !loadingProfile && profile && !profile.onboarding_complete) {
       navigate(createPageUrl("Onboarding"));
     }
-  }, [authChecked, user, loadingProfile, profile, profiles, navigate]);
+  }, [user, loadingProfile, profile, profiles, navigate]);
 
   if (isLoading) {
     return (
@@ -106,10 +100,10 @@ export default function Home() {
   const handleResetOnboarding = async () => {
     if (!profile?.id) return;
     if (!confirm("Reset onboarding? This will clear your profile and let you start fresh.")) return;
-    await base44.entities.UserProfile.update(profile.id, {
+    await supabase.from("profiles").update({
       onboarding_complete: false,
       onboarding_step: 0,
-    });
+    }).eq("id", profile.id);
     navigate(createPageUrl("Onboarding"));
   };
 

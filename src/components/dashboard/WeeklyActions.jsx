@@ -1,5 +1,5 @@
 import React from "react";
-import { base44 } from "@/api/base44Client";
+import { supabase } from "@/api/supabaseClient";
 import { Square, CheckSquare } from "lucide-react";
 
 export default function WeeklyActions({ profile, onUpdate }) {
@@ -9,9 +9,9 @@ export default function WeeklyActions({ profile, onUpdate }) {
     if (!profile) return;
     const updated = [...actions];
     updated[index] = { ...updated[index], completed: !updated[index].completed };
-    await base44.entities.StudentProfile.update(profile.id, {
+    await supabase.from("profiles").update({
       weekly_action_plan: updated,
-    });
+    }).eq("id", profile.id);
     onUpdate();
   };
 

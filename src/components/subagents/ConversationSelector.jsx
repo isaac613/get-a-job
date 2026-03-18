@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { supabase } from "@/api/supabaseClient";
+import { useAuth } from "@/components/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Loader2, Plus, MessageSquare, Briefcase, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -7,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function ConversationSelector({ agentName, onSelect, linkToApplications = false }) {
+  const { user } = useAuth();
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showNewDialog, setShowNewDialog] = useState(false);
@@ -21,51 +23,44 @@ export default function ConversationSelector({ agentName, onSelect, linkToApplic
 
   const loadData = async () => {
     setLoading(true);
-    const promises = [base44.agents.listConversations({ agent_name: agentName })];
-    if (linkToApplications) {
-      promises.push(base44.entities.Application.list("-updated_date", 100));
+    // TODO: Phase 5 — Conversations will be stored in Supabase and managed via Edge Functions
+    // For now, load applications if needed for linking
+    if (linkToApplications && user) {
+      const { data } = await supabase
+        .from("applications")
+        .select("id, role_title, company")
+        .eq("user_id", user.id)
+        .order("updated_at", { ascending: false })
+        .limit(100);
+      setApplications(data || []);
     }
-    const [convos, apps] = await Promise.all(promises);
-    setConversations(convos || []);
-    setApplications(apps || []);
+    setConversations([]);
     setLoading(false);
   };
 
   const createConversation = async () => {
     setCreating(true);
+    // TODO: Phase 5 — Create conversation via Supabase/Edge Function
     const app = applications.find((a) => a.id === selectedAppId);
-    const metadata = app
-      ? { name: `${app.role_title} at ${app.company}`, application_id: app.id }
-      : { name: "New Conversation" };
+    const stubConvo = {
+      id: `stub-${Date.now()}`,
+      metadata: app
+        ? { name: `${app.role_title} at ${app.company}`, application_id: app.id }
+        : { name: "New Conversation" },
+      created_date: new Date().toISOString(),
+      messages: [],
+    };
 
-    const convo = await base44.agents.createConversation({ agent_name: agentName, metadata });
-
-    // If linked to an application, send an automatic opening message so the agent
-    // immediately knows which role this conversation is about and starts creating the CV
-    if (app) {
-      const cleanConvo = {
-        ...convo,
-        messages: (convo.messages || []).map(({ outcome, ...rest }) => rest),
-      };
-      await base44.agents.addMessage(cleanConvo, {
-        role: "user",
-        content: `Please create a tailored CV for my application for the ${app.role_title} role at ${app.company} (application ID: ${app.id}).${app.job_description ? ` Here is the job description to tailor it to:\n\n${app.job_description}` : " There is no job description saved yet, so use what you know about this role type."} Use my real profile, experience, skills, and projects from the database. Make it personalized to me but optimized for this specific role. Start generating now.`,
-      });
-    }
-
-    const fullConvo = await base44.agents.getConversation(convo.id);
     setShowNewDialog(false);
     setSelectedAppId("");
     setCreating(false);
-    onSelect(fullConvo);
+    onSelect(stubConvo);
   };
 
   const deleteConversation = async (e, convoId) => {
     e.stopPropagation();
-    setDeletingId(convoId);
-    await base44.agents.deleteConversation(convoId);
+    // TODO: Phase 5 — Delete conversation from Supabase
     setConversations((prev) => prev.filter((c) => c.id !== convoId));
-    setDeletingId(null);
   };
 
   if (loading) {
@@ -100,6 +95,7 @@ export default function ConversationSelector({ agentName, onSelect, linkToApplic
               <MessageSquare className="w-8 h-8 text-[#A3A3A3] mx-auto mb-3" />
               <p className="text-sm text-[#525252]">No conversations yet</p>
               <p className="text-xs text-[#A3A3A3] mt-1">Click "New Chat" to get started</p>
+              <p className="text-xs text-amber-500 mt-2">AI chat requires Edge Functions (Phase 5)</p>
             </div>
           )}
 
@@ -169,6 +165,7 @@ export default function ConversationSelector({ agentName, onSelect, linkToApplic
             {!linkToApplications && (
               <p className="text-sm text-[#525252]">A new conversation will be created and opened immediately.</p>
             )}
+            <p className="text-xs text-amber-500">Note: AI responses require Edge Functions (Phase 5 of migration).</p>
           </div>
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setShowNewDialog(false)}>Cancel</Button>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
-import { base44 } from "@/api/base44Client";
+import { supabase } from "@/api/supabaseClient";
+import { useAuth } from "@/components/AuthContext";
 import { Sparkles, Loader2, CheckCircle2, XCircle, ChevronDown, ChevronUp, Plus, FileText, Link } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +14,7 @@ const LOADING_MESSAGES = [
 ];
 
 export default function JobMatchChecker({ profile, experiences }) {
+  const { user } = useAuth();
   const [mode, setMode] = useState("text"); // "url" or "text"
   const [url, setUrl] = useState("");
   const [jobText, setJobText] = useState("");
@@ -62,58 +64,27 @@ export default function JobMatchChecker({ profile, experiences }) {
       ? `STEP 1: Fetch and read the full job posting at this exact URL: ${url}\nRead the actual page content. Do NOT infer or guess.`
       : `STEP 1: Use the following job posting text provided directly by the user:\n\n${jobText}`;
 
-    const res = await base44.integrations.Core.InvokeLLM({
-      prompt: `${jobSource}
-
-STEP 2: Extract ONLY requirements that are EXPLICITLY written in the job posting (required skills, qualifications, years of experience, etc.).
-
-STEP 3: Evaluate this candidate against ONLY those explicit requirements:
-- Skills: ${allSkills.slice(0, 30).join(", ")}
-- Experience: ${expSummary || "Not specified"}
-- Education: ${profile?.education_level || "unknown"} in ${profile?.field_of_study || "unknown"}
-- Years of experience: ${profile?.years_experience || "unknown"}
-
-CRITICAL RULES:
-- Every matched_requirement and missing_requirement MUST come directly from text in the job posting.
-- Do NOT add requirements that are not written in the posting.
-- job_title and company MUST be exactly as written in the posting.
-- job_description must be the actual text from the posting, not a summary you invented.`,
-      add_context_from_internet: mode === "url",
-      model: "gemini_3_flash",
-      response_json_schema: {
-        type: "object",
-        properties: {
-          job_title: { type: "string" },
-          company: { type: "string" },
-          job_description: { type: "string" },
-          match_score: { type: "number", description: "0-100" },
-          verdict: { type: "string", description: "One sentence overall verdict" },
-          matched_requirements: {
-            type: "array",
-            items: { type: "object", properties: { requirement: { type: "string" }, reason: { type: "string" } } }
-          },
-          missing_requirements: {
-            type: "array",
-            items: { type: "object", properties: { requirement: { type: "string" }, gap: { type: "string" } } }
-          },
-          recommendation: { type: "string" },
-        },
-      },
-    });
-
+    // TODO: Phase 5 — LLM job match analysis via Edge Function
     setLoading(false);
-    if (res?.match_score != null) {
-      setResult({ ...res, source_url: mode === "url" ? url : null });
-      setExpanded(true);
-    } else {
-      setError("Couldn't analyse this job posting. Try switching to \"Paste Text\" and copying the job description directly.");
-    }
+    setResult({
+      job_title: "Job Match Analysis",
+      company: "",
+      job_description: mode === "text" ? jobText.trim() : "",
+      match_score: 0,
+      verdict: "AI-powered analysis will be available after Edge Functions are configured (Phase 5).",
+      matched_requirements: [],
+      missing_requirements: [],
+      recommendation: "This feature requires the AI Edge Function. Please check back after Phase 5 is complete.",
+      source_url: mode === "url" ? url : null,
+    });
+    setExpanded(true);
   };
 
   const handleAddToTracker = async () => {
     if (!result) return;
     setAddingToTracker(true);
-    await base44.entities.Application.create({
+    await supabase.from("applications").insert({
+      user_id: user?.id,
       role_title: result.job_title || "Unknown Role",
       company: result.company || "",
       status: "interested",

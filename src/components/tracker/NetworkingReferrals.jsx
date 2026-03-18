@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { supabase } from "@/api/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -52,7 +52,7 @@ export default function NetworkingReferrals({ app, onUpdate }) {
   };
 
   const saveContacts = async (updated) => {
-    await base44.entities.Application.update(app.id, { networking_contacts: updated });
+    await supabase.from("applications").update({ networking_contacts: updated }).eq("id", app.id);
     onUpdate();
   };
 
