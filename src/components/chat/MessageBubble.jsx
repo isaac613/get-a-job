@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { cn } from "@/lib/utils";
-import { Copy, Zap, CheckCircle2, AlertCircle, Loader2, ChevronRight, Clock, Download } from "lucide-react";
+import { Zap, CheckCircle2, AlertCircle, Loader2, ChevronRight, Clock, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { jsPDF } from "jspdf";
 

@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Loader2, Brain } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
 const ROADMAP_MESSAGES = [
@@ -115,7 +116,7 @@ export default function CareerRoadmap() {
     try {
       // TODO: Phase 5 — LLM roadmap generation via Edge Function
       // For now, show a message that this feature requires Edge Functions
-      alert("AI-powered roadmap generation will be available after Edge Functions are configured (Phase 5).");
+      toast.info("AI-powered roadmap generation will be available after Edge Functions are configured (Phase 5).");
 
       queryClient.invalidateQueries({ queryKey: ["careerRoles"] });
       queryClient.invalidateQueries({ queryKey: ["userProfile"] });

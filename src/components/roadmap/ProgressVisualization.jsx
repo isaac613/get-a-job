@@ -1,7 +1,7 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle2, Circle, TrendingUp } from "lucide-react";
+import { TrendingUp } from "lucide-react";
 
 export default function ProgressVisualization({ profile, roles, experiences, courses, certifications }) {
   // Calculate overall readiness based on various factors

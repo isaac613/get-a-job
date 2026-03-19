@@ -5,8 +5,6 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Trash2, Users } from "lucide-react";
-import { cn } from "@/lib/utils";
-
 const RESPONSE_STATUS = {
   pending: { label: "Pending", className: "bg-gray-100 text-gray-700" },
   responded: { label: "Responded", className: "bg-emerald-100 text-emerald-700" },

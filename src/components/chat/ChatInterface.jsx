@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 // base44 removed — Chat/agent functionality will use Supabase Edge Functions in Phase 5
-import { Send, Loader2, Plus, Paperclip } from "lucide-react";
+import { Send, Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import MessageBubble from "./MessageBubble";
 

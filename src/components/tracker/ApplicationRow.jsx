@@ -5,8 +5,8 @@ import { cn } from "@/lib/utils";
 import { ChevronDown, ChevronUp, MessageSquare, Loader2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { toast } from "sonner";
 import CVManagement from "./CVManagement";
 import SkillsRequired from "./SkillsRequired";
 import ProjectsProof from "./ProjectsProof";
@@ -32,7 +32,7 @@ export default function ApplicationRow({ app, onUpdate }) {
   const handleOpenCVAgent = async () => {
     setStartingChat(true);
     // TODO: Phase 5 — Agent chat via Edge Functions
-    alert("Agent chat will be available after Edge Functions are configured (Phase 5).");
+    toast.info("Agent chat will be available after Edge Functions are configured (Phase 5).");
     setStartingChat(false);
   };
   const [activeTab, setActiveTab] = useState("target");

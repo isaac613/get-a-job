@@ -4,8 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2 } from "lucide-react";
-import { cn } from "@/lib/utils";
-
 const STATUS_COLORS = {
   not_started: "bg-gray-100 text-gray-700",
   in_progress: "bg-blue-100 text-blue-700",

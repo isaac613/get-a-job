@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, FileText, Sparkles, Download } from "lucide-react";
+import { toast } from "sonner";
 
 export default function CVManagement({ app, onUpdate }) {
   const [cvName, setCvName] = useState(app.cv_version_name || "");
@@ -21,15 +22,15 @@ export default function CVManagement({ app, onUpdate }) {
 
   const handleGenerateCV = async () => {
     if (!app.job_description) {
-      alert("Please add a job description first in the Job Description tab");
+      toast.error("Please add a job description first in the Job Description tab");
       return;
     }
     setGenerating(true);
     try {
       // TODO: Phase 5 — CV generation via Edge Function
-      alert("AI-powered CV generation will be available after Edge Functions are configured (Phase 5).");
+      toast.info("AI-powered CV generation will be available after Edge Functions are configured (Phase 5).");
     } catch (error) {
-      alert("Failed to generate CV: " + error.message);
+      toast.error("Failed to generate CV: " + error.message);
     }
     setGenerating(false);
   };

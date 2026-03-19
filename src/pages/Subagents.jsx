@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { MessageSquare, Briefcase, BookOpen, GraduationCap, Send, Loader2, ArrowLeft, Plus, Paperclip, ChevronDown, ChevronUp, Info, Brain } from "lucide-react";
+import { MessageSquare, Briefcase, BookOpen, GraduationCap, ChevronDown, ChevronUp, Info, Brain } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const SUBAGENTS = [

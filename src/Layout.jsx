@@ -7,7 +7,6 @@ import {
   LayoutDashboard,
   Map,
   ClipboardList,
-  Brain,
   BookOpen,
   PlusCircle,
   Menu,
