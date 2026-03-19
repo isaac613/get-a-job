@@ -1,5 +1,5 @@
 import React, { useState, useRef } from "react";
-// base44 removed — File uploads and LLM extraction will use Supabase Storage + Edge Functions in Phase 5
+// File uploads will use Supabase Storage (Phase 6)
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -107,7 +107,7 @@ export default function StepResumeUpload({ onNext, onExtracted, profileData, onC
     setError(null);
     setUploading(true);
 
-    // TODO: Phase 5 — Upload file to Supabase Storage, then extract via Edge Function / LLM
+    // TODO: Phase 6 — Upload file to Supabase Storage, then extract via Edge Function / LLM
     // For now, stub the extraction with a placeholder
     setUploading(false);
     setExtracting(true);
@@ -116,22 +116,22 @@ export default function StepResumeUpload({ onNext, onExtracted, profileData, onC
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
     setExtracting(false);
-    setError("Resume extraction requires AI Edge Functions (Phase 5). Please enter details manually for now, or skip this step.");
+    setError("Resume upload requires Supabase Storage (coming soon). Please enter details manually for now, or skip this step.");
   };
 
   const handleLinkedinConnect = async () => {
     setConnectingLinkedin(true);
-    // TODO: Phase 5 — LinkedIn connect via Edge Function
+    // LinkedIn connect is not supported — manual URL entry is available below
     await new Promise((resolve) => setTimeout(resolve, 500));
     setConnectingLinkedin(false);
-    setError("LinkedIn connect requires Edge Functions (Phase 5). Please enter your LinkedIn URL manually below.");
+    setError("LinkedIn auto-connect is not available. Please enter your LinkedIn URL manually below.");
   };
 
   const handleLinkedinExtract = async () => {
     if (!linkedinUrl.trim()) return;
     setExtractingLinkedin(true);
     onChange({ linkedin_url: linkedinUrl });
-    // TODO: Phase 5 — LinkedIn extraction via Edge Function / LLM
+    // LinkedIn profile extraction is not supported — manual entry only
     await new Promise((resolve) => setTimeout(resolve, 500));
     setExtractingLinkedin(false);
     // Save the URL even though we can't extract yet

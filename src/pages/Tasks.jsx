@@ -90,8 +90,6 @@ export default function Tasks() {
     if (!profile) return;
     setGenerating(true);
     try {
-      // TODO: Phase 5 — LLM task generation via Edge Function
-      // For now, generate placeholder tasks
       const existingIncomplete = tasks.filter((t) => !t.is_complete);
       
       // Delete old incomplete tasks
@@ -100,18 +98,34 @@ export default function Tasks() {
         await supabase.from("tasks").delete().in("id", ids);
       }
 
-      // Placeholder: will be replaced by LLM-generated tasks in Phase 5
-      const placeholderTasks = [
-        { title: "Update your CV for target roles", description: "Tailor your CV based on skill gaps identified in your career roadmap.", category: "cv", priority: "high", is_complete: false, user_id: user.id },
-        { title: "Research companies hiring for your target roles", description: "Look for active postings on LinkedIn and Glassdoor.", category: "application", priority: "high", is_complete: false, user_id: user.id },
-      ];
-      
-      await supabase.from("tasks").insert(placeholderTasks);
+      // Call LLM to generate personalized tasks
+      const { data, error } = await supabase.functions.invoke("generate-tasks", {
+        body: { context: "weekly action plan" },
+      });
+
+      if (error) throw error;
+
+      const generatedTasks = (data?.tasks || []).map((t) => ({
+        title: t.title,
+        description: t.description,
+        category: t.category || "application",
+        priority: t.priority || "medium",
+        role_title: t.role_title || null,
+        is_complete: false,
+        user_id: user.id,
+      }));
+
+      if (generatedTasks.length > 0) {
+        await supabase.from("tasks").insert(generatedTasks);
+      }
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    } catch (err) {
+      console.error("Task generation error:", err);
     } finally {
       setGenerating(false);
     }
   };
+
 
   const toggleComplete = async (task) => {
     await supabase.from("tasks").update({ is_complete: !task.is_complete }).eq("id", task.id);

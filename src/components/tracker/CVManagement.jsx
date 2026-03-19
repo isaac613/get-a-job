@@ -27,13 +27,24 @@ export default function CVManagement({ app, onUpdate }) {
     }
     setGenerating(true);
     try {
-      // TODO: Phase 5 — CV generation via Edge Function
-      toast.info("AI-powered CV generation will be available after Edge Functions are configured (Phase 5).");
+      const { data, error } = await supabase.functions.invoke("generate-tailored-cv", {
+        body: {
+          job_description: app.job_description,
+          target_role: app.role_title,
+          application_id: app.id,
+        },
+      });
+
+      if (error) throw error;
+
+      toast.success(data.message || "CV generated successfully!");
+      onUpdate(); // Refresh application data
     } catch (error) {
       toast.error("Failed to generate CV: " + error.message);
     }
     setGenerating(false);
   };
+
 
   return (
     <div className="space-y-4">

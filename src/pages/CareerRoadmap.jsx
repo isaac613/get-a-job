@@ -114,16 +114,38 @@ export default function CareerRoadmap() {
     if (!profile) return;
     setGenerating(true);
     try {
-      // TODO: Phase 5 — LLM roadmap generation via Edge Function
-      // For now, show a message that this feature requires Edge Functions
-      toast.info("AI-powered roadmap generation will be available after Edge Functions are configured (Phase 5).");
+      const { data, error } = await supabase.functions.invoke("generate-career-analysis", {
+        body: { dream_roles: roles.map(r => r.title) },
+      });
+
+      if (error) throw error;
+
+      // Save generated roles to DB
+      if (data?.roles?.length > 0) {
+        // Clear old roles
+        await supabase.from("career_roles").delete().eq("user_id", user.id);
+        // Insert new roles
+        await supabase.from("career_roles").insert(
+          data.roles.map((r) => ({
+            title: r.title,
+            match_score: r.readiness_score,
+            skills_gap: r.missing_skills || [],
+            user_id: user.id,
+          }))
+        );
+      }
 
       queryClient.invalidateQueries({ queryKey: ["careerRoles"] });
       queryClient.invalidateQueries({ queryKey: ["userProfile"] });
+      toast.success("Career roadmap generated!");
+    } catch (err) {
+      console.error("Roadmap generation error:", err);
+      toast.error(err.message || "Failed to generate roadmap.");
     } finally {
       setGenerating(false);
     }
   };
+
 
   const handleTrack = async (role) => {
     await supabase.from("applications").insert({

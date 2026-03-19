@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { ExternalLink, Loader2, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
-// base44 removed — LLM course generation will use Edge Functions in Phase 5
+import { supabase } from "@/api/supabaseClient";
 
 export default function SkillGapCourses({ skillGaps }) {
   const [courses, setCourses] = useState(null);
@@ -9,10 +9,17 @@ export default function SkillGapCourses({ skillGaps }) {
 
   const fetchCourses = async () => {
     setLoading(true);
-    // TODO: Phase 5 — Course recommendations via Edge Function / LLM
-    setCourses([
-      { skill_gap: skillGaps[0] || "General", course_title: "Course Recommendations Coming Soon", platform: "TBD", description: "AI-powered course recommendations will be available after Edge Functions are configured.", time_commitment: "N/A", relevance: "Phase 5" }
-    ]);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-learning-paths", {
+        body: { skill_gaps: skillGaps },
+      });
+
+      if (error) throw error;
+
+      setCourses(data?.courses || []);
+    } catch (err) {
+      console.error("Course recommendations error:", err);
+    }
     setLoading(false);
   };
 

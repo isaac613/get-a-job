@@ -134,11 +134,21 @@ export default function JobSuggestions() {
     setLoading(true);
     setError(null);
 
-    // TODO: Phase 5 — LLM job suggestion generation via Edge Function
-    // For now, show placeholder message
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-job-suggestions", {
+        body: {},
+      });
+
+      if (error) throw error;
+
+      setSuggestions(data?.suggestions || []);
+    } catch (err) {
+      console.error("Job suggestions error:", err);
+      setError(err.message || "Failed to generate job suggestions.");
+    }
     setLoading(false);
-    setError("AI-powered job suggestions will be available after Edge Functions are configured (Phase 5). For now, use the Career Roadmap to explore matching roles.");
   };
+
 
   const noProfile = !profile && !loading;
   const noSkills = profile && (profile.hard_skills || []).length === 0 && (profile.technical_skills || []).length === 0;

@@ -170,36 +170,45 @@ export default function Onboarding() {
     setStep(7);
     setGeneratingRoles(true);
 
-    // TODO: Phase 5 — LLM tier analysis via Edge Function
-    // For now, generate placeholder roles
-    const placeholderRoles = [
-      { title: "Data Analyst", tier: "tier_1", readiness_score: 0.4, matched_skills: profileData.hard_skills?.slice(0, 3) || [], missing_skills: ["SQL", "Tableau"], reasoning: "Placeholder — AI analysis coming soon.", action_items: [], alignment_to_goal: "" },
-      { title: "Business Analyst", tier: "tier_2", readiness_score: 0.3, matched_skills: [], missing_skills: [], reasoning: "Placeholder — AI analysis coming soon.", action_items: [], alignment_to_goal: "" },
-    ];
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-career-analysis", {
+        body: {
+          profile_data: profileData,
+          dream_roles: profileData.dream_roles || [],
+        },
+      });
 
-    setGeneratedRoles(placeholderRoles);
-    setQualificationLevel("To be determined by AI");
-    setOverallAssessment("AI-powered assessment will be available after Edge Functions are configured.");
+      if (error) throw error;
 
-    // Save placeholder roles to DB
-    if (user) {
-      const { data: existingRoles } = await supabase.from("career_roles").select("id").eq("user_id", user.id);
-      if (existingRoles?.length > 0) {
-        await supabase.from("career_roles").delete().eq("user_id", user.id);
+      const analysisRoles = data?.roles || [];
+      setGeneratedRoles(analysisRoles);
+      setQualificationLevel(data?.qualification_level || "Not determined");
+      setOverallAssessment(data?.overall_assessment || "");
+
+      // Save roles to DB
+      if (user) {
+        const { data: existingRoles } = await supabase.from("career_roles").select("id").eq("user_id", user.id);
+        if (existingRoles?.length > 0) {
+          await supabase.from("career_roles").delete().eq("user_id", user.id);
+        }
+        if (analysisRoles.length > 0) {
+          await supabase.from("career_roles").insert(
+            analysisRoles.map((r) => ({ ...r, user_id: user.id }))
+          );
+        }
       }
-      await supabase.from("career_roles").insert(
-        placeholderRoles.map((r) => ({ ...r, user_id: user.id }))
-      );
-    }
 
-    if (existingProfileId) {
-      await supabase.from("profiles").update({
-        skill_gaps: [],
-        qualification_level: "To be determined by AI",
-        overall_assessment: "AI analysis pending.",
-        last_reality_check_date: new Date().toISOString().split("T")[0],
-        onboarding_step: 7,
-      }).eq("id", existingProfileId);
+      if (existingProfileId) {
+        await supabase.from("profiles").update({
+          skill_gaps: data?.skill_gaps || [],
+          qualification_level: data?.qualification_level || "",
+          overall_assessment: data?.overall_assessment || "",
+          last_reality_check_date: new Date().toISOString().split("T")[0],
+          onboarding_step: 7,
+        }).eq("id", existingProfileId);
+      }
+    } catch (err) {
+      console.error("Career analysis error:", err);
     }
 
     setGeneratingRoles(false);
@@ -262,14 +271,36 @@ export default function Onboarding() {
       );
     }
 
-    // TODO: Phase 5 — LLM task generation via Edge Function
-    // For now, insert placeholder tasks
-    promises.push(
-      supabase.from("tasks").insert([
-        { title: "Update your CV for target roles", description: "Tailor your CV based on skill gaps.", category: "cv", priority: "high", is_complete: false, user_id: user.id },
-        { title: "Research target companies", description: "Find active job postings.", category: "application", priority: "high", is_complete: false, user_id: user.id },
-      ])
-    );
+    // Generate personalized tasks via Edge Function
+    try {
+      const { data: taskData } = await supabase.functions.invoke("generate-tasks", {
+        body: { context: "onboarding initial tasks" },
+      });
+      if (taskData?.tasks?.length > 0) {
+        promises.push(
+          supabase.from("tasks").insert(
+            taskData.tasks.map((t) => ({
+              title: t.title,
+              description: t.description,
+              category: t.category || "application",
+              priority: t.priority || "medium",
+              role_title: t.role_title || null,
+              is_complete: false,
+              user_id: user.id,
+            }))
+          )
+        );
+      }
+    } catch (err) {
+      console.error("Task generation error during onboarding:", err);
+      // Fallback: insert basic tasks if LLM fails
+      promises.push(
+        supabase.from("tasks").insert([
+          { title: "Update your CV for target roles", description: "Tailor your CV based on skill gaps.", category: "cv", priority: "high", is_complete: false, user_id: user.id },
+          { title: "Research target companies", description: "Find active job postings.", category: "application", priority: "high", is_complete: false, user_id: user.id },
+        ])
+      );
+    }
 
     await Promise.all(promises);
 

@@ -65,20 +65,35 @@ export default function JobMatchChecker({ profile, experiences }) {
       ? `STEP 1: Fetch and read the full job posting at this exact URL: ${url}\nRead the actual page content. Do NOT infer or guess.`
       : `STEP 1: Use the following job posting text provided directly by the user:\n\n${jobText}`;
 
-    // TODO: Phase 5 — LLM job match analysis via Edge Function
+    // Call LLM job match analysis via Edge Function
+    try {
+      const { data, error } = await supabase.functions.invoke("analyze-job-match", {
+        body: {
+          job_description: mode === "text" ? jobText.trim() : null,
+          job_url: mode === "url" ? url.trim() : null,
+          mode,
+        },
+      });
+
+      if (error) throw error;
+
+      setResult({
+        job_title: data.job_title || "Job Match Analysis",
+        company: data.company || "",
+        job_description: data.job_description || (mode === "text" ? jobText.trim() : ""),
+        match_score: data.match_score || 0,
+        verdict: data.verdict || "Analysis complete.",
+        matched_requirements: data.matched_requirements || [],
+        missing_requirements: data.missing_requirements || [],
+        recommendation: data.recommendation || "",
+        source_url: data.source_url || (mode === "url" ? url : null),
+      });
+      setExpanded(true);
+    } catch (err) {
+      console.error("Job match error:", err);
+      setError(err.message || "Failed to analyze job match.");
+    }
     setLoading(false);
-    setResult({
-      job_title: "Job Match Analysis",
-      company: "",
-      job_description: mode === "text" ? jobText.trim() : "",
-      match_score: 0,
-      verdict: "AI-powered analysis will be available after Edge Functions are configured (Phase 5).",
-      matched_requirements: [],
-      missing_requirements: [],
-      recommendation: "This feature requires the AI Edge Function. Please check back after Phase 5 is complete.",
-      source_url: mode === "url" ? url : null,
-    });
-    setExpanded(true);
   };
 
   const handleAddToTracker = async () => {

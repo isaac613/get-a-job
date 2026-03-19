@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-// base44 removed — Chat/agent functionality will use Supabase Edge Functions in Phase 5
+import { supabase } from "@/api/supabaseClient";
 import { Send, Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import MessageBubble from "./MessageBubble";
@@ -21,18 +21,32 @@ export default function ChatInterface({ agentName, title, description }) {
     setInput("");
 
     // Add user message locally
-    setMessages((prev) => [...prev, { role: "user", content: text }]);
+    const userMsg = { role: "user", content: text };
+    setMessages((prev) => [...prev, userMsg]);
 
-    // TODO: Phase 5 — Send message to Supabase Edge Function AI agent
     setSending(true);
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    setMessages((prev) => [
-      ...prev,
-      {
-        role: "assistant",
-        content: "AI chat functionality is coming soon! This feature requires Edge Functions to be configured (Phase 5 of the migration).",
-      },
-    ]);
+    try {
+      const { data, error } = await supabase.functions.invoke("ai-chat", {
+        body: {
+          message: text,
+          agent: agentName || "career-coach",
+          conversation_history: messages,
+        },
+      });
+
+      if (error) throw error;
+
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: data.reply || "Sorry, I could not generate a response." },
+      ]);
+    } catch (err) {
+      console.error("Chat error:", err);
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: `Error: ${err.message || "Failed to get AI response. Please try again."}` },
+      ]);
+    }
     setSending(false);
   };
 
@@ -78,9 +92,6 @@ export default function ChatInterface({ agentName, title, description }) {
           <div className="text-center py-12">
             <p className="text-sm text-[#A3A3A3]">
               Start a conversation. Ask a question about your career path.
-            </p>
-            <p className="text-xs text-amber-500 mt-2">
-              Note: AI responses require Edge Functions (Phase 5).
             </p>
           </div>
         )}

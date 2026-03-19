@@ -49,7 +49,8 @@ export default function Tracker() {
     setAddingApp(true);
     const jd = jobDescription || newApp.job_description || "";
 
-    // TODO: Phase 5 — LLM tier classification via Edge Function
+    // Tier classification defaults to tier_1 for new applications
+    // Can be refined later with LLM analysis from Career Roadmap
     const tier = "tier_1";
 
     const { error } = await supabase.from("applications").insert({
@@ -72,8 +73,8 @@ export default function Tracker() {
     if (!jobUrl.trim()) return;
     setImporting(true);
     setImportError("");
-    // TODO: Phase 5 — LLM job import via Edge Function
-    setImportError("Job import via AI will be available after Edge Functions are set up.");
+    // Job URL import is not yet supported — requires web scraping capabilities
+    setImportError("Paste the job description text directly when adding a new application. URL-based import is planned for a future update.");
     setImporting(false);
   };
 

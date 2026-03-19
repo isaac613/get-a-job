@@ -24,8 +24,8 @@ export default function ConversationSelector({ agentName, onSelect, linkToApplic
 
   const loadData = async () => {
     setLoading(true);
-    // TODO: Phase 5 — Conversations will be stored in Supabase and managed via Edge Functions
-    // For now, load applications if needed for linking
+    // Load applications if linking is enabled
+    // Conversations are managed locally in ChatInterface state
     if (linkToApplications && user) {
       const { data } = await supabase
         .from("applications")
@@ -41,7 +41,7 @@ export default function ConversationSelector({ agentName, onSelect, linkToApplic
 
   const createConversation = async () => {
     setCreating(true);
-    // TODO: Phase 5 — Create conversation via Supabase/Edge Function
+    // Create a local conversation object
     const app = applications.find((a) => a.id === selectedAppId);
     const stubConvo = {
       id: `stub-${Date.now()}`,
@@ -60,7 +60,7 @@ export default function ConversationSelector({ agentName, onSelect, linkToApplic
 
   const deleteConversation = async (e, convoId) => {
     e.stopPropagation();
-    // TODO: Phase 5 — Delete conversation from Supabase
+    // Remove local conversation
     setConversations((prev) => prev.filter((c) => c.id !== convoId));
   };
 
@@ -96,7 +96,7 @@ export default function ConversationSelector({ agentName, onSelect, linkToApplic
               <MessageSquare className="w-8 h-8 text-[#A3A3A3] mx-auto mb-3" />
               <p className="text-sm text-[#525252]">No conversations yet</p>
               <p className="text-xs text-[#A3A3A3] mt-1">Click "New Chat" to get started</p>
-              <p className="text-xs text-amber-500 mt-2">AI chat requires Edge Functions (Phase 5)</p>
+
             </div>
           )}
 
@@ -166,7 +166,7 @@ export default function ConversationSelector({ agentName, onSelect, linkToApplic
             {!linkToApplications && (
               <p className="text-sm text-[#525252]">A new conversation will be created and opened immediately.</p>
             )}
-            <p className="text-xs text-amber-500">Note: AI responses require Edge Functions (Phase 5 of migration).</p>
+
           </div>
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setShowNewDialog(false)}>Cancel</Button>

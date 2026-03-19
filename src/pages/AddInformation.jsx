@@ -142,9 +142,9 @@ export default function AddInformation() {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
-    // TODO: Phase 5 — File upload via Supabase Storage
+    // TODO: Phase 6 — File upload via Supabase Storage
     // For now, just show a message
-    alert("Resume upload will be available after Supabase Storage is configured (Phase 5).");
+    alert("Resume upload will be available after Supabase Storage is configured.");
     setUploading(false);
   };
 

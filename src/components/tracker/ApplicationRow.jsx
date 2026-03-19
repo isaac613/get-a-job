@@ -31,8 +31,8 @@ export default function ApplicationRow({ app, onUpdate }) {
 
   const handleOpenCVAgent = async () => {
     setStartingChat(true);
-    // TODO: Phase 5 — Agent chat via Edge Functions
-    toast.info("Agent chat will be available after Edge Functions are configured (Phase 5).");
+    // Navigate to subagents with cv-helper agent context
+    window.location.href = "/subagents?agent=cv-helper";
     setStartingChat(false);
   };
   const [activeTab, setActiveTab] = useState("target");
