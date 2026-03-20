@@ -102,7 +102,7 @@ export default function StepSkills({ data, onChange, onNext, onBack }) {
           const isOpen = expanded.has(cat.key);
           const count = data[cat.key]?.length || 0;
           return (
-            <div key={cat.key} className="bg-white rounded-xl border border-[#E5E5E5] overflow-hidden">
+            <div key={cat.key} className="bg-white rounded-xl border border-[#E5E5E5]">
               <button
                 type="button"
                 onClick={() => toggleExpand(cat.key)}
