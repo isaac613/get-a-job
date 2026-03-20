@@ -103,21 +103,28 @@ export default function Onboarding() {
     setProfileData((prev) => ({
       ...prev,
       full_name: extracted.full_name || prev.full_name,
-      phone_number: extracted.phone_number || prev.phone_number,
+      location: extracted.location || prev.location,
       linkedin_url: extracted.linkedin_url || prev.linkedin_url,
       summary: extracted.summary || prev.summary,
-      resume_url: extracted.resume_url || prev.resume_url,
-      field_of_study: [edu.degree, edu.field_of_study].filter(Boolean).join(" ") || prev.field_of_study,
+      degree: extracted.degree || edu.degree || prev.degree,
+      field_of_study: extracted.field_of_study || [edu.degree, edu.field_of_study].filter(Boolean).join(" ") || prev.field_of_study,
+      education_level: extracted.education_level || prev.education_level,
       gpa: edu.gpa || prev.gpa,
       honors: edu.honors || prev.honors || [],
       skills: extracted.skills || prev.skills || [],
-      hard_skills: extracted.skills || prev.hard_skills || [],
+      tools_software: extracted.tools_software?.length ? extracted.tools_software : prev.tools_software || [],
+      hard_skills: extracted.hard_skills?.length ? extracted.hard_skills : (extracted.skills || prev.hard_skills || []),
+      technical_skills: extracted.technical_skills?.length ? extracted.technical_skills : prev.technical_skills || [],
+      analytical_skills: extracted.analytical_skills?.length ? extracted.analytical_skills : prev.analytical_skills || [],
+      communication_skills: extracted.communication_skills?.length ? extracted.communication_skills : prev.communication_skills || [],
+      leadership_skills: extracted.leadership_skills?.length ? extracted.leadership_skills : prev.leadership_skills || [],
       volunteering: extracted.volunteering || prev.volunteering || [],
     }));
 
     // Pre-fill experiences from resume
-    if (extracted.experience?.length > 0) {
-      setExperiences(extracted.experience.map((e) => ({
+    const exps = extracted.experiences || extracted.experience || [];
+    if (exps.length > 0) {
+      setExperiences(exps.map((e) => ({
         title: e.title || "",
         company: e.company || "",
         type: "full_time",
@@ -130,7 +137,8 @@ export default function Onboarding() {
       })));
     }
 
-    if (extracted.projects?.length > 0) {
+    const projs = extracted.projects || [];
+    if (projs.length > 0) {
       setProjects(extracted.projects);
     }
 
@@ -139,12 +147,28 @@ export default function Onboarding() {
     }
   };
 
+  const cleanProfilePayload = (data) => {
+    // Only keep fields that actually exist in the ‘profiles’ DB table schema!
+    const {
+      full_name, phone_number, location, linkedin_url, summary, skills, 
+      degree, field_of_study, education_level, gpa, honors, relevant_coursework, resume_url,
+      onboarding_step, onboarding_complete, is_onboarded, 
+      skill_gaps, qualification_level, overall_assessment, last_reality_check_date
+    } = data;
+    return {
+      full_name, phone_number, location, linkedin_url, summary, skills, 
+      degree, field_of_study, education_level, gpa, honors, relevant_coursework, resume_url,
+      onboarding_step, onboarding_complete, is_onboarded,
+      skill_gaps, qualification_level, overall_assessment, last_reality_check_date
+    };
+  };
+
   const saveProgress = async (stepNum) => {
-    const payload = { ...profileData, onboarding_step: stepNum };
-    // Remove non-DB fields
-    delete payload.id;
-    delete payload.created_at;
-    delete payload.updated_at;
+    const rawPayload = { ...profileData, onboarding_step: stepNum };
+    const payload = cleanProfilePayload(rawPayload);
+    
+    // Remove undefined values so we don't accidentally overwrite DB fields with null/undefined unnecessarily
+    Object.keys(payload).forEach(key => payload[key] === undefined && delete payload[key]);
     
     if (existingProfileId) {
       await supabase.from("profiles").update(payload).eq("id", existingProfileId);
@@ -228,9 +252,30 @@ export default function Onboarding() {
       ...(profileData.skills || []),
     ];
 
-    if (!existingProfileId) {
-      setFinalising(false);
-      return;
+    let targetProfileId = existingProfileId;
+
+    if (!targetProfileId) {
+      // The user somehow reached the end without a profile row saved!
+      // Attempt to save it now explicitly.
+      const rawPayload = { ...profileData, onboarding_step: 99 };
+      const payload = cleanProfilePayload(rawPayload);
+      Object.keys(payload).forEach(key => payload[key] === undefined && delete payload[key]);
+
+      const { data, error } = await supabase.from("profiles").insert({
+        id: user.id,
+        ...payload,
+        full_name: profileData.full_name || user.user_metadata?.full_name || "User",
+      }).select();
+
+      if (error || !data?.[0]) {
+        console.error("Critical error saving profile on finalise:", error);
+        alert(`Could not create profile. Reason: ${error?.message || "Unknown error"}. Please check console.`);
+        setFinalising(false);
+        return;
+      }
+      
+      targetProfileId = data[0].id;
+      setExistingProfileId(targetProfileId);
     }
 
     // Save experiences, projects, certifications
@@ -305,15 +350,17 @@ export default function Onboarding() {
     await Promise.all(promises);
 
     // Mark onboarding complete
-    await supabase.from("profiles").update({
+    const finalRawPayload = {
       ...profileData,
-      id: undefined,
-      created_at: undefined,
-      updated_at: undefined,
       skills: [...new Set(allSkills)],
       onboarding_complete: true,
       onboarding_step: 8,
-    }).eq("id", existingProfileId);
+      is_onboarded: true,
+    };
+    const finalPayload = cleanProfilePayload(finalRawPayload);
+    Object.keys(finalPayload).forEach(key => finalPayload[key] === undefined && delete finalPayload[key]);
+
+    await supabase.from("profiles").update(finalPayload).eq("id", targetProfileId);
 
     navigate(createPageUrl("Home"));
   };

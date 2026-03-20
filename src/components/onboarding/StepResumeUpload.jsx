@@ -1,4 +1,21 @@
 import React, { useState, useRef } from "react";
+import * as pdfjsLib from "pdfjs-dist";
+
+// Configure PDF.js worker using CDN to avoid Vite build complexity
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+
+async function extractTextFromPdf(file) {
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+  let text = "";
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    text += content.items.map(item => item.str).join(" ") + "\n";
+  }
+  return text;
+}
+
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -132,24 +149,35 @@ export default function StepResumeUpload({ onNext, onExtracted, profileData, onC
       setExtracting(true);
 
       // Try to extract resume content via LLM
-      const fileText = await file.text();
-      const { data: extractData, error: extractError } = await supabase.functions.invoke("ai-chat", {
+      let fileText = "";
+      if (file.type === "application/pdf") {
+        fileText = await extractTextFromPdf(file);
+      } else {
+        fileText = await file.text();
+      }
+      
+      const { data: extractData, error: fnError } = await supabase.functions.invoke("ai-chat", {
         body: {
-          message: `Extract structured information from this resume text. Return a JSON object with these fields: full_name, phone_number, location, linkedin_url, summary, skills (array), degree, field_of_study, education_level, experiences (array of {title, company, start_date, end_date, responsibilities}). Here is the resume:\n\n${fileText.slice(0, 6000)}`,
+          message: `Extract structured information from this resume text. Return ONLY a raw JSON object (no markdown, no code blocks) with these fields: full_name, phone_number, location, linkedin_url, summary, degree, field_of_study, education_level, skills (array of ALL skills combined), tools_software (array: apps/platforms/tools like Excel, Figma, Salesforce, Python, AWS), hard_skills (array: domain knowledge like Financial modeling, Market research, Contract law), technical_skills (array: engineering/programming skills like React, SQL, Machine learning — leave empty if not applicable), analytical_skills (array: data/problem-solving skills like Data analysis, Forecasting, A/B testing), communication_skills (array: written/verbal skills like Presentations, Technical writing, Public speaking), leadership_skills (array: people/management skills like Project management, Mentoring, Stakeholder management), experiences (array of {title, company, start_date, end_date, responsibilities}). Here is the resume:\n\n${fileText.slice(0, 6000)}`,
           agent: "resume-extractor",
           conversation_history: [],
         },
       });
 
-      setExtracting(false);
+      if (fnError) throw new Error(fnError.message || "Edge function error");
 
-      if (!extractError && extractData?.reply) {
+      console.log("AI extraction response:", extractData);
+
+      const replyText = extractData?.reply || extractData?.content || extractData?.text || "";
+
+      if (replyText) {
         try {
-          // Try to parse JSON from the LLM response
-          const jsonMatch = extractData.reply.match(/\{[\s\S]*\}/);
+          // Try to parse JSON from the LLM response (handles both raw JSON and embedded JSON)
+          const jsonMatch = replyText.match(/\{[\s\S]*\}/);
           if (jsonMatch) {
             const extracted = JSON.parse(jsonMatch[0]);
             onExtracted(extracted);
+            setExtracting(false);
             setDone(true);
             return;
           }
@@ -157,9 +185,11 @@ export default function StepResumeUpload({ onNext, onExtracted, profileData, onC
       }
 
       // File uploaded but extraction failed — still a success
+      console.warn("Extraction fallback. Response was:", extractData);
+      setExtracting(false);
       setDone(true);
-      setError("Resume uploaded successfully! However, automatic extraction wasn't possible. Please fill in your details manually.");
-    } catch (err) {
+      setError(`Resume uploaded successfully! However, automatic extraction wasn't possible. Please fill in your details manually.`);
+    } catch (err) { 
       console.error("Resume upload error:", err);
       setUploading(false);
       setExtracting(false);

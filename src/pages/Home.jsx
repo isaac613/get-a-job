@@ -99,11 +99,11 @@ export default function Home() {
 
   const handleResetOnboarding = async () => {
     if (!profile?.id) return;
-    if (!confirm("Reset onboarding? This will clear your profile and let you start fresh.")) return;
     await supabase.from("profiles").update({
       onboarding_complete: false,
       onboarding_step: 0,
     }).eq("id", profile.id);
+    await queryClient.invalidateQueries({ queryKey: ["userProfile", user?.id] });
     navigate(createPageUrl("Onboarding"));
   };
 
