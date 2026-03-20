@@ -120,19 +120,36 @@ export default function CareerRoadmap() {
 
       if (error) throw error;
 
-      // Save generated roles to DB
+      // Save generated roles to DB — insert first, then delete old to avoid data loss window
       if (data?.roles?.length > 0) {
-        // Clear old roles
-        await supabase.from("career_roles").delete().eq("user_id", user.id);
-        // Insert new roles
-        await supabase.from("career_roles").insert(
-          data.roles.map((r) => ({
-            title: r.title,
-            match_score: r.readiness_score,
-            skills_gap: r.missing_skills || [],
-            user_id: user.id,
-          }))
-        );
+        const { data: existingRoles } = await supabase
+          .from("career_roles")
+          .select("id")
+          .eq("user_id", user.id);
+
+        const existingIds = existingRoles?.map((r) => r.id) || [];
+
+        const { error: insertError } = await supabase
+          .from("career_roles")
+          .insert(
+            data.roles.map((r) => ({
+              title: r.title,
+              tier: r.tier,
+              match_score: r.readiness_score,
+              readiness_score: r.readiness_score,
+              matched_skills: r.matched_skills || [],
+              missing_skills: r.missing_skills || [],
+              skills_gap: r.missing_skills || [],
+              alignment_to_goal: r.alignment_to_goal || "",
+              user_id: user.id,
+            }))
+          );
+
+        if (insertError) throw insertError;
+
+        if (existingIds.length > 0) {
+          await supabase.from("career_roles").delete().in("id", existingIds);
+        }
       }
 
       queryClient.invalidateQueries({ queryKey: ["careerRoles"] });

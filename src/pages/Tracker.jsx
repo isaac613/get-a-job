@@ -49,9 +49,9 @@ export default function Tracker() {
     setAddingApp(true);
     const jd = jobDescription || newApp.job_description || "";
 
-    // Tier classification defaults to tier_1 for new applications
-    // Can be refined later with LLM analysis from Career Roadmap
-    const tier = "tier_1";
+    // Tier is not classified at creation time — Career Roadmap analysis assigns tiers.
+    // null means unclassified; add the role to Career Roadmap to get tier classification.
+    const tier = null;
 
     const { error } = await supabase.from("applications").insert({
       user_id: user.id,
@@ -253,7 +253,7 @@ export default function Tracker() {
                 className="mt-1 text-sm"
               />
               {!jobDescription && !newApp.job_description && (
-                <p className="text-[11px] text-[#A3A3A3] mt-1">Without a job description, the role will be set to Tier 1 by default.</p>
+                <p className="text-[11px] text-[#A3A3A3] mt-1">Without AI classification, tier will be unset. Add the role to your Career Roadmap to get tier classification.</p>
               )}
             </div>
           </div>

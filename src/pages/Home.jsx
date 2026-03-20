@@ -99,6 +99,10 @@ export default function Home() {
 
   const handleResetOnboarding = async () => {
     if (!profile?.id) return;
+    const confirmed = window.confirm(
+      "Are you sure? This will reset your entire onboarding and career analysis."
+    );
+    if (!confirmed) return;
     await supabase.from("profiles").update({
       onboarding_complete: false,
       onboarding_step: 0,

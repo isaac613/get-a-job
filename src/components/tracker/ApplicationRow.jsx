@@ -44,16 +44,26 @@ export default function ApplicationRow({ app, onUpdate }) {
   const status = STATUS_LABELS[app.status] || STATUS_LABELS.interested;
 
   const handleSaveJobDescription = async () => {
-    await supabase.from("applications").update({ job_description: jdText }).eq("id", app.id);
+    const { error } = await supabase.from("applications").update({ job_description: jdText }).eq("id", app.id);
+    if (error) {
+      console.error("Failed to save job description:", error);
+      toast.error("Failed to save job description. Please try again.");
+      return;
+    }
     onUpdate();
   };
 
   const handleSaveApplicationDetails = async () => {
-    await supabase.from("applications").update({
+    const { error } = await supabase.from("applications").update({
       applied_date: appliedDate,
       cv_version_used: cvVersionUsed,
       referral_attached: referralAttached,
     }).eq("id", app.id);
+    if (error) {
+      console.error("Failed to save application details:", error);
+      toast.error("Failed to save application details. Please try again.");
+      return;
+    }
     onUpdate();
   };
 

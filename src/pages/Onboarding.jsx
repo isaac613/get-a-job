@@ -72,6 +72,8 @@ export default function Onboarding() {
   const [overallAssessment, setOverallAssessment] = useState("");
 
   const [finalising, setFinalising] = useState(false);
+  const [saveError, setSaveError] = useState(null);
+  const [finaliseError, setFinaliseError] = useState(null);
 
   useEffect(() => {
     if (user) checkExistingProfile();
@@ -131,7 +133,9 @@ export default function Onboarding() {
         start_date: e.start_date || "",
         end_date: e.end_date || "",
         is_current: e.is_current || false,
-        responsibilities: (e.responsibilities || []).join("\n"),
+        responsibilities: Array.isArray(e.responsibilities)
+          ? e.responsibilities.join("\n")
+          : (e.responsibilities || ""),
         skills_used: e.skills_used || [],
         tools_used: [],
       })));
@@ -171,7 +175,8 @@ export default function Onboarding() {
     Object.keys(payload).forEach(key => payload[key] === undefined && delete payload[key]);
     
     if (existingProfileId) {
-      await supabase.from("profiles").update(payload).eq("id", existingProfileId);
+      const { error: updateError } = await supabase.from("profiles").update(payload).eq("id", existingProfileId);
+      if (updateError) throw updateError;
     } else {
       const { data, error } = await supabase.from("profiles").insert({
         id: user.id,
@@ -185,8 +190,14 @@ export default function Onboarding() {
   };
 
   const goTo = async (nextStep) => {
-    await saveProgress(nextStep).catch(() => {});
-    setStep(nextStep);
+    setSaveError(null);
+    try {
+      await saveProgress(nextStep);
+      setStep(nextStep);
+    } catch (err) {
+      console.error("Failed to save onboarding progress:", err);
+      setSaveError(`Could not save your progress: ${err?.message || "Unknown error"}. Please try again.`);
+    }
   };
 
   // Step 6→7: Run the AI tier analysis
@@ -209,16 +220,23 @@ export default function Onboarding() {
       setQualificationLevel(data?.qualification_level || "Not determined");
       setOverallAssessment(data?.overall_assessment || "");
 
-      // Save roles to DB
-      if (user) {
-        const { data: existingRoles } = await supabase.from("career_roles").select("id").eq("user_id", user.id);
-        if (existingRoles?.length > 0) {
-          await supabase.from("career_roles").delete().eq("user_id", user.id);
-        }
-        if (analysisRoles.length > 0) {
-          await supabase.from("career_roles").insert(
-            analysisRoles.map((r) => ({ ...r, user_id: user.id }))
-          );
+      // Save roles to DB — insert first, then delete old to avoid data loss window
+      if (user && analysisRoles.length > 0) {
+        const { data: existingRoles } = await supabase
+          .from("career_roles")
+          .select("id")
+          .eq("user_id", user.id);
+
+        const existingIds = existingRoles?.map((r) => r.id) || [];
+
+        const { error: insertError } = await supabase
+          .from("career_roles")
+          .insert(analysisRoles.map((r) => ({ ...r, user_id: user.id })));
+
+        if (insertError) throw insertError;
+
+        if (existingIds.length > 0) {
+          await supabase.from("career_roles").delete().in("id", existingIds);
         }
       }
 
@@ -347,7 +365,14 @@ export default function Onboarding() {
       );
     }
 
-    await Promise.all(promises);
+    try {
+      await Promise.all(promises);
+    } catch (err) {
+      console.error("Error saving onboarding data:", err);
+      setFinaliseError(`Some data could not be saved: ${err?.message || "Unknown error"}. Please try again.`);
+      setFinalising(false);
+      return;
+    }
 
     // Mark onboarding complete
     const finalRawPayload = {
@@ -387,6 +412,19 @@ export default function Onboarding() {
 
   return (
     <OnboardingShell currentStep={step}>
+      {saveError && (
+        <div className="mx-auto max-w-lg mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+          {saveError}
+        </div>
+      )}
+      {finaliseError && (
+        <div className="mx-auto max-w-lg mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg">
+          <p className="text-sm text-red-700">{finaliseError}</p>
+          <button onClick={handleFinalise} className="mt-2 text-xs font-medium text-red-800 underline underline-offset-2">
+            Retry
+          </button>
+        </div>
+      )}
       {step === 0 && (
         <StepResumeUpload
           onExtracted={handleResumeExtracted}

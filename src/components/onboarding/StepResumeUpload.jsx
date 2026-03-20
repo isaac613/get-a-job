@@ -1,8 +1,8 @@
 import React, { useState, useRef } from "react";
 import * as pdfjsLib from "pdfjs-dist";
+import pdfjsWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
-// Configure PDF.js worker using CDN to avoid Vite build complexity
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl;
 
 async function extractTextFromPdf(file) {
   const arrayBuffer = await file.arrayBuffer();
@@ -113,6 +113,7 @@ export default function StepResumeUpload({ onNext, onExtracted, profileData, onC
   const [fileName, setFileName] = useState(null);
   const [done, setDone] = useState(false);
   const [error, setError] = useState(null);
+  const [cvTruncated, setCvTruncated] = useState(false);
   const [linkedinUrl, setLinkedinUrl] = useState(profileData?.linkedin_url || "");
   const [extractingLinkedin, setExtractingLinkedin] = useState(false);
   const [linkedinDone, setLinkedinDone] = useState(false);
@@ -155,10 +156,14 @@ export default function StepResumeUpload({ onNext, onExtracted, profileData, onC
       } else {
         fileText = await file.text();
       }
-      
+
+      if (fileText.length > 15000) {
+        setCvTruncated(true);
+      }
+
       const { data: extractData, error: fnError } = await supabase.functions.invoke("ai-chat", {
         body: {
-          message: `Extract structured information from this resume text. Return ONLY a raw JSON object (no markdown, no code blocks) with these fields: full_name, phone_number, location, linkedin_url, summary, degree, field_of_study, education_level, skills (array of ALL skills combined), tools_software (array: apps/platforms/tools like Excel, Figma, Salesforce, Python, AWS), hard_skills (array: domain knowledge like Financial modeling, Market research, Contract law), technical_skills (array: engineering/programming skills like React, SQL, Machine learning — leave empty if not applicable), analytical_skills (array: data/problem-solving skills like Data analysis, Forecasting, A/B testing), communication_skills (array: written/verbal skills like Presentations, Technical writing, Public speaking), leadership_skills (array: people/management skills like Project management, Mentoring, Stakeholder management), experiences (array of {title, company, start_date, end_date, responsibilities}). Here is the resume:\n\n${fileText.slice(0, 6000)}`,
+          message: `Extract structured information from this resume text. Return ONLY a raw JSON object (no markdown, no code blocks) with these fields: full_name, phone_number, location, linkedin_url, summary, degree, field_of_study, education_level, skills (array of ALL skills combined), tools_software (array: apps/platforms/tools like Excel, Figma, Salesforce, Python, AWS), hard_skills (array: domain knowledge like Financial modeling, Market research, Contract law), technical_skills (array: engineering/programming skills like React, SQL, Machine learning — leave empty if not applicable), analytical_skills (array: data/problem-solving skills like Data analysis, Forecasting, A/B testing), communication_skills (array: written/verbal skills like Presentations, Technical writing, Public speaking), leadership_skills (array: people/management skills like Project management, Mentoring, Stakeholder management), experiences (array of {title, company, start_date, end_date, responsibilities}). Here is the resume:\n\n${fileText.slice(0, 15000)}`,
           agent: "resume-extractor",
           conversation_history: [],
         },
@@ -171,17 +176,34 @@ export default function StepResumeUpload({ onNext, onExtracted, profileData, onC
       const replyText = extractData?.reply || extractData?.content || extractData?.text || "";
 
       if (replyText) {
-        try {
-          // Try to parse JSON from the LLM response (handles both raw JSON and embedded JSON)
-          const jsonMatch = replyText.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            const extracted = JSON.parse(jsonMatch[0]);
+        const jsonMatch = replyText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          let extracted = null;
+
+          // Attempt 1: direct parse
+          try { extracted = JSON.parse(jsonMatch[0]); } catch {}
+
+          // Attempt 2: the LLM sometimes returns literal \n and \" escape sequences
+          // instead of actual whitespace/quote characters — unescape before parsing
+          if (!extracted) {
+            try {
+              const unescaped = jsonMatch[0]
+                .replace(/\\"/g, '"')
+                .replace(/\\n/g, '\n')
+                .replace(/\\t/g, '\t');
+              extracted = JSON.parse(unescaped);
+            } catch (e) {
+              console.error("JSON parse failed after unescaping:", e);
+            }
+          }
+
+          if (extracted) {
             onExtracted(extracted);
             setExtracting(false);
             setDone(true);
             return;
           }
-        } catch { /* JSON parse failed, fall through */ }
+        }
       }
 
       // File uploaded but extraction failed — still a success
@@ -363,6 +385,11 @@ export default function StepResumeUpload({ onNext, onExtracted, profileData, onC
         )}
       </div>
 
+      {cvTruncated && (
+        <p className="text-sm text-amber-600 bg-amber-50 px-4 py-3 rounded-lg">
+          Your CV is long — only the first 15,000 characters were sent for extraction. Some later experience may be missing. Please review the pre-filled details and add anything that wasn't captured.
+        </p>
+      )}
       {error && (
         <p className="text-sm text-amber-600 bg-amber-50 px-4 py-3 rounded-lg">{error}</p>
       )}
