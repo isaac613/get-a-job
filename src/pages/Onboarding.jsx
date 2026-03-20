@@ -156,13 +156,13 @@ export default function Onboarding() {
     const {
       full_name, phone_number, location, linkedin_url, summary, skills, 
       degree, field_of_study, education_level, gpa, honors, relevant_coursework, resume_url,
-      onboarding_step, onboarding_complete, is_onboarded, 
+      onboarding_step, onboarding_complete,
       skill_gaps, qualification_level, overall_assessment, last_reality_check_date
     } = data;
     return {
-      full_name, phone_number, location, linkedin_url, summary, skills, 
+      full_name, phone_number, location, linkedin_url, summary, skills,
       degree, field_of_study, education_level, gpa, honors, relevant_coursework, resume_url,
-      onboarding_step, onboarding_complete, is_onboarded,
+      onboarding_step, onboarding_complete,
       skill_gaps, qualification_level, overall_assessment, last_reality_check_date
     };
   };
@@ -380,7 +380,6 @@ export default function Onboarding() {
       skills: [...new Set(allSkills)],
       onboarding_complete: true,
       onboarding_step: 8,
-      is_onboarded: true,
     };
     const finalPayload = cleanProfilePayload(finalRawPayload);
     Object.keys(finalPayload).forEach(key => finalPayload[key] === undefined && delete finalPayload[key]);

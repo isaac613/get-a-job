@@ -246,8 +246,14 @@ Return ONLY valid JSON.`;
       return Response.json({ error: `PDF upload failed: ${uploadError.message}` }, { status: 500 });
     }
 
-    const { data: urlData } = supabase.storage.from("cvs").getPublicUrl(fileName);
-    const cv_url = urlData.publicUrl;
+    const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+      .from("cvs")
+      .createSignedUrl(fileName, 31536000); // 1 year expiry
+
+    if (signedUrlError || !signedUrlData) {
+      return Response.json({ error: "Failed to generate CV download URL" }, { status: 500 });
+    }
+    const cv_url = signedUrlData.signedUrl;
 
     // Create or update the Application record
     let appRecord;
