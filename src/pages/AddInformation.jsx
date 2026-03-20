@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
+import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Plus, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -142,9 +143,26 @@ export default function AddInformation() {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
-    // TODO: Phase 6 — File upload via Supabase Storage
-    // For now, just show a message
-    alert("Resume upload will be available after Supabase Storage is configured.");
+    try {
+      const filePath = `${user.id}/${Date.now()}_${file.name}`;
+      const { error: uploadError } = await supabase.storage
+        .from("resumes")
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from("resumes")
+        .getPublicUrl(filePath);
+
+      const resumeUrl = urlData?.publicUrl || filePath;
+      await supabase.from("profiles").update({ resume_url: resumeUrl }).eq("id", user.id);
+      queryClient.invalidateQueries({ queryKey: ["userProfile"] });
+      toast.success("Resume uploaded successfully!");
+    } catch (err) {
+      console.error("Resume upload error:", err);
+      toast.error("Failed to upload resume: " + err.message);
+    }
     setUploading(false);
   };
 

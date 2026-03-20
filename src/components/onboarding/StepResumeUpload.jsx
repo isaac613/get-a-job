@@ -1,5 +1,6 @@
 import React, { useState, useRef } from "react";
-// File uploads will use Supabase Storage (Phase 6)
+import { supabase } from "@/api/supabaseClient";
+import { useAuth } from "@/lib/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -89,6 +90,7 @@ const RESUME_SCHEMA = {
 };
 
 export default function StepResumeUpload({ onNext, onExtracted, profileData, onChange }) {
+  const { user } = useAuth();
   const [uploading, setUploading] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const [fileName, setFileName] = useState(null);
@@ -107,16 +109,62 @@ export default function StepResumeUpload({ onNext, onExtracted, profileData, onC
     setError(null);
     setUploading(true);
 
-    // TODO: Phase 6 — Upload file to Supabase Storage, then extract via Edge Function / LLM
-    // For now, stub the extraction with a placeholder
-    setUploading(false);
-    setExtracting(true);
+    try {
+      // Upload to Supabase Storage
+      const filePath = `${user.id}/${Date.now()}_${file.name}`;
+      const { error: uploadError } = await supabase.storage
+        .from("resumes")
+        .upload(filePath, file, { upsert: true });
 
-    // Simulate extraction delay
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+      if (uploadError) throw uploadError;
 
-    setExtracting(false);
-    setError("Resume upload requires Supabase Storage (coming soon). Please enter details manually for now, or skip this step.");
+      // Get download URL
+      const { data: urlData } = supabase.storage
+        .from("resumes")
+        .getPublicUrl(filePath);
+
+      // Save URL to profile
+      const resumeUrl = urlData?.publicUrl || filePath;
+      await supabase.from("profiles").update({ resume_url: resumeUrl }).eq("id", user.id);
+      onChange({ resume_url: resumeUrl });
+
+      setUploading(false);
+      setExtracting(true);
+
+      // Try to extract resume content via LLM
+      const fileText = await file.text();
+      const { data: extractData, error: extractError } = await supabase.functions.invoke("ai-chat", {
+        body: {
+          message: `Extract structured information from this resume text. Return a JSON object with these fields: full_name, phone_number, location, linkedin_url, summary, skills (array), degree, field_of_study, education_level, experiences (array of {title, company, start_date, end_date, responsibilities}). Here is the resume:\n\n${fileText.slice(0, 6000)}`,
+          agent: "resume-extractor",
+          conversation_history: [],
+        },
+      });
+
+      setExtracting(false);
+
+      if (!extractError && extractData?.reply) {
+        try {
+          // Try to parse JSON from the LLM response
+          const jsonMatch = extractData.reply.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            const extracted = JSON.parse(jsonMatch[0]);
+            onExtracted(extracted);
+            setDone(true);
+            return;
+          }
+        } catch { /* JSON parse failed, fall through */ }
+      }
+
+      // File uploaded but extraction failed — still a success
+      setDone(true);
+      setError("Resume uploaded successfully! However, automatic extraction wasn't possible. Please fill in your details manually.");
+    } catch (err) {
+      console.error("Resume upload error:", err);
+      setUploading(false);
+      setExtracting(false);
+      setError(`Upload failed: ${err.message}. Please try again or enter details manually.`);
+    }
   };
 
   const handleLinkedinConnect = async () => {
