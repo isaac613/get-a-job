@@ -1,12 +1,16 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Loader2, Brain, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import GeneratingBanner from "@/components/ui/GeneratingBanner";
+import RoleCard from "../components/roadmap/RoleCard";
+import LearningPaths from "../components/roadmap/LearningPaths";
+import ProgressVisualization from "../components/roadmap/ProgressVisualization";
 
 const ROADMAP_MESSAGES = [
   "Searching LinkedIn & Glassdoor for real job postings…",
@@ -17,27 +21,6 @@ const ROADMAP_MESSAGES = [
   "Ranking roles by readiness & alignment…",
   "Almost done — finalising your roadmap…",
 ];
-
-function GeneratingBanner({ messages }) {
-  const [idx, setIdx] = useState(0);
-  useEffect(() => {
-    const t = setInterval(() => setIdx((i) => (i + 1) % messages.length), 3500);
-    return () => clearInterval(t);
-  }, [messages.length]);
-  return (
-    <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-4 flex items-start gap-3 mb-6">
-      <Loader2 className="w-4 h-4 animate-spin text-amber-600 mt-0.5 flex-shrink-0" />
-      <div>
-        <p className="text-sm font-semibold text-amber-800">Generating your roadmap — this takes ~30–60 seconds</p>
-        <p className="text-xs text-amber-700 mt-1 transition-all">{messages[idx]}</p>
-      </div>
-    </div>
-  );
-}
-import RoleCard from "../components/roadmap/RoleCard";
-import LearningPaths from "../components/roadmap/LearningPaths";
-import ProgressVisualization from "../components/roadmap/ProgressVisualization";
-import { Link } from "react-router-dom";
 
 export default function CareerRoadmap() {
   const queryClient = useQueryClient();
@@ -105,45 +88,25 @@ export default function CareerRoadmap() {
 
       if (error) throw error;
 
-      // Save generated roles to DB — insert first, then delete old to avoid data loss window
+      // Atomically replace career roles using a DB transaction via RPC
       if (data?.roles?.length > 0) {
-        const { data: existingRoles } = await supabase
-          .from("career_roles")
-          .select("id")
-          .eq("user_id", user.id);
+        const rolesPayload = data.roles.map((r) => ({
+          title: r.title,
+          tier: r.tier,
+          match_score: r.readiness_score,
+          readiness_score: r.readiness_score,
+          matched_skills: r.matched_skills || [],
+          missing_skills: r.missing_skills || [],
+          skills_gap: r.missing_skills || [],
+          alignment_to_goal: r.alignment_to_goal || "",
+        }));
 
-        const existingIds = existingRoles?.map((r) => r.id) || [];
+        const { error: rpcError } = await supabase.rpc("replace_career_roles", {
+          p_user_id: user.id,
+          p_roles: rolesPayload,
+        });
 
-        const { data: insertedRoles, error: insertError } = await supabase
-          .from("career_roles")
-          .insert(
-            data.roles.map((r) => ({
-              title: r.title,
-              tier: r.tier,
-              match_score: r.readiness_score,
-              readiness_score: r.readiness_score,
-              matched_skills: r.matched_skills || [],
-              missing_skills: r.missing_skills || [],
-              skills_gap: r.missing_skills || [],
-              alignment_to_goal: r.alignment_to_goal || "",
-              user_id: user.id,
-            }))
-          )
-          .select("id");
-
-        if (insertError) throw insertError;
-
-        if (existingIds.length > 0) {
-          const { error: deleteError } = await supabase.from("career_roles").delete().in("id", existingIds);
-          if (deleteError) {
-            // Rollback: remove the rows we just inserted so we don't end up with duplicates
-            const newIds = insertedRoles?.map((r) => r.id) || [];
-            if (newIds.length > 0) {
-              await supabase.from("career_roles").delete().in("id", newIds);
-            }
-            throw deleteError;
-          }
-        }
+        if (rpcError) throw rpcError;
       }
 
       queryClient.invalidateQueries({ queryKey: ["careerRoles"] });
@@ -218,7 +181,7 @@ export default function CareerRoadmap() {
         )}
       </div>
 
-      {generating && <GeneratingBanner messages={ROADMAP_MESSAGES} />}
+      {generating && <GeneratingBanner messages={ROADMAP_MESSAGES} subtitle="Generating your roadmap — this takes ~30–60 seconds" />}
 
       {!profile && (
         <div className="bg-white rounded-xl border border-[#E5E5E5] p-8 text-center">

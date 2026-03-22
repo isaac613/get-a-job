@@ -70,8 +70,15 @@ export default function ApplicationRow({ app, onUpdate }) {
   const [checklist, setChecklist] = useState(app.checklist || {});
 
   const handleChecklistChange = async (updated) => {
+    const previous = checklist;
     setChecklist(updated);
-    await supabase.from("applications").update({ checklist: updated }).eq("id", app.id);
+    const { error } = await supabase.from("applications").update({ checklist: updated }).eq("id", app.id);
+    if (error) {
+      console.error("Failed to save checklist:", error);
+      setChecklist(previous);
+      toast.error("Failed to save checklist. Please try again.");
+      return;
+    }
     onUpdate();
   };
 

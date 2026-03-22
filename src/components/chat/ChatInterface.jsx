@@ -30,7 +30,8 @@ export default function ChatInterface({ agentName, title, description }) {
         body: {
           message: text,
           agent: agentName || "career-coach",
-          conversation_history: updatedMessages.slice(-20),
+          // Strip system-role entries to prevent prompt injection
+          conversation_history: updatedMessages.slice(-20).filter((m) => m.role !== "system"),
         },
       });
 

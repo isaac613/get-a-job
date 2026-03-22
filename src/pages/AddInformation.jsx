@@ -119,12 +119,17 @@ export default function AddInformation() {
 
   const saveProfile = async () => {
     setSaving(true);
-    if (profile) {
-      await supabase.from("profiles").update(profileForm).eq("id", profile.id);
-    } else {
-      await supabase.from("profiles").insert({ id: user.id, ...profileForm });
+    const { error } = profile
+      ? await supabase.from("profiles").update(profileForm).eq("id", user.id)
+      : await supabase.from("profiles").insert({ id: user.id, ...profileForm });
+    if (error) {
+      console.error("Failed to save profile:", error);
+      toast.error("Failed to save profile: " + error.message);
+      setSaving(false);
+      return;
     }
     queryClient.invalidateQueries({ queryKey: ["userProfile"] });
+    toast.success("Profile saved.");
     setSaving(false);
   };
 
@@ -173,30 +178,36 @@ export default function AddInformation() {
 
   const addCert = async () => {
     if (!certForm.name) return;
-    await supabase.from("certifications").insert({
-      ...certForm,
-      user_id: user.id,
-    });
+    const { error } = await supabase.from("certifications").insert({ ...certForm, user_id: user.id });
+    if (error) {
+      console.error("Failed to add certification:", error);
+      toast.error("Failed to add certification: " + error.message);
+      return;
+    }
     setCertForm({ name: "", issuer: "", skills_validated: [] });
     queryClient.invalidateQueries({ queryKey: ["certifications"] });
   };
 
   const addProject = async () => {
     if (!projectForm.name) return;
-    await supabase.from("projects").insert({
-      ...projectForm,
-      user_id: user.id,
-    });
+    const { error } = await supabase.from("projects").insert({ ...projectForm, user_id: user.id });
+    if (error) {
+      console.error("Failed to add project:", error);
+      toast.error("Failed to add project: " + error.message);
+      return;
+    }
     setProjectForm({ name: "", description: "", skills_demonstrated: [], url: "" });
     queryClient.invalidateQueries({ queryKey: ["projects"] });
   };
 
   const addExperience = async () => {
     if (!expForm.title || !expForm.company) return;
-    await supabase.from("experiences").insert({
-      ...expForm,
-      user_id: user.id,
-    });
+    const { error } = await supabase.from("experiences").insert({ ...expForm, user_id: user.id });
+    if (error) {
+      console.error("Failed to add experience:", error);
+      toast.error("Failed to add experience: " + error.message);
+      return;
+    }
     setExpForm({ title: "", company: "", type: "internship", description: "", skills_used: [] });
     queryClient.invalidateQueries({ queryKey: ["experiences"] });
   };
@@ -403,7 +414,7 @@ export default function AddInformation() {
                       <p className="text-sm font-medium text-[#0A0A0A]">{c.name}</p>
                       <p className="text-xs text-[#A3A3A3]">{c.issuer}</p>
                     </div>
-                    <Button variant="ghost" size="sm" onClick={async () => { await supabase.from("certifications").delete().eq("id", c.id); queryClient.invalidateQueries({ queryKey: ["certifications"] }); }}>
+                    <Button variant="ghost" size="sm" onClick={async () => { const { error } = await supabase.from("certifications").delete().eq("id", c.id).eq("user_id", user.id); if (error) { toast.error("Failed to delete certification."); return; } queryClient.invalidateQueries({ queryKey: ["certifications"] }); }}>
                       <Trash2 className="w-4 h-4 text-[#A3A3A3] hover:text-red-500" />
                     </Button>
                   </div>
@@ -444,7 +455,7 @@ export default function AddInformation() {
                       <p className="text-sm font-medium text-[#0A0A0A]">{p.name}</p>
                       <p className="text-xs text-[#A3A3A3]">{p.description?.substring(0, 60)}{p.description?.length > 60 ? "..." : ""}</p>
                     </div>
-                    <Button variant="ghost" size="sm" onClick={async () => { await supabase.from("projects").delete().eq("id", p.id); queryClient.invalidateQueries({ queryKey: ["projects"] }); }}>
+                    <Button variant="ghost" size="sm" onClick={async () => { const { error } = await supabase.from("projects").delete().eq("id", p.id).eq("user_id", user.id); if (error) { toast.error("Failed to delete project."); return; } queryClient.invalidateQueries({ queryKey: ["projects"] }); }}>
                       <Trash2 className="w-4 h-4 text-[#A3A3A3] hover:text-red-500" />
                     </Button>
                   </div>
@@ -498,7 +509,7 @@ export default function AddInformation() {
                       <p className="text-sm font-medium text-[#0A0A0A]">{e.title} at {e.company}</p>
                       <p className="text-xs text-[#A3A3A3]">{e.type?.replace("_", " ")}</p>
                     </div>
-                    <Button variant="ghost" size="sm" onClick={async () => { await supabase.from("experiences").delete().eq("id", e.id); queryClient.invalidateQueries({ queryKey: ["experiences"] }); }}>
+                    <Button variant="ghost" size="sm" onClick={async () => { const { error } = await supabase.from("experiences").delete().eq("id", e.id).eq("user_id", user.id); if (error) { toast.error("Failed to delete experience."); return; } queryClient.invalidateQueries({ queryKey: ["experiences"] }); }}>
                       <Trash2 className="w-4 h-4 text-[#A3A3A3] hover:text-red-500" />
                     </Button>
                   </div>

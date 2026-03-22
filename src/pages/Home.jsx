@@ -100,14 +100,20 @@ export default function Home() {
       "Are you sure? This will reset your entire onboarding and career analysis."
     );
     if (!confirmed) return;
-    await Promise.all([
+    const deleteResults = await Promise.all([
       supabase.from("career_roles").delete().eq("user_id", user.id),
       supabase.from("tasks").delete().eq("user_id", user.id),
       supabase.from("experiences").delete().eq("user_id", user.id),
       supabase.from("projects").delete().eq("user_id", user.id),
       supabase.from("certifications").delete().eq("user_id", user.id),
     ]);
-    await supabase.from("profiles").update({
+    const deleteError = deleteResults.find((r) => r.error)?.error;
+    if (deleteError) {
+      console.error("Failed to clear data during reset:", deleteError);
+      window.alert("Could not reset all data. Please refresh the page and try again.");
+      return;
+    }
+    const { error: profileResetError } = await supabase.from("profiles").update({
       onboarding_complete: false,
       onboarding_step: 0,
       overall_assessment: null,
@@ -115,6 +121,11 @@ export default function Home() {
       skill_gaps: [],
       last_reality_check_date: null,
     }).eq("id", profile.id);
+    if (profileResetError) {
+      console.error("Failed to reset profile:", profileResetError);
+      window.alert("Data cleared but profile status could not be reset. Please refresh the page.");
+      return;
+    }
     await queryClient.invalidateQueries({ queryKey: ["userProfile", user?.id] });
     navigate(createPageUrl("Onboarding"));
   };

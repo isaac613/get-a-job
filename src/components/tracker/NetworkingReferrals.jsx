@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Trash2, Users } from "lucide-react";
+import { toast } from "sonner";
 const RESPONSE_STATUS = {
   pending: { label: "Pending", className: "bg-gray-100 text-gray-700" },
   responded: { label: "Responded", className: "bg-emerald-100 text-emerald-700" },
@@ -24,9 +25,10 @@ export default function NetworkingReferrals({ app, onUpdate }) {
 
   const handleAdd = () => {
     if (!newContact.contact_name) return;
+    const previous = contacts;
     const updated = [...contacts, newContact];
     setContacts(updated);
-    saveContacts(updated);
+    saveContacts(updated, previous);
     setNewContact({
       contact_name: "",
       contact_company: "",
@@ -38,19 +40,27 @@ export default function NetworkingReferrals({ app, onUpdate }) {
   };
 
   const handleRemove = (index) => {
+    const previous = contacts;
     const updated = contacts.filter((_, i) => i !== index);
     setContacts(updated);
-    saveContacts(updated);
+    saveContacts(updated, previous);
   };
 
   const handleUpdate = (index, field, value) => {
+    const previous = contacts;
     const updated = contacts.map((c, i) => (i === index ? { ...c, [field]: value } : c));
     setContacts(updated);
-    saveContacts(updated);
+    saveContacts(updated, previous);
   };
 
-  const saveContacts = async (updated) => {
-    await supabase.from("applications").update({ networking_contacts: updated }).eq("id", app.id);
+  const saveContacts = async (updated, previous) => {
+    const { error } = await supabase.from("applications").update({ networking_contacts: updated }).eq("id", app.id);
+    if (error) {
+      console.error("Failed to save contacts:", error);
+      setContacts(previous);
+      toast.error("Failed to save. Please try again.");
+      return;
+    }
     onUpdate();
   };
 

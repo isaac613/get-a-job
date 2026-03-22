@@ -1,14 +1,23 @@
-import React from "react";
+import React, { useState } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CheckCircle2, Circle } from "lucide-react";
+import { toast } from "sonner";
 
 export default function FollowUp({ app, onUpdate }) {
-  const followUp = app.follow_up || {};
+  const [followUp, setFollowUp] = useState(app.follow_up || {});
 
   const handleToggle = async (field) => {
+    const previous = followUp;
     const updated = { ...followUp, [field]: !followUp[field] };
-    await supabase.from("applications").update({ follow_up: updated }).eq("id", app.id);
+    setFollowUp(updated);
+    const { error } = await supabase.from("applications").update({ follow_up: updated }).eq("id", app.id);
+    if (error) {
+      console.error("Failed to save follow-up:", error);
+      setFollowUp(previous);
+      toast.error("Failed to save. Please try again.");
+      return;
+    }
     onUpdate();
   };
 
@@ -18,7 +27,7 @@ export default function FollowUp({ app, onUpdate }) {
     { key: "response_received", label: "Response Received" },
   ];
 
-  const completedCount = items.filter((item) => followUp[item.key]).length;
+  const completedCount = items.filter((item) => followUp[item.key] === true).length;
 
   return (
     <div className="space-y-4">

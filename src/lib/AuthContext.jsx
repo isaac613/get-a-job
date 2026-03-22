@@ -10,28 +10,10 @@ export const AuthProvider = ({ children }) => {
   const [authError, setAuthError] = useState(null);
 
   useEffect(() => {
-    // Check initial session
-    const getSession = async () => {
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        if (error) throw error;
-        
-        if (session) {
-          setUser(session.user);
-          setIsAuthenticated(true);
-        }
-      } catch (err) {
-        console.error('Session error:', err);
-      } finally {
-        setIsLoadingAuth(false);
-      }
-    };
-
-    getSession();
-
-    // Listen to auth changes
+    // Use onAuthStateChange exclusively — the INITIAL_SESSION event fires on subscription
+    // and gives us the current session without a separate getSession() race condition.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      (event, session) => {
         if (session) {
           setUser(session.user);
           setIsAuthenticated(true);
@@ -40,6 +22,7 @@ export const AuthProvider = ({ children }) => {
           setUser(null);
           setIsAuthenticated(false);
         }
+        // Mark loading done after the first event (INITIAL_SESSION or SIGNED_OUT)
         setIsLoadingAuth(false);
       }
     );

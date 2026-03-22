@@ -66,14 +66,15 @@ Deno.serve(async (req) => {
         status: 413, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    const { profile_data, dream_roles } = body
+    const { dream_roles } = body
 
     const { data: profiles } = await supabase.from('profiles').select('*').eq('id', user.id)
     const { data: experiences } = await supabase.from('experiences').select('*').eq('user_id', user.id)
     const { data: projects } = await supabase.from('projects').select('*').eq('user_id', user.id)
     const { data: certifications } = await supabase.from('certifications').select('*').eq('user_id', user.id)
 
-    const profile = profile_data || profiles?.[0]
+    // Always use the authoritative DB record — never trust client-supplied profile data
+    const profile = profiles?.[0]
     if (!profile) {
       return new Response(JSON.stringify({ error: 'No profile found' }), {
         status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },

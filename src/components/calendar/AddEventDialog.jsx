@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
+import { toast } from "sonner";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -28,17 +29,18 @@ export default function AddEventDialog({ open, onClose, applications, onEventAdd
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    const startDateTime = formData.all_day 
+    if (!user?.id) return;
+
+    const startDateTime = formData.all_day
       ? formData.start_date
       : `${formData.start_date}T${formData.start_time}`;
-    
+
     const endDateTime = formData.end_date && formData.end_time
       ? `${formData.end_date}T${formData.end_time}`
       : null;
 
-    await supabase.from("calendar_events").insert({
-      user_id: user?.id,
+    const { error } = await supabase.from("calendar_events").insert({
+      user_id: user.id,
       title: formData.title,
       description: formData.description,
       event_type: formData.event_type,
@@ -49,6 +51,12 @@ export default function AddEventDialog({ open, onClose, applications, onEventAdd
       location: formData.location,
       reminder_minutes: formData.reminder_minutes
     });
+
+    if (error) {
+      console.error("Failed to add event:", error);
+      toast.error("Failed to add event. Please try again.");
+      return;
+    }
 
     onEventAdded();
     onClose();

@@ -1,14 +1,23 @@
-import React from "react";
+import React, { useState } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CheckCircle2, Circle } from "lucide-react";
+import { toast } from "sonner";
 
 export default function InterviewPrep({ app, onUpdate }) {
-  const prep = app.interview_prep || {};
+  const [prep, setPrep] = useState(app.interview_prep || {});
 
   const handleToggle = async (field) => {
+    const previous = prep;
     const updated = { ...prep, [field]: !prep[field] };
-    await supabase.from("applications").update({ interview_prep: updated }).eq("id", app.id);
+    setPrep(updated);
+    const { error } = await supabase.from("applications").update({ interview_prep: updated }).eq("id", app.id);
+    if (error) {
+      console.error("Failed to save interview prep:", error);
+      setPrep(previous);
+      toast.error("Failed to save. Please try again.");
+      return;
+    }
     onUpdate();
   };
 

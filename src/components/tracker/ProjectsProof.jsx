@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 const STATUS_COLORS = {
   not_started: "bg-gray-100 text-gray-700",
   in_progress: "bg-blue-100 text-blue-700",
@@ -20,26 +21,35 @@ export default function ProjectsProof({ app, onUpdate }) {
 
   const handleAdd = () => {
     if (!newProject.project_name || !newProject.skill_proven) return;
+    const previous = projects;
     const updated = [...projects, newProject];
     setProjects(updated);
-    saveProjects(updated);
+    saveProjects(updated, previous);
     setNewProject({ project_name: "", skill_proven: "", status: "not_started" });
   };
 
   const handleRemove = (index) => {
+    const previous = projects;
     const updated = projects.filter((_, i) => i !== index);
     setProjects(updated);
-    saveProjects(updated);
+    saveProjects(updated, previous);
   };
 
   const handleUpdate = (index, field, value) => {
+    const previous = projects;
     const updated = projects.map((p, i) => (i === index ? { ...p, [field]: value } : p));
     setProjects(updated);
-    saveProjects(updated);
+    saveProjects(updated, previous);
   };
 
-  const saveProjects = async (updated) => {
-    await supabase.from("applications").update({ projects_proof: updated }).eq("id", app.id);
+  const saveProjects = async (updated, previous) => {
+    const { error } = await supabase.from("applications").update({ projects_proof: updated }).eq("id", app.id);
+    if (error) {
+      console.error("Failed to save projects:", error);
+      setProjects(previous);
+      toast.error("Failed to save. Please try again.");
+      return;
+    }
     onUpdate();
   };
 

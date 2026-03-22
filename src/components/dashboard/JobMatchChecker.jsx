@@ -97,19 +97,24 @@ export default function JobMatchChecker({ profile, experiences }) {
   };
 
   const handleAddToTracker = async () => {
-    if (!result) return;
+    if (!result || !user?.id) return;
     setAddingToTracker(true);
-    await supabase.from("applications").insert({
-      user_id: user?.id,
+    const { error } = await supabase.from("applications").insert({
+      user_id: user.id,
       role_title: result.job_title || "Unknown Role",
       company: result.company || "",
       status: "interested",
-      tier: "tier_1",
+      tier: null,
       job_description: result.job_description || "",
       qualification_score: (result.match_score || 0) / 100,
       notes: result.source_url ? `Source: ${result.source_url}` : "",
     });
     setAddingToTracker(false);
+    if (error) {
+      console.error("Failed to add to tracker:", error);
+      setError("Failed to add to tracker. Please try again.");
+      return;
+    }
     setAddedToTracker(true);
   };
 

@@ -13,10 +13,15 @@ export default function CVManagement({ app, onUpdate }) {
   const [generating, setGenerating] = useState(false);
 
   const handleSave = async () => {
-    await supabase.from("applications").update({
+    const { error } = await supabase.from("applications").update({
       cv_version_name: cvName,
       cv_status: cvStatus,
     }).eq("id", app.id);
+    if (error) {
+      console.error("Failed to save CV details:", error);
+      toast.error("Failed to save. Please try again.");
+      return;
+    }
     onUpdate();
   };
 

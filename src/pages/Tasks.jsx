@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Brain, CheckCircle2, Circle, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import GeneratingBanner from "@/components/ui/GeneratingBanner";
 
 const TASK_MESSAGES = [
   "Searching LinkedIn & Glassdoor for real active job postings…",
@@ -14,23 +16,6 @@ const TASK_MESSAGES = [
   "Prioritising tasks by impact on Tier 1 applications…",
   "Almost ready — wrapping up your task list…",
 ];
-
-function GeneratingBanner({ messages }) {
-  const [idx, setIdx] = useState(0);
-  useEffect(() => {
-    const t = setInterval(() => setIdx((i) => (i + 1) % messages.length), 3500);
-    return () => clearInterval(t);
-  }, [messages.length]);
-  return (
-    <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-4 flex items-start gap-3 mb-6">
-      <Loader2 className="w-4 h-4 animate-spin text-amber-600 mt-0.5 flex-shrink-0" />
-      <div>
-        <p className="text-sm font-semibold text-amber-800">Generating your tasks — this takes ~20–40 seconds</p>
-        <p className="text-xs text-amber-700 mt-1">{messages[idx]}</p>
-      </div>
-    </div>
-  );
-}
 
 const CATEGORY_LABELS = {
   skill: { label: "Skill Gap", color: "bg-blue-50 text-blue-700" },
@@ -111,14 +96,16 @@ export default function Tasks() {
         await supabase.from("tasks").insert(generatedTasks);
       }
 
-      // Delete old incomplete tasks only after new ones are safely inserted
+      // Delete old incomplete tasks only after new ones are safely inserted.
+      // Filter to is_complete = false to avoid deleting tasks the user completed during the LLM call.
       if (incompleteIds.length > 0) {
-        await supabase.from("tasks").delete().in("id", incompleteIds);
+        await supabase.from("tasks").delete().in("id", incompleteIds).eq("is_complete", false);
       }
 
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
     } catch (err) {
       console.error("Task generation error:", err);
+      toast.error(err.message || "Failed to generate tasks. Please try again.");
     } finally {
       setGenerating(false);
     }
@@ -190,7 +177,7 @@ export default function Tasks() {
         )}
       </div>
 
-      {generating && <GeneratingBanner messages={TASK_MESSAGES} />}
+      {generating && <GeneratingBanner messages={TASK_MESSAGES} subtitle="Generating your tasks — this takes ~20–40 seconds" />}
 
       {/* Category filters */}
       <div className="flex gap-2 mb-6 overflow-x-auto pb-2">

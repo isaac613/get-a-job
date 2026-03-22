@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, CheckCircle2, AlertCircle, MinusCircle, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 const STATUS_CONFIG = {
@@ -18,26 +19,35 @@ export default function SkillsRequired({ app, onUpdate }) {
 
   const handleAdd = () => {
     if (!newSkill.skill_name) return;
+    const previous = skills;
     const updated = [...skills, newSkill];
     setSkills(updated);
-    saveSkills(updated);
+    saveSkills(updated, previous);
     setNewSkill({ skill_name: "", status: "missing", evidence_source: "" });
   };
 
   const handleRemove = (index) => {
+    const previous = skills;
     const updated = skills.filter((_, i) => i !== index);
     setSkills(updated);
-    saveSkills(updated);
+    saveSkills(updated, previous);
   };
 
   const handleUpdate = (index, field, value) => {
+    const previous = skills;
     const updated = skills.map((s, i) => (i === index ? { ...s, [field]: value } : s));
     setSkills(updated);
-    saveSkills(updated);
+    saveSkills(updated, previous);
   };
 
-  const saveSkills = async (updated) => {
-    await supabase.from("applications").update({ skills_required: updated }).eq("id", app.id);
+  const saveSkills = async (updated, previous) => {
+    const { error } = await supabase.from("applications").update({ skills_required: updated }).eq("id", app.id);
+    if (error) {
+      console.error("Failed to save skills:", error);
+      setSkills(previous);
+      toast.error("Failed to save. Please try again.");
+      return;
+    }
     onUpdate();
   };
 

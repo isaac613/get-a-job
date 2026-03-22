@@ -212,7 +212,6 @@ export default function Onboarding() {
     try {
       const { data, error } = await supabase.functions.invoke("generate-career-analysis", {
         body: {
-          profile_data: profileData,
           dream_roles: profileData.dream_roles || [],
         },
       });
@@ -224,34 +223,25 @@ export default function Onboarding() {
       setQualificationLevel(data?.qualification_level || "Not determined");
       setOverallAssessment(data?.overall_assessment || "");
 
-      // Save roles to DB — insert first, then delete old to avoid data loss window
+      // Atomically replace career roles using a DB transaction via RPC
       if (user && analysisRoles.length > 0) {
-        const { data: existingRoles } = await supabase
-          .from("career_roles")
-          .select("id")
-          .eq("user_id", user.id);
+        const rolesPayload = analysisRoles.map((r) => ({
+          title: r.title,
+          tier: r.tier,
+          match_score: r.readiness_score,
+          readiness_score: r.readiness_score,
+          matched_skills: r.matched_skills || [],
+          missing_skills: r.missing_skills || [],
+          skills_gap: r.missing_skills || [],
+          alignment_to_goal: r.alignment_to_goal || "",
+        }));
 
-        const existingIds = existingRoles?.map((r) => r.id) || [];
+        const { error: rpcError } = await supabase.rpc("replace_career_roles", {
+          p_user_id: user.id,
+          p_roles: rolesPayload,
+        });
 
-        const { error: insertError } = await supabase
-          .from("career_roles")
-          .insert(analysisRoles.map((r) => ({
-            title: r.title,
-            tier: r.tier,
-            match_score: r.readiness_score,
-            readiness_score: r.readiness_score,
-            matched_skills: r.matched_skills || [],
-            missing_skills: r.missing_skills || [],
-            skills_gap: r.missing_skills || [],
-            alignment_to_goal: r.alignment_to_goal || "",
-            user_id: user.id,
-          })));
-
-        if (insertError) throw insertError;
-
-        if (existingIds.length > 0) {
-          await supabase.from("career_roles").delete().in("id", existingIds);
-        }
+        if (rpcError) throw rpcError;
       }
 
       if (existingProfileId) {
@@ -302,7 +292,7 @@ export default function Onboarding() {
 
       if (error || !data?.[0]) {
         console.error("Critical error saving profile on finalise:", error);
-        alert(`Could not create profile. Reason: ${error?.message || "Unknown error"}. Please check console.`);
+        setFinaliseError(`Could not create profile: ${error?.message || "Unknown error"}. Please try again.`);
         setFinalising(false);
         return;
       }
@@ -408,7 +398,14 @@ export default function Onboarding() {
     if (oldProjIds.length > 0) deleteOps.push(supabase.from("projects").delete().in("id", oldProjIds));
     if (oldCertIds.length > 0) deleteOps.push(supabase.from("certifications").delete().in("id", oldCertIds));
     if (oldTaskIds.length > 0) deleteOps.push(supabase.from("tasks").delete().in("id", oldTaskIds));
-    if (deleteOps.length > 0) await Promise.all(deleteOps);
+    if (deleteOps.length > 0) {
+      const deleteResults = await Promise.all(deleteOps);
+      const deleteError = deleteResults.find((r) => r.error)?.error;
+      if (deleteError) {
+        console.error("Error cleaning up old records:", deleteError);
+        // Non-fatal: new data was already saved. Log and continue.
+      }
+    }
 
     // Mark onboarding complete
     const finalRawPayload = {

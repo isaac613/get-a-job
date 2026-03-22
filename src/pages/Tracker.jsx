@@ -65,7 +65,7 @@ export default function Tracker() {
       return;
     }
 
-    setNewApp({ role_title: "", company: "", status: "interested" });
+    setNewApp({ role_title: "", company: "", status: "interested", job_description: "" });
     setJobUrl("");
     setJobDescription("");
     setShowAdd(false);
