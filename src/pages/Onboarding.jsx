@@ -311,13 +311,17 @@ export default function Onboarding() {
       setExistingProfileId(targetProfileId);
     }
 
-    // Clear existing data first to prevent duplicates if the user retries
-    await Promise.all([
-      supabase.from("experiences").delete().eq("user_id", user.id),
-      supabase.from("projects").delete().eq("user_id", user.id),
-      supabase.from("certifications").delete().eq("user_id", user.id),
-      supabase.from("tasks").delete().eq("user_id", user.id),
+    // Capture existing IDs before inserting new data — delete only after inserts succeed
+    const [existingExpRes, existingProjRes, existingCertRes, existingTaskRes] = await Promise.all([
+      supabase.from("experiences").select("id").eq("user_id", user.id),
+      supabase.from("projects").select("id").eq("user_id", user.id),
+      supabase.from("certifications").select("id").eq("user_id", user.id),
+      supabase.from("tasks").select("id").eq("user_id", user.id),
     ]);
+    const oldExpIds = existingExpRes.data?.map((r) => r.id) || [];
+    const oldProjIds = existingProjRes.data?.map((r) => r.id) || [];
+    const oldCertIds = existingCertRes.data?.map((r) => r.id) || [];
+    const oldTaskIds = existingTaskRes.data?.map((r) => r.id) || [];
 
     // Save experiences, projects, certifications
     const promises = [];
@@ -398,6 +402,14 @@ export default function Onboarding() {
       return;
     }
 
+    // Delete old records by ID — only after new data is safely inserted
+    const deleteOps = [];
+    if (oldExpIds.length > 0) deleteOps.push(supabase.from("experiences").delete().in("id", oldExpIds));
+    if (oldProjIds.length > 0) deleteOps.push(supabase.from("projects").delete().in("id", oldProjIds));
+    if (oldCertIds.length > 0) deleteOps.push(supabase.from("certifications").delete().in("id", oldCertIds));
+    if (oldTaskIds.length > 0) deleteOps.push(supabase.from("tasks").delete().in("id", oldTaskIds));
+    if (deleteOps.length > 0) await Promise.all(deleteOps);
+
     // Mark onboarding complete
     const finalRawPayload = {
       ...profileData,
@@ -408,7 +420,13 @@ export default function Onboarding() {
     const finalPayload = cleanProfilePayload(finalRawPayload);
     Object.keys(finalPayload).forEach(key => finalPayload[key] === undefined && delete finalPayload[key]);
 
-    await supabase.from("profiles").update(finalPayload).eq("id", targetProfileId);
+    const { error: finalUpdateError } = await supabase.from("profiles").update(finalPayload).eq("id", targetProfileId);
+    if (finalUpdateError) {
+      console.error("Failed to mark onboarding complete:", finalUpdateError);
+      setFinaliseError(`Could not complete setup: ${finalUpdateError.message}. Please try again.`);
+      setFinalising(false);
+      return;
+    }
 
     // Remove all cached query data so Home fetches fresh — invalidateQueries only marks stale
     // but leaves old data visible, which can trigger the onboarding redirect guard

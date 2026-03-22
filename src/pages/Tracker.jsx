@@ -28,7 +28,7 @@ export default function Tracker() {
   const [importError, setImportError] = useState("");
   const [addingApp, setAddingApp] = useState(false);
 
-  const { data: applications, isLoading } = useQuery({
+  const { data: applications = [], isLoading } = useQuery({
     queryKey: ["applications", user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
@@ -41,7 +41,6 @@ export default function Tracker() {
       return data || [];
     },
     enabled: !!user?.id,
-    initialData: [],
   });
 
   const handleAdd = async () => {

@@ -15,7 +15,7 @@ export default function Home() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const { data: profiles = [], isLoading: loadingProfile, isFetched: profileFetched } = useQuery({
+  const { data: profiles = [], isLoading: loadingProfile, isFetched: profileFetched, isError: profileError } = useQuery({
     queryKey: ["userProfile", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase.from("profiles").select("*").eq("id", user.id);
@@ -25,7 +25,7 @@ export default function Home() {
     enabled: !!user?.id,
   });
 
-  const { data: roles = [], isLoading: loadingRoles } = useQuery({
+  const { data: roles = [], isLoading: loadingRoles, isError: rolesError } = useQuery({
     queryKey: ["careerRoles", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase.from("career_roles").select("*").eq("user_id", user.id);
@@ -35,7 +35,7 @@ export default function Home() {
     enabled: !!user?.id,
   });
 
-  const { data: applications = [], isLoading: loadingApps } = useQuery({
+  const { data: applications = [], isLoading: loadingApps, isError: appsError } = useQuery({
     queryKey: ["applications", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase.from("applications").select("*").eq("user_id", user.id);
@@ -70,12 +70,13 @@ export default function Home() {
 
   React.useEffect(() => {
     if (!user || !profileFetched) return;
+    if (profileError) return; // don't redirect if the query failed
     if (profiles?.length === 0) {
       navigate(createPageUrl("Onboarding"));
     } else if (profile && !profile.onboarding_complete) {
       navigate(createPageUrl("Onboarding"));
     }
-  }, [user, profileFetched, profile, profiles, navigate]);
+  }, [user, profileFetched, profileError, profile, profiles, navigate]);
 
   if (isLoading) {
     return (
@@ -109,6 +110,10 @@ export default function Home() {
     await supabase.from("profiles").update({
       onboarding_complete: false,
       onboarding_step: 0,
+      overall_assessment: null,
+      qualification_level: null,
+      skill_gaps: [],
+      last_reality_check_date: null,
     }).eq("id", profile.id);
     await queryClient.invalidateQueries({ queryKey: ["userProfile", user?.id] });
     navigate(createPageUrl("Onboarding"));
@@ -121,6 +126,14 @@ export default function Home() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
     >
+      {/* Data load error banner */}
+      {(rolesError || appsError) && (
+        <div className="flex items-center gap-2 mb-6 px-4 py-3 bg-red-50 border border-red-100 rounded-xl text-sm text-red-700">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          Some data failed to load. Refresh the page to try again.
+        </div>
+      )}
+
       {/* Header */}
       <div className="mb-8 flex justify-between items-start">
         <div>

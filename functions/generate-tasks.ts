@@ -60,6 +60,11 @@ Deno.serve(async (req) => {
     }
 
     const { context } = await req.json()
+    if (context !== undefined && typeof context !== 'string') {
+      return new Response(JSON.stringify({ error: 'Invalid context field.' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     const { data: profiles } = await supabase.from('profiles').select('*').eq('id', user.id)
     const { data: careerRoles } = await supabase.from('career_roles').select('*').eq('user_id', user.id)
@@ -76,7 +81,7 @@ USER PROFILE:
 - Target Roles: ${(careerRoles || []).map(r => r.title).join(', ') || 'Not set'}
 - Active Applications: ${activeApplications}
 - Experience: ${(experiences || []).map(e => `${e.title} at ${e.company}`).join(', ') || 'None'}
-${context ? `- Additional Context: ${context}` : ''}
+${context ? `- Additional Context: ${String(context).slice(0, 500)}` : ''}
 
 TASK: Generate a personalised weekly action plan of 5-8 tasks. Tasks should be:
 - Specific and actionable
@@ -125,7 +130,14 @@ Return ONLY valid JSON.`
     }
 
     const completion = await openaiResponse.json()
-    const result = JSON.parse(completion.choices?.[0]?.message?.content || '{"tasks":[]}')
+    let result: Record<string, unknown>;
+    try {
+      result = JSON.parse(completion.choices?.[0]?.message?.content || '{"tasks":[]}');
+    } catch {
+      return new Response(JSON.stringify({ error: 'AI returned an invalid response format. Please try again.' }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

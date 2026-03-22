@@ -60,6 +60,12 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json()
+    const rawBody = JSON.stringify(body);
+    if (rawBody.length > 100_000) {
+      return new Response(JSON.stringify({ error: 'Request payload too large.' }), {
+        status: 413, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
     const { profile_data, dream_roles } = body
 
     const { data: profiles } = await supabase.from('profiles').select('*').eq('id', user.id)
@@ -74,17 +80,43 @@ Deno.serve(async (req) => {
       })
     }
 
+    const trunc = (s: unknown, max: number) => String(s ?? '').slice(0, max);
+    const sanitisedProfile = {
+      full_name: trunc(profile.full_name, 100),
+      skills: (profile.skills || []).slice(0, 50).map((s: unknown) => trunc(s, 60)),
+      degree: trunc(profile.degree, 100),
+      field_of_study: trunc(profile.field_of_study, 100),
+      education_level: trunc(profile.education_level, 50),
+      summary: trunc(profile.summary, 500),
+    };
+    const sanitisedExperiences = (experiences || []).slice(0, 10).map((e: any) => ({
+      title: trunc(e.title, 100),
+      company: trunc(e.company, 100),
+      responsibilities: trunc(e.responsibilities, 300),
+      skills_used: (e.skills_used || []).slice(0, 20).map((s: unknown) => trunc(s, 60)),
+    }));
+    const sanitisedProjects = (projects || []).slice(0, 10).map((p: any) => ({
+      name: trunc(p.name, 100),
+      description: trunc(p.description, 300),
+      skills_demonstrated: (p.skills_demonstrated || []).slice(0, 20).map((s: unknown) => trunc(s, 60)),
+    }));
+    const sanitisedCerts = (certifications || []).slice(0, 10).map((c: any) => ({
+      name: trunc(c.name, 100),
+      issuer: trunc(c.issuer, 100),
+    }));
+    const sanitisedDreamRoles = (dream_roles || []).slice(0, 10).map((r: unknown) => trunc(r, 100));
+
     const prompt = `You are a Career Analysis Engine for the "Get A Job" Career Operating System.
 
 USER PROFILE:
-- Name: ${profile.full_name || 'Not provided'}
-- Skills: ${JSON.stringify(profile.skills || [])}
-- Education: ${profile.degree || ''} in ${profile.field_of_study || ''} (${profile.education_level || ''})
-- Summary: ${profile.summary || 'Not provided'}
-- Experiences: ${JSON.stringify((experiences || []).map(e => ({ title: e.title, company: e.company, responsibilities: e.responsibilities, skills_used: e.skills_used })))}
-- Projects: ${JSON.stringify((projects || []).map(p => ({ name: p.name, description: p.description, skills_demonstrated: p.skills_demonstrated })))}
-- Certifications: ${JSON.stringify((certifications || []).map(c => ({ name: c.name, issuer: c.issuer })))}
-${dream_roles?.length ? `- Dream Roles: ${dream_roles.join(', ')}` : ''}
+- Name: ${sanitisedProfile.full_name || 'Not provided'}
+- Skills: ${JSON.stringify(sanitisedProfile.skills)}
+- Education: ${sanitisedProfile.degree} in ${sanitisedProfile.field_of_study} (${sanitisedProfile.education_level})
+- Summary: ${sanitisedProfile.summary || 'Not provided'}
+- Experiences: ${JSON.stringify(sanitisedExperiences)}
+- Projects: ${JSON.stringify(sanitisedProjects)}
+- Certifications: ${JSON.stringify(sanitisedCerts)}
+${sanitisedDreamRoles.length ? `- Dream Roles: ${sanitisedDreamRoles.join(', ')}` : ''}
 
 TASK: Analyze the user's profile and generate a career analysis with tiered role recommendations.
 
@@ -140,7 +172,14 @@ Return ONLY valid JSON. Include 4-6 roles spanning all tiers.`
     }
 
     const completion = await openaiResponse.json()
-    const result = JSON.parse(completion.choices?.[0]?.message?.content || '{}')
+    let result: Record<string, unknown>;
+    try {
+      result = JSON.parse(completion.choices?.[0]?.message?.content || '{}');
+    } catch {
+      return new Response(JSON.stringify({ error: 'AI returned an invalid response format. Please try again.' }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

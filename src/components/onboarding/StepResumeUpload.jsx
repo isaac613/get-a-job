@@ -183,9 +183,9 @@ export default function StepResumeUpload({ onNext, onExtracted, profileData, onC
           // Attempt 1: direct parse
           try { extracted = JSON.parse(jsonMatch[0]); } catch {}
 
-          // Attempt 2: the LLM sometimes returns literal \n and \" escape sequences
-          // instead of actual whitespace/quote characters — unescape before parsing
-          if (!extracted) {
+          // Attempt 2: only unescape if the JSON looks double-escaped
+          // (guard prevents corrupting valid JSON that contains backslashes)
+          if (!extracted && /\{\s*\\"/.test(jsonMatch[0])) {
             try {
               const unescaped = jsonMatch[0]
                 .replace(/\\"/g, '"')

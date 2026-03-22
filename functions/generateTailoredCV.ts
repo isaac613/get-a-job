@@ -8,24 +8,37 @@ Deno.serve(async (req) => {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // User-scoped client — all DB operations run under RLS
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } }
     );
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser(
-      authHeader.replace("Bearer ", "")
-    );
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Service client — only for storage (upload + signed URL)
+    const serviceClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
     const body = await req.json();
+    const rawBody = JSON.stringify(body);
+    if (rawBody.length > 50_000) {
+      return Response.json({ error: 'Request payload too large.' }, { status: 413 });
+    }
     const { job_description, target_role, application_id } = body;
 
     if (!target_role) {
       return Response.json({ error: "target_role is required" }, { status: 400 });
+    }
+    if (application_id !== undefined && typeof application_id !== 'string') {
+      return Response.json({ error: 'Invalid application_id.' }, { status: 400 });
     }
 
     // Fetch user profile and related data
@@ -149,7 +162,12 @@ Return ONLY valid JSON.`;
     }
 
     const openaiData = await openaiRes.json();
-    const cvData = JSON.parse(openaiData.choices[0].message.content);
+    let cvData: Record<string, unknown>;
+    try {
+      cvData = JSON.parse(openaiData.choices?.[0]?.message?.content || "{}");
+    } catch {
+      return Response.json({ error: "AI returned an invalid response format. Please try again." }, { status: 500 });
+    }
 
     // Generate PDF
     const doc = new jsPDF();
@@ -237,7 +255,7 @@ Return ONLY valid JSON.`;
     const pdfBuffer = doc.output("arraybuffer");
     const fileName = `${user.id}/${target_role.replace(/\s+/g, "_")}_CV_${Date.now()}.pdf`;
 
-    const { error: uploadError } = await supabase.storage
+    const { error: uploadError } = await serviceClient.storage
       .from("cvs")
       .upload(fileName, pdfBuffer, { contentType: "application/pdf", upsert: true });
 
@@ -246,7 +264,7 @@ Return ONLY valid JSON.`;
       return Response.json({ error: `PDF upload failed: ${uploadError.message}` }, { status: 500 });
     }
 
-    const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+    const { data: signedUrlData, error: signedUrlError } = await serviceClient.storage
       .from("cvs")
       .createSignedUrl(fileName, 31536000); // 1 year expiry
 

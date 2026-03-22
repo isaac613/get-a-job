@@ -4,7 +4,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { Loader2, Brain } from "lucide-react";
+import { Loader2, Brain, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
@@ -45,7 +45,7 @@ export default function CareerRoadmap() {
   const { user } = useAuth();
   const [generating, setGenerating] = useState(false);
 
-  const { data: roles, isLoading } = useQuery({
+  const { data: roles = [], isLoading, isError: rolesError } = useQuery({
     queryKey: ["careerRoles", user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
@@ -54,10 +54,9 @@ export default function CareerRoadmap() {
       return data || [];
     },
     enabled: !!user?.id,
-    initialData: [],
   });
 
-  const { data: profiles } = useQuery({
+  const { data: profiles = [] } = useQuery({
     queryKey: ["userProfile", user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
@@ -66,10 +65,9 @@ export default function CareerRoadmap() {
       return data || [];
     },
     enabled: !!user?.id,
-    initialData: [],
   });
 
-  const { data: experiences } = useQuery({
+  const { data: experiences = [] } = useQuery({
     queryKey: ["experiences", user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
@@ -78,10 +76,9 @@ export default function CareerRoadmap() {
       return data || [];
     },
     enabled: !!user?.id,
-    initialData: [],
   });
 
-  const { data: certifications } = useQuery({
+  const { data: certifications = [] } = useQuery({
     queryKey: ["certifications", user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
@@ -90,7 +87,6 @@ export default function CareerRoadmap() {
       return data || [];
     },
     enabled: !!user?.id,
-    initialData: [],
   });
 
   const profile = profiles?.[0];
@@ -118,7 +114,7 @@ export default function CareerRoadmap() {
 
         const existingIds = existingRoles?.map((r) => r.id) || [];
 
-        const { error: insertError } = await supabase
+        const { data: insertedRoles, error: insertError } = await supabase
           .from("career_roles")
           .insert(
             data.roles.map((r) => ({
@@ -132,13 +128,21 @@ export default function CareerRoadmap() {
               alignment_to_goal: r.alignment_to_goal || "",
               user_id: user.id,
             }))
-          );
+          )
+          .select("id");
 
         if (insertError) throw insertError;
 
         if (existingIds.length > 0) {
           const { error: deleteError } = await supabase.from("career_roles").delete().in("id", existingIds);
-          if (deleteError) throw deleteError;
+          if (deleteError) {
+            // Rollback: remove the rows we just inserted so we don't end up with duplicates
+            const newIds = insertedRoles?.map((r) => r.id) || [];
+            if (newIds.length > 0) {
+              await supabase.from("career_roles").delete().in("id", newIds);
+            }
+            throw deleteError;
+          }
         }
       }
 
@@ -169,6 +173,17 @@ export default function CareerRoadmap() {
     return (
       <div className="flex items-center justify-center h-full min-h-[60vh]">
         <Loader2 className="w-5 h-5 animate-spin text-[#A3A3A3]" />
+      </div>
+    );
+  }
+
+  if (rolesError) {
+    return (
+      <div className="flex items-center justify-center h-full min-h-[60vh]">
+        <div className="flex items-center gap-2 text-sm text-red-600">
+          <AlertCircle className="w-4 h-4" />
+          Failed to load your career roadmap. Refresh the page to try again.
+        </div>
       </div>
     );
   }

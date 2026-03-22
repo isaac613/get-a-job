@@ -19,9 +19,10 @@ export default function ChatInterface({ agentName, title, description }) {
     const text = input.trim();
     setInput("");
 
-    // Add user message locally
+    // Add user message and capture updated history for the API call
     const userMsg = { role: "user", content: text };
-    setMessages((prev) => [...prev, userMsg]);
+    const updatedMessages = [...messages, userMsg];
+    setMessages(updatedMessages);
 
     setSending(true);
     try {
@@ -29,7 +30,7 @@ export default function ChatInterface({ agentName, title, description }) {
         body: {
           message: text,
           agent: agentName || "career-coach",
-          conversation_history: messages.slice(-20),
+          conversation_history: updatedMessages.slice(-20),
         },
       });
 

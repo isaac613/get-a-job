@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Brain, CheckCircle2, Circle } from "lucide-react";
+import { Loader2, Brain, CheckCircle2, Circle, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -48,7 +48,7 @@ export default function Tasks() {
   const [generating, setGenerating] = useState(false);
   const [filter, setFilter] = useState("all");
 
-  const { data: tasks, isLoading: loadingTasks } = useQuery({
+  const { data: tasks = [], isLoading: loadingTasks, isError: tasksError } = useQuery({
     queryKey: ["tasks", user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
@@ -57,10 +57,9 @@ export default function Tasks() {
       return data || [];
     },
     enabled: !!user?.id,
-    initialData: [],
   });
 
-  const { data: profiles } = useQuery({
+  const { data: profiles = [] } = useQuery({
     queryKey: ["userProfile", user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
@@ -69,10 +68,9 @@ export default function Tasks() {
       return data || [];
     },
     enabled: !!user?.id,
-    initialData: [],
   });
 
-  const { data: roles } = useQuery({
+  const { data: roles = [] } = useQuery({
     queryKey: ["careerRoles", user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
@@ -81,7 +79,6 @@ export default function Tasks() {
       return data || [];
     },
     enabled: !!user?.id,
-    initialData: [],
   });
 
   const profile = profiles?.[0];
@@ -90,13 +87,8 @@ export default function Tasks() {
     if (!profile) return;
     setGenerating(true);
     try {
-      const existingIncomplete = tasks.filter((t) => !t.is_complete);
-      
-      // Delete old incomplete tasks
-      if (existingIncomplete.length > 0) {
-        const ids = existingIncomplete.map((t) => t.id);
-        await supabase.from("tasks").delete().in("id", ids);
-      }
+      // Capture IDs of old incomplete tasks before generating new ones
+      const incompleteIds = tasks.filter((t) => !t.is_complete).map((t) => t.id);
 
       // Call LLM to generate personalized tasks
       const { data, error } = await supabase.functions.invoke("generate-tasks", {
@@ -118,6 +110,12 @@ export default function Tasks() {
       if (generatedTasks.length > 0) {
         await supabase.from("tasks").insert(generatedTasks);
       }
+
+      // Delete old incomplete tasks only after new ones are safely inserted
+      if (incompleteIds.length > 0) {
+        await supabase.from("tasks").delete().in("id", incompleteIds);
+      }
+
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
     } catch (err) {
       console.error("Task generation error:", err);
@@ -148,6 +146,17 @@ export default function Tasks() {
     return (
       <div className="flex items-center justify-center h-full min-h-[60vh]">
         <Loader2 className="w-5 h-5 animate-spin text-[#A3A3A3]" />
+      </div>
+    );
+  }
+
+  if (tasksError) {
+    return (
+      <div className="flex items-center justify-center h-full min-h-[60vh]">
+        <div className="flex items-center gap-2 text-sm text-red-600">
+          <AlertCircle className="w-4 h-4" />
+          Failed to load tasks. Refresh the page to try again.
+        </div>
       </div>
     );
   }
