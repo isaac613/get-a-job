@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd:*)",
+      "WebSearch",
+      "WebFetch(domain:supabase.com)",
+      "mcp__supabase__execute_sql",
+      "mcp__supabase__apply_migration",
+      "mcp__supabase__get_advisors",
+      "mcp__supabase__list_edge_functions",
+      "mcp__supabase__list_migrations",
+      "mcp__supabase__get_edge_function",
+      "mcp__supabase__deploy_edge_function",
+      "mcp__ide__getDiagnostics",
+      "Bash(npx vite:*)",
+      "Bash(node -e \"const p = require\\(''./package.json''\\); console.log\\(''@tanstack/react-query:'', p.dependencies[''@tanstack/react-query'']\\); console.log\\(''react:'', p.dependencies[''react'']\\)\")",
+      "mcp__supabase__get_logs"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "supabase"
+  ]
+}

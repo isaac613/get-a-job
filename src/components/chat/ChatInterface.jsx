@@ -8,7 +8,6 @@ export default function ChatInterface({ agentName, title, description }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
-  const [loading, setLoading] = useState(false);
   const bottomRef = useRef(null);
 
   useEffect(() => {
@@ -30,7 +29,7 @@ export default function ChatInterface({ agentName, title, description }) {
         body: {
           message: text,
           agent: agentName || "career-coach",
-          conversation_history: messages,
+          conversation_history: messages.slice(-20),
         },
       });
 
@@ -56,14 +55,6 @@ export default function ChatInterface({ agentName, title, description }) {
       sendMessage();
     }
   };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <Loader2 className="w-5 h-5 animate-spin text-[#A3A3A3]" />
-      </div>
-    );
-  }
 
   return (
     <div className="flex flex-col h-full">

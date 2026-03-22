@@ -15,7 +15,7 @@ export default function Home() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const { data: profiles, isLoading: loadingProfile } = useQuery({
+  const { data: profiles = [], isLoading: loadingProfile, isFetched: profileFetched } = useQuery({
     queryKey: ["userProfile", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase.from("profiles").select("*").eq("id", user.id);
@@ -23,10 +23,9 @@ export default function Home() {
       return data || [];
     },
     enabled: !!user?.id,
-    initialData: [],
   });
 
-  const { data: roles, isLoading: loadingRoles } = useQuery({
+  const { data: roles = [], isLoading: loadingRoles } = useQuery({
     queryKey: ["careerRoles", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase.from("career_roles").select("*").eq("user_id", user.id);
@@ -34,10 +33,9 @@ export default function Home() {
       return data || [];
     },
     enabled: !!user?.id,
-    initialData: [],
   });
 
-  const { data: applications, isLoading: loadingApps } = useQuery({
+  const { data: applications = [], isLoading: loadingApps } = useQuery({
     queryKey: ["applications", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase.from("applications").select("*").eq("user_id", user.id);
@@ -45,10 +43,9 @@ export default function Home() {
       return data || [];
     },
     enabled: !!user?.id,
-    initialData: [],
   });
 
-  const { data: experiences } = useQuery({
+  const { data: experiences = [] } = useQuery({
     queryKey: ["experiences", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase.from("experiences").select("*").eq("user_id", user.id);
@@ -56,10 +53,9 @@ export default function Home() {
       return data || [];
     },
     enabled: !!user?.id,
-    initialData: [],
   });
 
-  const { data: tasks } = useQuery({
+  const { data: tasks = [] } = useQuery({
     queryKey: ["tasks", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase.from("tasks").select("*").eq("user_id", user.id);
@@ -67,19 +63,19 @@ export default function Home() {
       return data || [];
     },
     enabled: !!user?.id,
-    initialData: [],
   });
 
   const profile = profiles?.[0] || null;
   const isLoading = loadingProfile || loadingRoles || loadingApps;
 
   React.useEffect(() => {
-    if (user && !loadingProfile && profiles?.length === 0) {
+    if (!user || !profileFetched) return;
+    if (profiles?.length === 0) {
       navigate(createPageUrl("Onboarding"));
-    } else if (user && !loadingProfile && profile && !profile.onboarding_complete) {
+    } else if (profile && !profile.onboarding_complete) {
       navigate(createPageUrl("Onboarding"));
     }
-  }, [user, loadingProfile, profile, profiles, navigate]);
+  }, [user, profileFetched, profile, profiles, navigate]);
 
   if (isLoading) {
     return (
@@ -103,6 +99,13 @@ export default function Home() {
       "Are you sure? This will reset your entire onboarding and career analysis."
     );
     if (!confirmed) return;
+    await Promise.all([
+      supabase.from("career_roles").delete().eq("user_id", user.id),
+      supabase.from("tasks").delete().eq("user_id", user.id),
+      supabase.from("experiences").delete().eq("user_id", user.id),
+      supabase.from("projects").delete().eq("user_id", user.id),
+      supabase.from("certifications").delete().eq("user_id", user.id),
+    ]);
     await supabase.from("profiles").update({
       onboarding_complete: false,
       onboarding_step: 0,

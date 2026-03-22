@@ -227,14 +227,9 @@ export default function StepResumeUpload({ onNext, onExtracted, profileData, onC
     setError("LinkedIn auto-connect is not available. Please enter your LinkedIn URL manually below.");
   };
 
-  const handleLinkedinExtract = async () => {
+  const handleLinkedinExtract = () => {
     if (!linkedinUrl.trim()) return;
-    setExtractingLinkedin(true);
     onChange({ linkedin_url: linkedinUrl });
-    // LinkedIn profile extraction is not supported — manual entry only
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    setExtractingLinkedin(false);
-    // Save the URL even though we can't extract yet
     onExtracted({ linkedin_url: linkedinUrl });
     setLinkedinDone(true);
   };

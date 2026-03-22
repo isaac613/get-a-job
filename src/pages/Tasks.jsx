@@ -128,7 +128,11 @@ export default function Tasks() {
 
 
   const toggleComplete = async (task) => {
-    await supabase.from("tasks").update({ is_complete: !task.is_complete }).eq("id", task.id);
+    const { error } = await supabase.from("tasks").update({ is_complete: !task.is_complete }).eq("id", task.id);
+    if (error) {
+      console.error("Failed to update task:", error);
+      return;
+    }
     queryClient.invalidateQueries({ queryKey: ["tasks"] });
   };
 

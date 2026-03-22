@@ -59,7 +59,12 @@ export default function Tracker() {
       tier,
       ...(jd && { job_description: jd }),
     });
-    if (error) console.error("Error adding application:", error);
+    if (error) {
+      console.error("Error adding application:", error);
+      setImportError(`Could not add application: ${error.message}`);
+      setAddingApp(false);
+      return;
+    }
 
     setNewApp({ role_title: "", company: "", status: "interested" });
     setJobUrl("");

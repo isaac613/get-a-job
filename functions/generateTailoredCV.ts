@@ -267,6 +267,7 @@ Return ONLY valid JSON.`;
           cv_skills_emphasized: cvData.core_skills || [],
         })
         .eq("id", application_id)
+        .eq("user_id", user.id)
         .select()
         .single();
       appRecord = data;

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { createPageUrl } from "@/utils";
 import { Loader2 } from "lucide-react";
 
@@ -56,6 +57,7 @@ const EMPTY_PROFILE = {
 // Steps: 0=CV, 1=Education, 2=Experience, 3=Skills, 4=CareerDirection, 5=Constraints, 6=Survey, 7=TierReveal
 export default function Onboarding() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user } = useAuth();
   const [step, setStep] = useState(0);
   const [profileData, setProfileData] = useState(EMPTY_PROFILE);
@@ -74,6 +76,7 @@ export default function Onboarding() {
   const [finalising, setFinalising] = useState(false);
   const [saveError, setSaveError] = useState(null);
   const [finaliseError, setFinaliseError] = useState(null);
+  const [tierRevealError, setTierRevealError] = useState(null);
 
   useEffect(() => {
     if (user) checkExistingProfile();
@@ -203,6 +206,7 @@ export default function Onboarding() {
   // Step 6→7: Run the AI tier analysis
   const handleSurveyNext = async () => {
     setStep(7);
+    setTierRevealError(null);
     setGeneratingRoles(true);
 
     try {
@@ -231,7 +235,17 @@ export default function Onboarding() {
 
         const { error: insertError } = await supabase
           .from("career_roles")
-          .insert(analysisRoles.map((r) => ({ ...r, user_id: user.id })));
+          .insert(analysisRoles.map((r) => ({
+            title: r.title,
+            tier: r.tier,
+            match_score: r.readiness_score,
+            readiness_score: r.readiness_score,
+            matched_skills: r.matched_skills || [],
+            missing_skills: r.missing_skills || [],
+            skills_gap: r.missing_skills || [],
+            alignment_to_goal: r.alignment_to_goal || "",
+            user_id: user.id,
+          })));
 
         if (insertError) throw insertError;
 
@@ -251,6 +265,7 @@ export default function Onboarding() {
       }
     } catch (err) {
       console.error("Career analysis error:", err);
+      setTierRevealError("Career analysis failed. Please go back and try again.");
     }
 
     setGeneratingRoles(false);
@@ -296,6 +311,14 @@ export default function Onboarding() {
       setExistingProfileId(targetProfileId);
     }
 
+    // Clear existing data first to prevent duplicates if the user retries
+    await Promise.all([
+      supabase.from("experiences").delete().eq("user_id", user.id),
+      supabase.from("projects").delete().eq("user_id", user.id),
+      supabase.from("certifications").delete().eq("user_id", user.id),
+      supabase.from("tasks").delete().eq("user_id", user.id),
+    ]);
+
     // Save experiences, projects, certifications
     const promises = [];
 
@@ -336,9 +359,10 @@ export default function Onboarding() {
 
     // Generate personalized tasks via Edge Function
     try {
-      const { data: taskData } = await supabase.functions.invoke("generate-tasks", {
+      const { data: taskData, error: taskInvokeError } = await supabase.functions.invoke("generate-tasks", {
         body: { context: "onboarding initial tasks" },
       });
+      if (taskInvokeError) throw taskInvokeError;
       if (taskData?.tasks?.length > 0) {
         promises.push(
           supabase.from("tasks").insert(
@@ -386,6 +410,11 @@ export default function Onboarding() {
 
     await supabase.from("profiles").update(finalPayload).eq("id", targetProfileId);
 
+    // Remove all cached query data so Home fetches fresh — invalidateQueries only marks stale
+    // but leaves old data visible, which can trigger the onboarding redirect guard
+    queryClient.removeQueries();
+
+    setFinalising(false);
     navigate(createPageUrl("Home"));
   };
 
@@ -482,14 +511,24 @@ export default function Onboarding() {
         />
       )}
       {step === 7 && (
-        <StepTierReveal
-          roles={generatedRoles}
-          qualificationLevel={qualificationLevel}
-          overallAssessment={overallAssessment}
-          generating={generatingRoles}
-          onNext={handleFinalise}
-          onBack={() => goTo(6)}
-        />
+        <>
+          {tierRevealError && (
+            <div className="mx-auto max-w-lg mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between gap-3">
+              <p className="text-sm text-red-700">{tierRevealError}</p>
+              <button onClick={() => { setTierRevealError(null); goTo(6); }} className="text-xs font-medium text-red-800 underline underline-offset-2 whitespace-nowrap">
+                Go back
+              </button>
+            </div>
+          )}
+          <StepTierReveal
+            roles={generatedRoles}
+            qualificationLevel={qualificationLevel}
+            overallAssessment={overallAssessment}
+            generating={generatingRoles}
+            onNext={handleFinalise}
+            onBack={() => goTo(6)}
+          />
+        </>
       )}
     </OnboardingShell>
   );

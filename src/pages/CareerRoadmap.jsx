@@ -81,17 +81,6 @@ export default function CareerRoadmap() {
     initialData: [],
   });
 
-  const { data: courses } = useQuery({
-    queryKey: ["courses", user?.id],
-    queryFn: async () => {
-      if (!user?.id) return [];
-      // TODO: Add courses table in migration if needed
-      return [];
-    },
-    enabled: !!user?.id,
-    initialData: [],
-  });
-
   const { data: certifications } = useQuery({
     queryKey: ["certifications", user?.id],
     queryFn: async () => {
@@ -148,7 +137,8 @@ export default function CareerRoadmap() {
         if (insertError) throw insertError;
 
         if (existingIds.length > 0) {
-          await supabase.from("career_roles").delete().in("id", existingIds);
+          const { error: deleteError } = await supabase.from("career_roles").delete().in("id", existingIds);
+          if (deleteError) throw deleteError;
         }
       }
 
@@ -244,7 +234,7 @@ export default function CareerRoadmap() {
             profile={profile}
             roles={roles}
             experiences={experiences}
-            courses={courses}
+            courses={[]}
             certifications={certifications}
           />
         </div>
