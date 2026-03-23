@@ -114,7 +114,7 @@ export default function Subagents() {
       <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-4 mb-6">
         <p className="text-sm font-semibold text-amber-800">AI Agents — Coming Soon</p>
         <p className="text-xs text-amber-700 mt-1">
-          Your AI career agents are ready. Select an agent to start a conversation.
+          These specialist agents are under development. Use the main AI Chat in the sidebar for career questions in the meantime.
         </p>
       </div>
 

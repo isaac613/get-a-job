@@ -32,6 +32,7 @@ export default function Tasks() {
   const { user } = useAuth();
   const [generating, setGenerating] = useState(false);
   const [filter, setFilter] = useState("all");
+  const [togglingIds, setTogglingIds] = useState(new Set());
 
   const { data: tasks = [], isLoading: loadingTasks, isError: tasksError } = useQuery({
     queryKey: ["tasks", user?.id],
@@ -72,8 +73,13 @@ export default function Tasks() {
     if (!profile) return;
     setGenerating(true);
     try {
-      // Capture IDs of old incomplete tasks before generating new ones
-      const incompleteIds = tasks.filter((t) => !t.is_complete).map((t) => t.id);
+      // Fresh DB query for incomplete task IDs — avoids using stale cache
+      const { data: freshTasks } = await supabase
+        .from("tasks")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("is_complete", false);
+      const incompleteIds = (freshTasks || []).map((t) => t.id);
 
       // Call LLM to generate personalized tasks
       const { data, error } = await supabase.functions.invoke("generate-tasks", {
@@ -93,7 +99,8 @@ export default function Tasks() {
       }));
 
       if (generatedTasks.length > 0) {
-        await supabase.from("tasks").insert(generatedTasks);
+        const { error: insertError } = await supabase.from("tasks").insert(generatedTasks);
+        if (insertError) throw insertError;
       }
 
       // Delete old incomplete tasks only after new ones are safely inserted.
@@ -105,7 +112,7 @@ export default function Tasks() {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
     } catch (err) {
       console.error("Task generation error:", err);
-      toast.error(err.message || "Failed to generate tasks. Please try again.");
+      toast.error("Failed to generate tasks. Please try again.");
     } finally {
       setGenerating(false);
     }
@@ -113,9 +120,13 @@ export default function Tasks() {
 
 
   const toggleComplete = async (task) => {
+    if (togglingIds.has(task.id)) return;
+    setTogglingIds((prev) => new Set(prev).add(task.id));
     const { error } = await supabase.from("tasks").update({ is_complete: !task.is_complete }).eq("id", task.id);
+    setTogglingIds((prev) => { const next = new Set(prev); next.delete(task.id); return next; });
     if (error) {
       console.error("Failed to update task:", error);
+      toast.error("Failed to update task. Please try again.");
       return;
     }
     queryClient.invalidateQueries({ queryKey: ["tasks"] });

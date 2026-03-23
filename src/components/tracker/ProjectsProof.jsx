@@ -22,7 +22,7 @@ export default function ProjectsProof({ app, onUpdate }) {
   const handleAdd = () => {
     if (!newProject.project_name || !newProject.skill_proven) return;
     const previous = projects;
-    const updated = [...projects, newProject];
+    const updated = [...projects, { ...newProject, id: crypto.randomUUID() }];
     setProjects(updated);
     saveProjects(updated, previous);
     setNewProject({ project_name: "", skill_proven: "", status: "not_started" });
@@ -66,7 +66,7 @@ export default function ProjectsProof({ app, onUpdate }) {
       ) : (
         <div className="space-y-2">
           {projects.map((project, i) => (
-            <div key={i} className="bg-[#FAFAFA] rounded-lg p-3">
+            <div key={project.id ?? i} className="bg-[#FAFAFA] rounded-lg p-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1">
                   <p className="text-sm font-medium text-[#0A0A0A]">{project.project_name}</p>

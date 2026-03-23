@@ -41,6 +41,16 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Invalid application_id.' }, { status: 400 });
     }
 
+    const { data: allowed } = await serviceClient.rpc('check_rate_limit', {
+      p_user_id: user.id,
+      p_function_name: 'generate-tailored-cv',
+      p_max_calls: 10,
+      p_window_seconds: 3600,
+    });
+    if (!allowed) {
+      return Response.json({ error: 'Rate limit exceeded. Try again in an hour.' }, { status: 429 });
+    }
+
     // Fetch user profile and related data
     const [profileRes, experiencesRes, projectsRes, certificationsRes] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", user.id).single(),
@@ -58,41 +68,41 @@ Deno.serve(async (req) => {
     const projects = projectsRes.data || [];
     const certifications = certificationsRes.data || [];
 
+    const trunc = (s: unknown, max: number) => String(s ?? '').slice(0, max);
     const userContext = {
-      full_name: profile.full_name,
-      email: user.email,
-      phone_number: profile.phone_number,
-      location: profile.location,
-      linkedin_url: profile.linkedin_url,
-      summary: profile.summary,
-      skills: profile.skills || [],
-      experiences: experiences.map((exp: any) => ({
-        title: exp.title,
-        company: exp.company,
-        start_date: exp.start_date,
-        end_date: exp.end_date,
+      full_name: trunc(profile.full_name, 100),
+      phone_number: trunc(profile.phone_number, 30),
+      location: trunc(profile.location, 100),
+      linkedin_url: trunc(profile.linkedin_url, 200),
+      summary: trunc(profile.summary, 500),
+      skills: (profile.skills || []).slice(0, 50).map((s: unknown) => trunc(s, 60)),
+      experiences: experiences.slice(0, 10).map((exp: any) => ({
+        title: trunc(exp.title, 100),
+        company: trunc(exp.company, 100),
+        start_date: trunc(exp.start_date, 20),
+        end_date: trunc(exp.end_date, 20),
         is_current: exp.is_current,
-        responsibilities: exp.responsibilities,
-        skills_used: exp.skills_used,
-        tools_used: exp.tools_used,
+        responsibilities: trunc(exp.responsibilities, 500),
+        skills_used: (exp.skills_used || []).slice(0, 20).map((s: unknown) => trunc(s, 60)),
+        tools_used: (exp.tools_used || []).slice(0, 20).map((s: unknown) => trunc(s, 60)),
       })),
-      projects: projects.map((p: any) => ({
-        name: p.name,
-        description: p.description,
-        skills_demonstrated: p.skills_demonstrated,
+      projects: projects.slice(0, 10).map((p: any) => ({
+        name: trunc(p.name, 100),
+        description: trunc(p.description, 300),
+        skills_demonstrated: (p.skills_demonstrated || []).slice(0, 20).map((s: unknown) => trunc(s, 60)),
       })),
-      certifications: certifications.map((c: any) => ({
-        name: c.name,
-        issuer: c.issuer,
-        date_earned: c.date_earned,
+      certifications: certifications.slice(0, 10).map((c: any) => ({
+        name: trunc(c.name, 100),
+        issuer: trunc(c.issuer, 100),
+        date_earned: trunc(c.date_earned, 20),
       })),
       education: {
-        degree: profile.degree,
-        field_of_study: profile.field_of_study,
-        education_level: profile.education_level,
-        gpa: profile.gpa,
-        honors: profile.honors,
-        relevant_coursework: profile.relevant_coursework,
+        degree: trunc(profile.degree, 100),
+        field_of_study: trunc(profile.field_of_study, 100),
+        education_level: trunc(profile.education_level, 50),
+        gpa: trunc(profile.gpa, 10),
+        honors: (profile.honors || []).slice(0, 10).map((h: unknown) => trunc(h, 100)),
+        relevant_coursework: (profile.relevant_coursework || []).slice(0, 20).map((c: unknown) => trunc(c, 100)),
       },
     };
 
@@ -253,7 +263,8 @@ Return ONLY valid JSON.`;
 
     // Upload PDF to Supabase Storage
     const pdfBuffer = doc.output("arraybuffer");
-    const fileName = `${user.id}/${target_role.replace(/\s+/g, "_")}_CV_${Date.now()}.pdf`;
+    const safeRole = target_role.slice(0, 100).replace(/[^a-zA-Z0-9_\-]/g, "_");
+    const fileName = `${user.id}/${safeRole}_CV_${Date.now()}.pdf`;
 
     const { error: uploadError } = await serviceClient.storage
       .from("cvs")

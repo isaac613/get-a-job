@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
@@ -14,6 +14,8 @@ export default function Home() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [resetConfirming, setResetConfirming] = useState(false);
+  const [resetError, setResetError] = useState(null);
 
   const { data: profiles = [], isLoading: loadingProfile, isFetched: profileFetched, isError: profileError } = useQuery({
     queryKey: ["userProfile", user?.id],
@@ -96,34 +98,18 @@ export default function Home() {
 
   const handleResetOnboarding = async () => {
     if (!profile?.id) return;
-    const confirmed = window.confirm(
-      "Are you sure? This will reset your entire onboarding and career analysis."
-    );
-    if (!confirmed) return;
-    const deleteResults = await Promise.all([
-      supabase.from("career_roles").delete().eq("user_id", user.id),
-      supabase.from("tasks").delete().eq("user_id", user.id),
-      supabase.from("experiences").delete().eq("user_id", user.id),
-      supabase.from("projects").delete().eq("user_id", user.id),
-      supabase.from("certifications").delete().eq("user_id", user.id),
-    ]);
-    const deleteError = deleteResults.find((r) => r.error)?.error;
-    if (deleteError) {
-      console.error("Failed to clear data during reset:", deleteError);
-      window.alert("Could not reset all data. Please refresh the page and try again.");
+    if (!resetConfirming) {
+      setResetConfirming(true);
       return;
     }
-    const { error: profileResetError } = await supabase.from("profiles").update({
-      onboarding_complete: false,
-      onboarding_step: 0,
-      overall_assessment: null,
-      qualification_level: null,
-      skill_gaps: [],
-      last_reality_check_date: null,
-    }).eq("id", profile.id);
-    if (profileResetError) {
-      console.error("Failed to reset profile:", profileResetError);
-      window.alert("Data cleared but profile status could not be reset. Please refresh the page.");
+    setResetConfirming(false);
+    setResetError(null);
+    const { error: rpcError } = await supabase.rpc("reset_user_data", {
+      p_user_id: user.id,
+    });
+    if (rpcError) {
+      console.error("Failed to reset user data:", rpcError);
+      setResetError("Reset failed. Please try again.");
       return;
     }
     await queryClient.invalidateQueries({ queryKey: ["userProfile", user?.id] });
@@ -137,6 +123,12 @@ export default function Home() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
     >
+      {resetError && (
+        <div className="flex items-center gap-2 mb-6 px-4 py-3 bg-red-50 border border-red-100 rounded-xl text-sm text-red-700">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          {resetError}
+        </div>
+      )}
       {/* Data load error banner */}
       {(rolesError || appsError) && (
         <div className="flex items-center gap-2 mb-6 px-4 py-3 bg-red-50 border border-red-100 rounded-xl text-sm text-red-700">
@@ -158,15 +150,37 @@ export default function Home() {
             </p>
           )}
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleResetOnboarding}
-          className="gap-2"
-        >
-          <RotateCcw className="w-3 h-3" />
-          Reset Onboarding
-        </Button>
+        {resetConfirming ? (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-red-600 font-medium">This deletes all your data.</span>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleResetOnboarding}
+              className="gap-1.5 bg-red-600 hover:bg-red-700"
+            >
+              <RotateCcw className="w-3 h-3" />
+              Confirm Reset
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setResetConfirming(false)}
+            >
+              Cancel
+            </Button>
+          </div>
+        ) : (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleResetOnboarding}
+            className="gap-2 text-red-600 border-red-200 hover:bg-red-50"
+          >
+            <RotateCcw className="w-3 h-3" />
+            Reset Onboarding
+          </Button>
+        )}
       </div>
 
       {/* Overall Assessment */}

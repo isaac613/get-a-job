@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,18 @@ function JobCard({ job }) {
 
   const handleAddToTracker = async () => {
     setAdding(true);
-    await supabase.from("applications").insert({
+    const { data: existing } = await supabase
+      .from("applications")
+      .select("id")
+      .eq("user_id", user.id)
+      .ilike("role_title", job.title)
+      .limit(1);
+    if (existing?.length > 0) {
+      setAdding(false);
+      setAdded(true);
+      return;
+    }
+    const { error: insertError } = await supabase.from("applications").insert({
       user_id: user.id,
       role_title: job.title,
       company: job.company,
@@ -25,8 +36,12 @@ function JobCard({ job }) {
       job_description: job.job_description || "",
       notes: job.why_good_fit || "",
     });
-    queryClient.invalidateQueries({ queryKey: ["applications"] });
     setAdding(false);
+    if (insertError) {
+      console.error("Failed to add to tracker:", insertError);
+      return;
+    }
+    queryClient.invalidateQueries({ queryKey: ["applications"] });
     setAdded(true);
   };
 
@@ -110,11 +125,10 @@ export default function JobSuggestions() {
   const { user } = useAuth();
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [profile, setProfile] = useState(null);
   const [lastGenerated, setLastGenerated] = useState(null);
   const [error, setError] = useState(null);
 
-  const { data: profileData } = useQuery({
+  const { data: profile } = useQuery({
     queryKey: ["userProfile", user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
@@ -124,10 +138,6 @@ export default function JobSuggestions() {
     },
     enabled: !!user?.id,
   });
-
-  useEffect(() => {
-    if (profileData) setProfile(profileData);
-  }, [profileData]);
 
   const generateSuggestions = async () => {
     if (!profile) return;
@@ -141,10 +151,11 @@ export default function JobSuggestions() {
 
       if (error) throw error;
 
-      setSuggestions(data?.suggestions || []);
+      setJobs(data?.suggestions || []);
+      setLastGenerated(new Date().toLocaleTimeString());
     } catch (err) {
       console.error("Job suggestions error:", err);
-      setError(err.message || "Failed to generate job suggestions.");
+      setError("Failed to generate job suggestions. Please try again.");
     }
     setLoading(false);
   };

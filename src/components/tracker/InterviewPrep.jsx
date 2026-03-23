@@ -40,7 +40,7 @@ export default function InterviewPrep({ app, onUpdate }) {
         </span>
       </div>
 
-      {app.status !== "applied" && app.status !== "interviewing" ? (
+      {app.status !== "applied" && app.status !== "interviewing" && app.status !== "offer" ? (
         <p className="text-xs text-[#A3A3A3] py-4 text-center">
           Interview prep will unlock once you've applied to this role.
         </p>

@@ -66,6 +66,9 @@ Deno.serve(async (req) => {
       });
     }
 
+    const VALID_CONTEXTS = ['weekly action plan', 'onboarding initial tasks'];
+    const safeContext = (typeof context === 'string' && VALID_CONTEXTS.includes(context)) ? context : null;
+
     const { data: profiles } = await supabase.from('profiles').select('*').eq('id', user.id)
     const { data: careerRoles } = await supabase.from('career_roles').select('*').eq('user_id', user.id)
     const { data: applications } = await supabase.from('applications').select('*').eq('user_id', user.id)
@@ -74,14 +77,20 @@ Deno.serve(async (req) => {
     const profile = profiles?.[0]
     const activeApplications = (applications || []).filter(a => a.status !== 'rejected').length
 
+    const trunc = (s: unknown, max: number) => String(s ?? '').slice(0, max);
+    const safeSkills = (profile?.skills || []).slice(0, 50).map((s: unknown) => trunc(s, 60));
+    const safeRoles = (careerRoles || []).slice(0, 10).map(r => trunc(r.title, 100)).join(', ') || 'Not set';
+    const safeExperiences = (experiences || []).slice(0, 10)
+      .map(e => `${trunc(e.title, 100)} at ${trunc(e.company, 100)}`).join(', ') || 'None';
+
     const prompt = `You are a Task Generation Engine for the "Get A Job" Career Operating System.
 
 USER PROFILE:
-- Skills: ${JSON.stringify(profile?.skills || [])}
-- Target Roles: ${(careerRoles || []).map(r => r.title).join(', ') || 'Not set'}
+- Skills: ${JSON.stringify(safeSkills)}
+- Target Roles: ${safeRoles}
 - Active Applications: ${activeApplications}
-- Experience: ${(experiences || []).map(e => `${e.title} at ${e.company}`).join(', ') || 'None'}
-${context ? `- Additional Context: ${String(context).slice(0, 500)}` : ''}
+- Experience: ${safeExperiences}
+${safeContext ? `- Additional Context: ${safeContext}` : ''}
 
 TASK: Generate a personalised weekly action plan of 5-8 tasks. Tasks should be:
 - Specific and actionable
@@ -155,7 +164,7 @@ Return ONLY valid JSON.`
         p_error_details: null,
       })
     } catch { /* best-effort logging */ }
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: 'An unexpected error occurred.' }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }

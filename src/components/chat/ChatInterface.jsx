@@ -45,7 +45,7 @@ export default function ChatInterface({ agentName, title, description }) {
       console.error("Chat error:", err);
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: `Error: ${err.message || "Failed to get AI response. Please try again."}` },
+        { role: "assistant", content: "Something went wrong. Please try again." },
       ]);
     }
     setSending(false);
@@ -126,6 +126,7 @@ export default function ChatInterface({ agentName, title, description }) {
           <Button
             onClick={sendMessage}
             disabled={sending || !input.trim()}
+            aria-label="Send message"
             className="bg-[#0A0A0A] hover:bg-[#262626] h-10 w-10 p-0 flex-shrink-0"
           >
             {sending ? (

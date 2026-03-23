@@ -114,7 +114,7 @@ export default function CareerRoadmap() {
       toast.success("Career roadmap generated!");
     } catch (err) {
       console.error("Roadmap generation error:", err);
-      toast.error(err.message || "Failed to generate roadmap.");
+      toast.error("Failed to generate roadmap. Please try again.");
     } finally {
       setGenerating(false);
     }
@@ -122,12 +122,30 @@ export default function CareerRoadmap() {
 
 
   const handleTrack = async (role) => {
-    await supabase.from("applications").insert({
+    const { data: existing } = await supabase
+      .from("applications")
+      .select("id")
+      .eq("user_id", user.id)
+      .ilike("role_title", role.title)
+      .limit(1);
+
+    if (existing?.length > 0) {
+      toast.info("This role is already in your tracker.");
+      navigate(createPageUrl("Tracker"));
+      return;
+    }
+
+    const { error } = await supabase.from("applications").insert({
       user_id: user.id,
       role_title: role.title,
       tier: role.tier,
       status: "interested",
     });
+    if (error) {
+      console.error("Failed to add to tracker:", error);
+      toast.error("Failed to add to tracker. Please try again.");
+      return;
+    }
     queryClient.invalidateQueries({ queryKey: ["applications"] });
     navigate(createPageUrl("Tracker"));
   };

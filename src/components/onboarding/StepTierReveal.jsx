@@ -78,7 +78,7 @@ export default function StepTierReveal({ roles, qualificationLevel, overallAsses
                   <div className="flex items-start justify-between gap-3">
                     <p className="text-sm font-semibold text-[#0A0A0A]">{role.title}</p>
                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md flex-shrink-0 ${cfg.badge}`}>
-                      {Math.round((role.confidence_score || 0) * 100)}% match
+                      {Math.round((role.readiness_score || 0) * 100)}% match
                     </span>
                   </div>
                   {role.reasoning && (

@@ -73,6 +73,7 @@ export default function Onboarding() {
   const [qualificationLevel, setQualificationLevel] = useState("");
   const [overallAssessment, setOverallAssessment] = useState("");
 
+  const [saving, setSaving] = useState(false);
   const [finalising, setFinalising] = useState(false);
   const [saveError, setSaveError] = useState(null);
   const [finaliseError, setFinaliseError] = useState(null);
@@ -157,16 +158,18 @@ export default function Onboarding() {
   const cleanProfilePayload = (data) => {
     // Only keep fields that actually exist in the ‘profiles’ DB table schema!
     const {
-      full_name, phone_number, location, linkedin_url, summary, skills, 
+      full_name, phone_number, location, linkedin_url, summary, skills,
       degree, field_of_study, education_level, gpa, honors, relevant_coursework, resume_url,
       onboarding_step, onboarding_complete,
-      skill_gaps, qualification_level, overall_assessment, last_reality_check_date
+      skill_gaps, qualification_level, overall_assessment, last_reality_check_date,
+      five_year_role
     } = data;
     return {
       full_name, phone_number, location, linkedin_url, summary, skills,
       degree, field_of_study, education_level, gpa, honors, relevant_coursework, resume_url,
       onboarding_step, onboarding_complete,
-      skill_gaps, qualification_level, overall_assessment, last_reality_check_date
+      skill_gaps, qualification_level, overall_assessment, last_reality_check_date,
+      five_year_role
     };
   };
 
@@ -194,17 +197,20 @@ export default function Onboarding() {
 
   const goTo = async (nextStep) => {
     setSaveError(null);
+    setSaving(true);
     try {
       await saveProgress(nextStep);
       setStep(nextStep);
     } catch (err) {
       console.error("Failed to save onboarding progress:", err);
-      setSaveError(`Could not save your progress: ${err?.message || "Unknown error"}. Please try again.`);
+      setSaveError("Could not save your progress. Please try again.");
     }
+    setSaving(false);
   };
 
   // Step 6→7: Run the AI tier analysis
   const handleSurveyNext = async () => {
+    if (generatingRoles) return;
     setStep(7);
     setTierRevealError(null);
     setGeneratingRoles(true);
@@ -280,7 +286,7 @@ export default function Onboarding() {
     if (!targetProfileId) {
       // The user somehow reached the end without a profile row saved!
       // Attempt to save it now explicitly.
-      const rawPayload = { ...profileData, onboarding_step: 99 };
+      const rawPayload = { ...profileData, onboarding_step: 7 };
       const payload = cleanProfilePayload(rawPayload);
       Object.keys(payload).forEach(key => payload[key] === undefined && delete payload[key]);
 
@@ -292,7 +298,7 @@ export default function Onboarding() {
 
       if (error || !data?.[0]) {
         console.error("Critical error saving profile on finalise:", error);
-        setFinaliseError(`Could not create profile: ${error?.message || "Unknown error"}. Please try again.`);
+        setFinaliseError("Could not create your profile. Please try again.");
         setFinalising(false);
         return;
       }
@@ -371,10 +377,18 @@ export default function Onboarding() {
             }))
           )
         );
+      } else {
+        // LLM succeeded but returned no tasks — use fallback
+        promises.push(
+          supabase.from("tasks").insert([
+            { title: "Update your CV for target roles", description: "Tailor your CV based on skill gaps.", category: "cv", priority: "high", is_complete: false, user_id: user.id },
+            { title: "Research target companies", description: "Find active job postings.", category: "application", priority: "high", is_complete: false, user_id: user.id },
+          ])
+        );
       }
     } catch (err) {
       console.error("Task generation error during onboarding:", err);
-      // Fallback: insert basic tasks if LLM fails
+      // Fallback: insert basic tasks if LLM call fails
       promises.push(
         supabase.from("tasks").insert([
           { title: "Update your CV for target roles", description: "Tailor your CV based on skill gaps.", category: "cv", priority: "high", is_complete: false, user_id: user.id },
@@ -387,7 +401,7 @@ export default function Onboarding() {
       await Promise.all(promises);
     } catch (err) {
       console.error("Error saving onboarding data:", err);
-      setFinaliseError(`Some data could not be saved: ${err?.message || "Unknown error"}. Please try again.`);
+      setFinaliseError("Some data could not be saved. Please try again.");
       setFinalising(false);
       return;
     }
@@ -420,14 +434,18 @@ export default function Onboarding() {
     const { error: finalUpdateError } = await supabase.from("profiles").update(finalPayload).eq("id", targetProfileId);
     if (finalUpdateError) {
       console.error("Failed to mark onboarding complete:", finalUpdateError);
-      setFinaliseError(`Could not complete setup: ${finalUpdateError.message}. Please try again.`);
+      setFinaliseError("Could not complete setup. Please try again.");
       setFinalising(false);
       return;
     }
 
-    // Remove all cached query data so Home fetches fresh — invalidateQueries only marks stale
+    // Remove cached query data so Home fetches fresh — invalidateQueries only marks stale
     // but leaves old data visible, which can trigger the onboarding redirect guard
-    queryClient.removeQueries();
+    queryClient.removeQueries({ queryKey: ["userProfile"] });
+    queryClient.removeQueries({ queryKey: ["careerRoles"] });
+    queryClient.removeQueries({ queryKey: ["tasks"] });
+    queryClient.removeQueries({ queryKey: ["applications"] });
+    queryClient.removeQueries({ queryKey: ["experiences"] });
 
     setFinalising(false);
     navigate(createPageUrl("Home"));
@@ -514,7 +532,7 @@ export default function Onboarding() {
           onChange={setProfileData}
           onSubmit={() => goTo(6)}
           onBack={() => goTo(4)}
-          submitting={false}
+          submitting={saving}
         />
       )}
       {step === 6 && (

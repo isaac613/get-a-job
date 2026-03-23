@@ -157,6 +157,7 @@ Return ONLY valid JSON. Include 4-6 roles spanning all tiers.`
         max_tokens: 2048,
         response_format: { type: 'json_object' },
       }),
+      signal: AbortSignal.timeout(45000),
     })
 
     if (!openaiResponse.ok) {
@@ -182,6 +183,12 @@ Return ONLY valid JSON. Include 4-6 roles spanning all tiers.`
       });
     }
 
+    if (!Array.isArray(result.roles) || result.roles.length === 0) {
+      return new Response(JSON.stringify({ error: 'AI returned an unexpected response structure. Please try again.' }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
@@ -198,7 +205,7 @@ Return ONLY valid JSON. Include 4-6 roles spanning all tiers.`
         p_error_details: null,
       })
     } catch { /* best-effort logging */ }
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: 'An unexpected error occurred.' }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }

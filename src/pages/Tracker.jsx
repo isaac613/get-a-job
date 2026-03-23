@@ -203,17 +203,17 @@ export default function Tracker() {
                   onChange={(e) => setJobUrl(e.target.value)}
                   placeholder="Paste job posting URL..."
                   className="text-sm bg-white"
+                  disabled
                 />
                 <Button
-                  onClick={handleImportFromUrl}
-                  disabled={importing || !jobUrl.trim()}
-                  className="bg-[#0A0A0A] hover:bg-[#262626] whitespace-nowrap"
+                  disabled
+                  className="bg-[#0A0A0A] opacity-50 cursor-not-allowed whitespace-nowrap"
                   size="sm"
                 >
-                  {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Sparkles className="w-3.5 h-3.5 mr-1" />Auto-fill</>}
+                  <Sparkles className="w-3.5 h-3.5 mr-1" />Coming soon
                 </Button>
               </div>
-              {importError && <p className="text-xs text-red-500 mt-1.5">{importError}</p>}
+              <p className="text-xs text-[#A3A3A3] mt-1.5">URL import is coming soon — paste the job description manually below.</p>
               {newApp.job_description && <p className="text-xs text-emerald-600 mt-1.5">✓ Job details auto-filled below</p>}
             </div>
 

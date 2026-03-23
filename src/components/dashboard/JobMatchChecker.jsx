@@ -45,25 +45,24 @@ export default function JobMatchChecker({ profile, experiences }) {
     const hasInput = mode === "url" ? url.trim() : jobText.trim();
     if (!hasInput) return;
 
+    if (mode === "url") {
+      try {
+        const parsed = new URL(url.trim());
+        if (parsed.protocol !== "https:") {
+          setError("Only HTTPS URLs are accepted.");
+          return;
+        }
+      } catch {
+        setError("Please enter a valid URL (e.g. https://...).");
+        return;
+      }
+    }
+
     setLoading(true);
     setLoadingMsg(LOADING_MESSAGES[0]);
     setError("");
     setResult(null);
     setAddedToTracker(false);
-
-    const allSkills = [
-      ...(profile?.hard_skills || []),
-      ...(profile?.technical_skills || []),
-      ...(profile?.tools_software || []),
-      ...(profile?.analytical_skills || []),
-      ...(profile?.skills || []),
-    ];
-
-    const expSummary = (experiences || []).map(e => `${e.title} at ${e.company}`).join(", ");
-
-    const jobSource = mode === "url"
-      ? `STEP 1: Fetch and read the full job posting at this exact URL: ${url}\nRead the actual page content. Do NOT infer or guess.`
-      : `STEP 1: Use the following job posting text provided directly by the user:\n\n${jobText}`;
 
     // Call LLM job match analysis via Edge Function
     try {

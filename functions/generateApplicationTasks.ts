@@ -62,6 +62,21 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Verify this application belongs to the authenticated user
+    if (data.id) {
+      const { data: appRecord } = await supabase
+        .from("applications")
+        .select("id")
+        .eq("id", data.id)
+        .eq("user_id", user.id)
+        .single();
+      if (!appRecord) {
+        return new Response(JSON.stringify({ error: "Application not found" }), {
+          status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     // Truncate string inputs to prevent oversized task titles
     const trunc = (s: unknown, max: number) => String(s ?? "").slice(0, max);
     const company = trunc(data.company, 100);

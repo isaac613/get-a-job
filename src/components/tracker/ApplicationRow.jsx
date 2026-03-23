@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { ChevronDown, ChevronUp, MessageSquare, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronUp, MessageSquare } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -27,13 +27,9 @@ const STATUS_LABELS = {
 export default function ApplicationRow({ app, onUpdate }) {
   const navigate = useNavigate();
   const [expanded, setExpanded] = useState(false);
-  const [startingChat, setStartingChat] = useState(false);
 
-  const handleOpenCVAgent = async () => {
-    setStartingChat(true);
-    // Navigate to subagents with cv-helper agent context
-    window.location.href = "/subagents?agent=cv-helper";
-    setStartingChat(false);
+  const handleOpenCVAgent = () => {
+    navigate("/subagents?agent=cv-helper");
   };
   const [activeTab, setActiveTab] = useState("target");
   const [jdText, setJdText] = useState(app.job_description || "");
@@ -98,6 +94,7 @@ export default function ApplicationRow({ app, onUpdate }) {
     <div className="bg-white rounded-xl border border-[#E5E5E5] overflow-hidden">
       <button
         onClick={() => setExpanded(!expanded)}
+        aria-label={expanded ? "Collapse application" : "Expand application"}
         className="w-full px-5 py-4 flex items-center justify-between text-left"
       >
         <div className="flex items-center gap-3 min-w-0">
@@ -208,10 +205,9 @@ export default function ApplicationRow({ app, onUpdate }) {
                 <div className="border-t border-[#F0F0F0] pt-4">
                   <button
                     onClick={handleOpenCVAgent}
-                    disabled={startingChat}
                     className="flex items-center gap-2 text-xs font-medium text-[#2563EB] hover:text-[#1d4ed8] transition-colors"
                   >
-                    {startingChat ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MessageSquare className="w-3.5 h-3.5" />}
+                    <MessageSquare className="w-3.5 h-3.5" />
                     Chat with CV Agent for this role
                   </button>
                   <p className="text-[11px] text-[#A3A3A3] mt-1">Opens a conversation pre-loaded with this application's context.</p>

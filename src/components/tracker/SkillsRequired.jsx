@@ -20,7 +20,7 @@ export default function SkillsRequired({ app, onUpdate }) {
   const handleAdd = () => {
     if (!newSkill.skill_name) return;
     const previous = skills;
-    const updated = [...skills, newSkill];
+    const updated = [...skills, { ...newSkill, id: crypto.randomUUID() }];
     setSkills(updated);
     saveSkills(updated, previous);
     setNewSkill({ skill_name: "", status: "missing", evidence_source: "" });
@@ -67,7 +67,7 @@ export default function SkillsRequired({ app, onUpdate }) {
             const config = STATUS_CONFIG[skill.status];
             const Icon = config.icon;
             return (
-              <div key={i} className="bg-[#FAFAFA] rounded-lg p-3">
+              <div key={skill.id ?? i} className="bg-[#FAFAFA] rounded-lg p-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-2 flex-1">
                     <Icon className={cn("w-4 h-4 mt-0.5", config.color)} />

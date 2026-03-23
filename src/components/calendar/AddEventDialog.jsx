@@ -31,6 +31,11 @@ export default function AddEventDialog({ open, onClose, applications, onEventAdd
     e.preventDefault();
     if (!user?.id) return;
 
+    if (!formData.all_day && !formData.start_time) {
+      toast.error("Please enter a start time.");
+      return;
+    }
+
     const startDateTime = formData.all_day
       ? formData.start_date
       : `${formData.start_date}T${formData.start_time}`;
@@ -38,6 +43,11 @@ export default function AddEventDialog({ open, onClose, applications, onEventAdd
     const endDateTime = formData.end_date && formData.end_time
       ? `${formData.end_date}T${formData.end_time}`
       : null;
+
+    if (endDateTime && endDateTime <= startDateTime) {
+      toast.error("End time must be after start time.");
+      return;
+    }
 
     const { error } = await supabase.from("calendar_events").insert({
       user_id: user.id,
@@ -122,7 +132,7 @@ export default function AddEventDialog({ open, onClose, applications, onEventAdd
                 <SelectValue placeholder="Select an application" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={null}>None</SelectItem>
+                <SelectItem value="">None</SelectItem>
                 {applications?.map(app => (
                   <SelectItem key={app.id} value={app.id}>
                     {app.role_title} {app.company ? `at ${app.company}` : ""}

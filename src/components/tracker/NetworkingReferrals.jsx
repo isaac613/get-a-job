@@ -26,7 +26,7 @@ export default function NetworkingReferrals({ app, onUpdate }) {
   const handleAdd = () => {
     if (!newContact.contact_name) return;
     const previous = contacts;
-    const updated = [...contacts, newContact];
+    const updated = [...contacts, { ...newContact, id: crypto.randomUUID() }];
     setContacts(updated);
     saveContacts(updated, previous);
     setNewContact({
@@ -90,7 +90,7 @@ export default function NetworkingReferrals({ app, onUpdate }) {
       ) : (
         <div className="space-y-2">
           {contacts.map((contact, i) => (
-            <div key={i} className="bg-[#FAFAFA] rounded-lg p-3">
+            <div key={contact.id ?? i} className="bg-[#FAFAFA] rounded-lg p-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1">
                   <p className="text-sm font-medium text-[#0A0A0A]">{contact.contact_name}</p>

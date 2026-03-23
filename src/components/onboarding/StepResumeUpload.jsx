@@ -117,8 +117,6 @@ export default function StepResumeUpload({ onNext, onExtracted, profileData, onC
   const [linkedinUrl, setLinkedinUrl] = useState(profileData?.linkedin_url || "");
   const [extractingLinkedin, setExtractingLinkedin] = useState(false);
   const [linkedinDone, setLinkedinDone] = useState(false);
-  const [connectingLinkedin, setConnectingLinkedin] = useState(false);
-  const [linkedinConnected, setLinkedinConnected] = useState(false);
   const inputRef = useRef();
 
   const handleFile = async (file) => {
@@ -141,9 +139,8 @@ export default function StepResumeUpload({ onNext, onExtracted, profileData, onC
         .from("resumes")
         .getPublicUrl(filePath);
 
-      // Save URL to profile
+      // Save URL to local state — persisted when saveProgress runs at next step
       const resumeUrl = urlData?.publicUrl || filePath;
-      await supabase.from("profiles").update({ resume_url: resumeUrl }).eq("id", user.id);
       onChange({ resume_url: resumeUrl });
 
       setUploading(false);
@@ -171,7 +168,6 @@ export default function StepResumeUpload({ onNext, onExtracted, profileData, onC
 
       if (fnError) throw new Error(fnError.message || "Edge function error");
 
-      console.log("AI extraction response:", extractData);
 
       const replyText = extractData?.reply || extractData?.content || extractData?.text || "";
 
@@ -217,14 +213,6 @@ export default function StepResumeUpload({ onNext, onExtracted, profileData, onC
       setExtracting(false);
       setError(`Upload failed: ${err.message}. Please try again or enter details manually.`);
     }
-  };
-
-  const handleLinkedinConnect = async () => {
-    setConnectingLinkedin(true);
-    // LinkedIn connect is not supported — manual URL entry is available below
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    setConnectingLinkedin(false);
-    setError("LinkedIn auto-connect is not available. Please enter your LinkedIn URL manually below.");
   };
 
   const handleLinkedinExtract = () => {
@@ -289,26 +277,19 @@ export default function StepResumeUpload({ onNext, onExtracted, profileData, onC
 
         {/* One-click LinkedIn connect */}
         <div className="mb-4">
-          <p className="text-xs text-[#A3A3A3] mb-2">Auto-fill your name instantly from your connected LinkedIn account.</p>
+          <p className="text-xs text-[#A3A3A3] mb-2">Auto-fill your details from LinkedIn.</p>
           <Button
-            onClick={handleLinkedinConnect}
-            disabled={connectingLinkedin || linkedinConnected}
+            disabled
             size="sm"
-            className="bg-[#0A66C2] hover:bg-[#004182] text-white flex items-center gap-2"
+            className="bg-[#0A66C2] opacity-50 cursor-not-allowed text-white flex items-center gap-2"
           >
-            {connectingLinkedin ? (
-              <><Loader2 className="w-3 h-3 animate-spin" /> Connecting...</>
-            ) : linkedinConnected ? (
-              <><CheckCircle2 className="w-3 h-3" /> Connected</>
-            ) : (
-              <><Linkedin className="w-3 h-3" /> Connect with LinkedIn</>
-            )}
+            <Linkedin className="w-3 h-3" /> Connect with LinkedIn
           </Button>
-          {linkedinConnected && <p className="text-xs text-emerald-600 mt-2">✓ Name imported from LinkedIn</p>}
+          <p className="text-xs text-[#A3A3A3] mt-1.5">Coming soon — paste your LinkedIn URL below for now.</p>
         </div>
 
         <div className="border-t border-[#F0F0F0] pt-4">
-          <p className="text-xs text-[#A3A3A3] mb-3">Or paste your LinkedIn URL to extract skills & experience via AI.</p>
+          <p className="text-xs text-[#A3A3A3] mb-3">Or paste your LinkedIn URL to save it to your profile.</p>
           <div className="flex gap-2">
             <Input
               value={linkedinUrl}
@@ -318,17 +299,14 @@ export default function StepResumeUpload({ onNext, onExtracted, profileData, onC
             />
             <Button
               onClick={handleLinkedinExtract}
-              disabled={!linkedinUrl.trim() || extractingLinkedin || linkedinDone}
+              disabled={!linkedinUrl.trim() || linkedinDone}
               size="sm"
               variant="outline"
               className="whitespace-nowrap"
             >
-              {extractingLinkedin ? <><Loader2 className="w-3 h-3 animate-spin mr-1" />Extracting…</> : linkedinDone ? <CheckCircle2 className="w-3 h-3" /> : "Extract"}
+              {linkedinDone ? <CheckCircle2 className="w-3 h-3" /> : "Save"}
             </Button>
           </div>
-          {extractingLinkedin && (
-            <p className="text-xs text-[#A3A3A3] mt-2">This uses AI + web search and takes ~15–30 seconds…</p>
-          )}
           {linkedinDone && <p className="text-xs text-emerald-600 mt-2">✓ LinkedIn URL saved</p>}
         </div>
       </div>
@@ -403,6 +381,8 @@ export default function StepResumeUpload({ onNext, onExtracted, profileData, onC
         >
           {done ? (
             <>Continue <ArrowRight className="w-4 h-4" /></>
+          ) : error ? (
+            <>Continue Anyway <ArrowRight className="w-4 h-4" /></>
           ) : (
             "Upload to Continue"
           )}

@@ -15,14 +15,12 @@ export default function Calendar() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showAddDialog, setShowAddDialog] = useState(false);
 
-  // TODO: calendar_events table needs to be created in a migration
-  const { data: events, isLoading } = useQuery({
+  const { data: events, isLoading, isError: eventsError } = useQuery({
     queryKey: ["calendarEvents", user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
-      // Calendar events table may not exist yet — return empty gracefully
       const { data, error } = await supabase.from("calendar_events").select("*").eq("user_id", user.id);
-      if (error) return [];
+      if (error) throw error;
       return data || [];
     },
     enabled: !!user?.id,
@@ -80,6 +78,11 @@ export default function Calendar() {
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-8">
+      {eventsError && (
+        <div className="mb-6 px-4 py-3 bg-red-50 border border-red-100 rounded-xl text-sm text-red-700">
+          Could not load calendar events. Please refresh the page to try again.
+        </div>
+      )}
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-[#0A0A0A]">Career Calendar</h1>

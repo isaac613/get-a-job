@@ -24,7 +24,10 @@
       "Bash(grep -rn .env /c/Users/Isaac/OneDrive/Documents/GetaJob/Get-a-Job --include=*.js --include=*.ts --include=*.jsx --include=*.tsx)",
       "Bash(ls /c/Users/Isaac/OneDrive/Documents/GetaJob/Get-a-Job/.env*)",
       "Bash(grep -n \"select\\\\\\(\\\\*\\\\\\)\\\\|select\\(''''\\\\*''''\\)\" /c/Users/Isaac/OneDrive/Documents/GetaJob/Get-a-Job/src/pages/*.jsx)",
-      "mcp__supabase__list_tables"
+      "mcp__supabase__list_tables",
+      "Bash(git -C C:UsersIsaacOneDriveDocumentsGetaJobGet-a-Job log --oneline --all -- .env.local)",
+      "Bash(grep -r createPageUrl C:UsersIsaacOneDriveDocumentsGetaJobGet-a-Jobsrc --include=*.js --include=*.jsx --include=*.ts --include=*.tsx -l)",
+      "Bash(grep -r createPageUrl C:/Users/Isaac/OneDrive/Documents/GetaJob/Get-a-Job/src --include=*.jsx --include=*.js --include=*.ts -l)"
     ]
   },
   "enableAllProjectMcpServers": true,

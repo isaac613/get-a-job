@@ -16,6 +16,40 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+function SkillTagger({ skills, onAdd, onRemove, tempValue, setTempValue }) {
+  return (
+    <div>
+      <div className="flex gap-2 mb-2">
+        <Input
+          value={tempValue}
+          onChange={(e) => setTempValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              onAdd();
+            }
+          }}
+          placeholder="Add skill and press Enter"
+          className="text-sm"
+        />
+        <Button variant="outline" size="sm" onClick={onAdd} className="text-xs px-3">
+          Add
+        </Button>
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {skills.map((s, i) => (
+          <span key={i} className="inline-flex items-center gap-1 text-xs bg-[#F5F5F5] text-[#525252] px-2 py-1 rounded-md border border-[#E5E5E5]">
+            {s}
+            <button onClick={() => onRemove(s)} className="hover:text-red-500">
+              <Trash2 className="w-3 h-3" />
+            </button>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function AddInformation() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -34,15 +68,8 @@ export default function AddInformation() {
     initialData: [],
   });
 
-  // TODO: Add courses table in migration if needed
-  const { data: courses, isLoading: loadingCourses } = useQuery({
-    queryKey: ["courses", user?.id],
-    queryFn: async () => {
-      return [];
-    },
-    enabled: !!user?.id,
-    initialData: [],
-  });
+  // Courses table not yet implemented — placeholder to avoid changing tab structure
+  const courses = [];
 
   const { data: certifications, isLoading: loadingCerts } = useQuery({
     queryKey: ["certifications", user?.id],
@@ -119,9 +146,11 @@ export default function AddInformation() {
 
   const saveProfile = async () => {
     setSaving(true);
+    // years_experience is not a column in the profiles table
+    const { years_experience, ...dbFields } = profileForm;
     const { error } = profile
-      ? await supabase.from("profiles").update(profileForm).eq("id", user.id)
-      : await supabase.from("profiles").insert({ id: user.id, ...profileForm });
+      ? await supabase.from("profiles").update(dbFields).eq("id", user.id)
+      : await supabase.from("profiles").insert({ id: user.id, ...dbFields });
     if (error) {
       console.error("Failed to save profile:", error);
       toast.error("Failed to save profile: " + error.message);
@@ -171,9 +200,8 @@ export default function AddInformation() {
     setUploading(false);
   };
 
-  const addCourse = async () => {
-    // TODO: Add courses table in migration if needed
-    alert("Course tracking will be available after the courses table is created.");
+  const addCourse = () => {
+    toast.info("Course tracking is coming soon.");
   };
 
   const addCert = async () => {
@@ -212,7 +240,7 @@ export default function AddInformation() {
     queryClient.invalidateQueries({ queryKey: ["experiences"] });
   };
 
-  const isLoading = loadingProfile || loadingCourses || loadingCerts || loadingProjects || loadingExp;
+  const isLoading = loadingProfile || loadingCerts || loadingProjects || loadingExp;
 
   if (isLoading) {
     return (
@@ -221,38 +249,6 @@ export default function AddInformation() {
       </div>
     );
   }
-
-  const SkillTagger = ({ skills, onAdd, onRemove, tempValue, setTempValue }) => (
-    <div>
-      <div className="flex gap-2 mb-2">
-        <Input
-          value={tempValue}
-          onChange={(e) => setTempValue(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              onAdd();
-            }
-          }}
-          placeholder="Add skill and press Enter"
-          className="text-sm"
-        />
-        <Button variant="outline" size="sm" onClick={onAdd} className="text-xs px-3">
-          Add
-        </Button>
-      </div>
-      <div className="flex flex-wrap gap-1.5">
-        {skills.map((s, i) => (
-          <span key={i} className="inline-flex items-center gap-1 text-xs bg-[#F5F5F5] text-[#525252] px-2 py-1 rounded-md border border-[#E5E5E5]">
-            {s}
-            <button onClick={() => onRemove(s)} className="hover:text-red-500">
-              <Trash2 className="w-3 h-3" />
-            </button>
-          </span>
-        ))}
-      </div>
-    </div>
-  );
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-8">
@@ -346,44 +342,11 @@ export default function AddInformation() {
         </TabsContent>
 
         <TabsContent value="courses">
-          <div className="space-y-4">
-            <div className="bg-white rounded-xl border border-[#E5E5E5] p-6 space-y-4">
-              <h3 className="text-sm font-semibold text-[#0A0A0A]">Add Course</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium">Course Name</label>
-                  <Input value={courseForm.name} onChange={(e) => setCourseForm({ ...courseForm, name: e.target.value })} className="mt-1" />
-                </div>
-                <div>
-                  <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium">Provider</label>
-                  <Input value={courseForm.provider} onChange={(e) => setCourseForm({ ...courseForm, provider: e.target.value })} className="mt-1" placeholder="e.g. Coursera, MIT" />
-                </div>
-              </div>
-              <div>
-                <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium">Status</label>
-                <Select value={courseForm.completion_status} onValueChange={(v) => setCourseForm({ ...courseForm, completion_status: v })}>
-                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="completed">Completed</SelectItem>
-                    <SelectItem value="in_progress">In Progress</SelectItem>
-                    <SelectItem value="planned">Planned</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium mb-2 block">Skills Gained</label>
-                <SkillTagger
-                  skills={courseForm.skills_gained}
-                  tempValue={tempSkillCourse}
-                  setTempValue={setTempSkillCourse}
-                  onAdd={() => { if (tempSkillCourse.trim()) { setCourseForm({ ...courseForm, skills_gained: [...courseForm.skills_gained, tempSkillCourse.trim()] }); setTempSkillCourse(""); } }}
-                  onRemove={(s) => setCourseForm({ ...courseForm, skills_gained: courseForm.skills_gained.filter((x) => x !== s) })}
-                />
-              </div>
-              <Button onClick={addCourse} className="bg-[#0A0A0A] hover:bg-[#262626] text-sm">
-                <Plus className="w-4 h-4 mr-2" />Add Course
-              </Button>
-            </div>
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center">
+            <p className="text-sm font-semibold text-amber-800 mb-1">Course Tracking — Coming Soon</p>
+            <p className="text-xs text-amber-700">
+              You'll be able to log courses, track completion, and map skills gained directly to your profile. Check back soon.
+            </p>
           </div>
         </TabsContent>
 
