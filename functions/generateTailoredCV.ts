@@ -277,7 +277,7 @@ Return ONLY valid JSON.`;
 
     const { data: signedUrlData, error: signedUrlError } = await serviceClient.storage
       .from("cvs")
-      .createSignedUrl(fileName, 31536000); // 1 year expiry
+      .createSignedUrl(fileName, 315360000); // ~10 year expiry
 
     if (signedUrlError || !signedUrlData) {
       return Response.json({ error: "Failed to generate CV download URL" }, { status: 500 });

@@ -134,13 +134,13 @@ export default function StepResumeUpload({ onNext, onExtracted, profileData, onC
 
       if (uploadError) throw uploadError;
 
-      // Get download URL
-      const { data: urlData } = supabase.storage
+      // Get a long-lived signed URL (bucket is private)
+      const { data: signedData } = await supabase.storage
         .from("resumes")
-        .getPublicUrl(filePath);
+        .createSignedUrl(filePath, 315360000); // ~10 years
 
       // Save URL to local state — persisted when saveProgress runs at next step
-      const resumeUrl = urlData?.publicUrl || filePath;
+      const resumeUrl = signedData?.signedUrl || filePath;
       onChange({ resume_url: resumeUrl });
 
       setUploading(false);

@@ -115,6 +115,7 @@ Return ONLY valid JSON.`
 
     const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
+      signal: AbortSignal.timeout(45000),
       headers: { 'Authorization': `Bearer ${openaiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: MODEL,

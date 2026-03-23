@@ -185,11 +185,11 @@ export default function AddInformation() {
 
       if (uploadError) throw uploadError;
 
-      const { data: urlData } = supabase.storage
+      const { data: signedData } = await supabase.storage
         .from("resumes")
-        .getPublicUrl(filePath);
+        .createSignedUrl(filePath, 315360000); // ~10 years
 
-      const resumeUrl = urlData?.publicUrl || filePath;
+      const resumeUrl = signedData?.signedUrl || filePath;
       await supabase.from("profiles").update({ resume_url: resumeUrl }).eq("id", user.id);
       queryClient.invalidateQueries({ queryKey: ["userProfile"] });
       toast.success("Resume uploaded successfully!");

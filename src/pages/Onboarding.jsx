@@ -255,7 +255,7 @@ export default function Onboarding() {
           skill_gaps: data?.skill_gaps || [],
           qualification_level: data?.qualification_level || "",
           overall_assessment: data?.overall_assessment || "",
-          last_reality_check_date: new Date().toISOString().split("T")[0],
+          last_reality_check_date: new Date().toLocaleDateString("sv"),
           onboarding_step: 7,
         }).eq("id", existingProfileId);
       }
@@ -548,9 +548,14 @@ export default function Onboarding() {
           {tierRevealError && (
             <div className="mx-auto max-w-lg mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between gap-3">
               <p className="text-sm text-red-700">{tierRevealError}</p>
-              <button onClick={() => { setTierRevealError(null); goTo(6); }} className="text-xs font-medium text-red-800 underline underline-offset-2 whitespace-nowrap">
-                Go back
-              </button>
+              <div className="flex gap-3 flex-shrink-0">
+                <button onClick={() => { setTierRevealError(null); handleSurveyNext(); }} className="text-xs font-medium text-red-800 underline underline-offset-2 whitespace-nowrap">
+                  Try Again
+                </button>
+                <button onClick={() => { setTierRevealError(null); goTo(6); }} className="text-xs font-medium text-red-800 underline underline-offset-2 whitespace-nowrap">
+                  Go back
+                </button>
+              </div>
             </div>
           )}
           <StepTierReveal

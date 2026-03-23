@@ -39,16 +39,16 @@ export default function NetworkingReferrals({ app, onUpdate }) {
     });
   };
 
-  const handleRemove = (index) => {
+  const handleRemove = (id) => {
     const previous = contacts;
-    const updated = contacts.filter((_, i) => i !== index);
+    const updated = contacts.filter((c) => c.id !== id);
     setContacts(updated);
     saveContacts(updated, previous);
   };
 
-  const handleUpdate = (index, field, value) => {
+  const handleUpdate = (id, field, value) => {
     const previous = contacts;
-    const updated = contacts.map((c, i) => (i === index ? { ...c, [field]: value } : c));
+    const updated = contacts.map((c) => (c.id === id ? { ...c, [field]: value } : c));
     setContacts(updated);
     saveContacts(updated, previous);
   };
@@ -101,21 +101,21 @@ export default function NetworkingReferrals({ app, onUpdate }) {
                     <label className="flex items-center gap-2 text-xs text-[#525252]">
                       <Checkbox
                         checked={contact.outreach_sent}
-                        onCheckedChange={(v) => handleUpdate(i, "outreach_sent", v)}
+                        onCheckedChange={(v) => handleUpdate(contact.id, "outreach_sent", v)}
                       />
                       Outreach Sent
                     </label>
                     <label className="flex items-center gap-2 text-xs text-[#525252]">
                       <Checkbox
                         checked={contact.referral_requested}
-                        onCheckedChange={(v) => handleUpdate(i, "referral_requested", v)}
+                        onCheckedChange={(v) => handleUpdate(contact.id, "referral_requested", v)}
                       />
                       Referral Requested
                     </label>
                   </div>
                   <Select
                     value={contact.response_status}
-                    onValueChange={(v) => handleUpdate(i, "response_status", v)}
+                    onValueChange={(v) => handleUpdate(contact.id, "response_status", v)}
                   >
                     <SelectTrigger className="mt-2 h-7 text-xs">
                       <SelectValue />
@@ -127,7 +127,7 @@ export default function NetworkingReferrals({ app, onUpdate }) {
                     </SelectContent>
                   </Select>
                 </div>
-                <button onClick={() => handleRemove(i)} className="text-[#A3A3A3] hover:text-red-500">
+                <button onClick={() => handleRemove(contact.id)} className="text-[#A3A3A3] hover:text-red-500">
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>

@@ -26,16 +26,16 @@ export default function SkillsRequired({ app, onUpdate }) {
     setNewSkill({ skill_name: "", status: "missing", evidence_source: "" });
   };
 
-  const handleRemove = (index) => {
+  const handleRemove = (id) => {
     const previous = skills;
-    const updated = skills.filter((_, i) => i !== index);
+    const updated = skills.filter((s) => s.id !== id);
     setSkills(updated);
     saveSkills(updated, previous);
   };
 
-  const handleUpdate = (index, field, value) => {
+  const handleUpdate = (id, field, value) => {
     const previous = skills;
-    const updated = skills.map((s, i) => (i === index ? { ...s, [field]: value } : s));
+    const updated = skills.map((s) => (s.id === id ? { ...s, [field]: value } : s));
     setSkills(updated);
     saveSkills(updated, previous);
   };
@@ -78,7 +78,7 @@ export default function SkillsRequired({ app, onUpdate }) {
                       )}
                       <Select
                         value={skill.status}
-                        onValueChange={(v) => handleUpdate(i, "status", v)}
+                        onValueChange={(v) => handleUpdate(skill.id, "status", v)}
                       >
                         <SelectTrigger className="mt-2 h-7 text-xs">
                           <SelectValue />
@@ -91,7 +91,7 @@ export default function SkillsRequired({ app, onUpdate }) {
                       </Select>
                     </div>
                   </div>
-                  <button onClick={() => handleRemove(i)} className="text-[#A3A3A3] hover:text-red-500">
+                  <button onClick={() => handleRemove(skill.id)} className="text-[#A3A3A3] hover:text-red-500">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>

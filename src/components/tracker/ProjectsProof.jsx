@@ -28,16 +28,16 @@ export default function ProjectsProof({ app, onUpdate }) {
     setNewProject({ project_name: "", skill_proven: "", status: "not_started" });
   };
 
-  const handleRemove = (index) => {
+  const handleRemove = (id) => {
     const previous = projects;
-    const updated = projects.filter((_, i) => i !== index);
+    const updated = projects.filter((p) => p.id !== id);
     setProjects(updated);
     saveProjects(updated, previous);
   };
 
-  const handleUpdate = (index, field, value) => {
+  const handleUpdate = (id, field, value) => {
     const previous = projects;
-    const updated = projects.map((p, i) => (i === index ? { ...p, [field]: value } : p));
+    const updated = projects.map((p) => (p.id === id ? { ...p, [field]: value } : p));
     setProjects(updated);
     saveProjects(updated, previous);
   };
@@ -73,7 +73,7 @@ export default function ProjectsProof({ app, onUpdate }) {
                   <p className="text-xs text-[#A3A3A3] mt-0.5">Proves: {project.skill_proven}</p>
                   <Select
                     value={project.status}
-                    onValueChange={(v) => handleUpdate(i, "status", v)}
+                    onValueChange={(v) => handleUpdate(project.id, "status", v)}
                   >
                     <SelectTrigger className="mt-2 h-7 text-xs">
                       <SelectValue />
@@ -85,7 +85,7 @@ export default function ProjectsProof({ app, onUpdate }) {
                     </SelectContent>
                   </Select>
                 </div>
-                <button onClick={() => handleRemove(i)} className="text-[#A3A3A3] hover:text-red-500">
+                <button onClick={() => handleRemove(project.id)} className="text-[#A3A3A3] hover:text-red-500">
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>

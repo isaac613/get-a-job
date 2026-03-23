@@ -4,19 +4,22 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, FileText, Sparkles, Download } from "lucide-react";
+import { Loader2, FileText, Sparkles, Download, Save } from "lucide-react";
 import { toast } from "sonner";
 
 export default function CVManagement({ app, onUpdate }) {
   const [cvName, setCvName] = useState(app.cv_version_name || "");
   const [cvStatus, setCvStatus] = useState(app.cv_status || "not_started");
   const [generating, setGenerating] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
+    setSaving(true);
     const { error } = await supabase.from("applications").update({
       cv_version_name: cvName,
       cv_status: cvStatus,
     }).eq("id", app.id);
+    setSaving(false);
     if (error) {
       console.error("Failed to save CV details:", error);
       toast.error("Failed to save. Please try again.");
@@ -117,10 +120,15 @@ export default function CVManagement({ app, onUpdate }) {
       <div className="flex gap-2">
         <Button
           onClick={handleSave}
+          disabled={saving}
           variant="outline"
           className="text-sm"
         >
-          Save Changes
+          {saving ? (
+            <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving...</>
+          ) : (
+            <><Save className="w-4 h-4 mr-2" />Save Changes</>
+          )}
         </Button>
         <Button
           onClick={handleGenerateCV}
