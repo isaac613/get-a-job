@@ -6,12 +6,16 @@ import { toast } from "sonner";
 
 export default function InterviewPrep({ app, onUpdate }) {
   const [prep, setPrep] = useState(app.interview_prep || {});
+  const [saving, setSaving] = useState(false);
 
   const handleToggle = async (field) => {
+    if (saving) return;
     const previous = prep;
     const updated = { ...prep, [field]: !prep[field] };
     setPrep(updated);
+    setSaving(true);
     const { error } = await supabase.from("applications").update({ interview_prep: updated }).eq("id", app.id);
+    setSaving(false);
     if (error) {
       console.error("Failed to save interview prep:", error);
       setPrep(previous);
@@ -54,6 +58,7 @@ export default function InterviewPrep({ app, onUpdate }) {
               <Checkbox
                 checked={prep[item.key]}
                 onCheckedChange={() => handleToggle(item.key)}
+                disabled={saving}
               />
               <span className="text-sm text-[#0A0A0A] flex-1">{item.label}</span>
               {prep[item.key] ? (

@@ -12,15 +12,18 @@ const STATUS_COLORS = {
 };
 
 export default function ProjectsProof({ app, onUpdate }) {
-  const [projects, setProjects] = useState(app.projects_proof || []);
+  const [projects, setProjects] = useState(
+    (app.projects_proof || []).map((p) => ({ ...p, id: p.id || crypto.randomUUID() }))
+  );
   const [newProject, setNewProject] = useState({
     project_name: "",
     skill_proven: "",
     status: "not_started",
   });
+  const [saving, setSaving] = useState(false);
 
   const handleAdd = () => {
-    if (!newProject.project_name || !newProject.skill_proven) return;
+    if (!newProject.project_name || !newProject.skill_proven || saving) return;
     const previous = projects;
     const updated = [...projects, { ...newProject, id: crypto.randomUUID() }];
     setProjects(updated);
@@ -29,6 +32,7 @@ export default function ProjectsProof({ app, onUpdate }) {
   };
 
   const handleRemove = (id) => {
+    if (saving) return;
     const previous = projects;
     const updated = projects.filter((p) => p.id !== id);
     setProjects(updated);
@@ -36,6 +40,7 @@ export default function ProjectsProof({ app, onUpdate }) {
   };
 
   const handleUpdate = (id, field, value) => {
+    if (saving) return;
     const previous = projects;
     const updated = projects.map((p) => (p.id === id ? { ...p, [field]: value } : p));
     setProjects(updated);
@@ -43,7 +48,9 @@ export default function ProjectsProof({ app, onUpdate }) {
   };
 
   const saveProjects = async (updated, previous) => {
+    setSaving(true);
     const { error } = await supabase.from("applications").update({ projects_proof: updated }).eq("id", app.id);
+    setSaving(false);
     if (error) {
       console.error("Failed to save projects:", error);
       setProjects(previous);

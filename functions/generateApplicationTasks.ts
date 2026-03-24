@@ -54,7 +54,13 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { event, data, old_data } = await req.json();
+    const rawBody = await req.text();
+    if (rawBody.length > 50_000) {
+      return new Response(JSON.stringify({ error: "Request payload too large." }), {
+        status: 413, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const { event, data, old_data } = JSON.parse(rawBody);
 
     if (!data || !data.status) {
       return new Response(JSON.stringify({ error: "Invalid application data" }), {
@@ -62,19 +68,23 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (!data.id) {
+      return new Response(JSON.stringify({ error: "application id is required" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Verify this application belongs to the authenticated user
-    if (data.id) {
-      const { data: appRecord } = await supabase
-        .from("applications")
-        .select("id")
-        .eq("id", data.id)
-        .eq("user_id", user.id)
-        .single();
-      if (!appRecord) {
-        return new Response(JSON.stringify({ error: "Application not found" }), {
-          status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+    const { data: appRecord } = await supabase
+      .from("applications")
+      .select("id")
+      .eq("id", data.id)
+      .eq("user_id", user.id)
+      .single();
+    if (!appRecord) {
+      return new Response(JSON.stringify({ error: "Application not found" }), {
+        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Truncate string inputs to prevent oversized task titles

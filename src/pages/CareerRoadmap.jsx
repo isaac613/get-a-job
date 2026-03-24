@@ -27,6 +27,7 @@ export default function CareerRoadmap() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [generating, setGenerating] = useState(false);
+  const [tracking, setTracking] = useState(false);
 
   const { data: roles = [], isLoading, isError: rolesError } = useQuery({
     queryKey: ["careerRoles", user?.id],
@@ -77,13 +78,14 @@ export default function CareerRoadmap() {
   const tier1 = roles.filter((r) => r.tier === "tier_1");
   const tier2 = roles.filter((r) => r.tier === "tier_2");
   const tier3 = roles.filter((r) => r.tier === "tier_3");
+  const uncategorized = roles.filter((r) => !["tier_1", "tier_2", "tier_3"].includes(r.tier));
 
   const handleGenerate = async () => {
     if (!profile) return;
     setGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke("generate-career-analysis", {
-        body: { dream_roles: roles.map(r => r.title) },
+        body: { dream_roles: profile?.five_year_role ? [profile.five_year_role] : [] },
       });
 
       if (error) throw error;
@@ -122,6 +124,9 @@ export default function CareerRoadmap() {
 
 
   const handleTrack = async (role) => {
+    if (tracking) return;
+    setTracking(true);
+    try {
     const { data: existing } = await supabase
       .from("applications")
       .select("id")
@@ -148,6 +153,9 @@ export default function CareerRoadmap() {
     }
     queryClient.invalidateQueries({ queryKey: ["applications"] });
     navigate(createPageUrl("Tracker"));
+    } finally {
+      setTracking(false);
+    }
   };
 
   if (isLoading) {
@@ -282,6 +290,20 @@ export default function CareerRoadmap() {
           </h2>
           <div className="space-y-3">
             {tier3.map((role) => (
+              <RoleCard key={role.id} role={role} onTrack={handleTrack} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {uncategorized.length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-xs uppercase tracking-wider text-[#A3A3A3] font-semibold mb-3 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-gray-400" />
+            Other Roles
+          </h2>
+          <div className="space-y-3">
+            {uncategorized.map((role) => (
               <RoleCard key={role.id} role={role} onTrack={handleTrack} />
             ))}
           </div>

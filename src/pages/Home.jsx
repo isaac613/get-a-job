@@ -91,7 +91,7 @@ export default function Home() {
   const tier1Role = roles.find((r) => r.tier === "tier_1");
   const matchedSkills = tier1Role?.matched_skills || [];
   const missingSkills = tier1Role?.missing_skills || [];
-  const skillGaps = profile?.skill_gaps || [];
+  const skillGaps = Array.isArray(profile?.skill_gaps) ? profile.skill_gaps : [];
   const pendingTasks = tasks.filter((t) => !t.is_complete);
   const activeApps = applications.filter((a) => !["rejected", "withdrawn", "offer"].includes(a.status));
   const score = tier1Role?.readiness_score ?? (tier1Role?.match_percentage != null ? tier1Role.match_percentage / 100 : null);
@@ -112,7 +112,11 @@ export default function Home() {
       setResetError("Reset failed. Please try again.");
       return;
     }
-    await queryClient.invalidateQueries({ queryKey: ["userProfile", user?.id] });
+    queryClient.removeQueries({ queryKey: ["userProfile"] });
+    queryClient.removeQueries({ queryKey: ["careerRoles"] });
+    queryClient.removeQueries({ queryKey: ["tasks"] });
+    queryClient.removeQueries({ queryKey: ["applications"] });
+    queryClient.removeQueries({ queryKey: ["experiences"] });
     navigate(createPageUrl("Onboarding"));
   };
 
@@ -209,7 +213,7 @@ export default function Home() {
           )}
           {profile?.field_of_study && (
             <p className="text-xs text-[#A3A3A3] mt-2">
-              {profile.education_level?.replace("_", " ")} · {profile.field_of_study}
+              {profile.education_level?.replaceAll("_", " ")} · {profile.field_of_study}
             </p>
           )}
         </div>
@@ -327,7 +331,7 @@ export default function Home() {
       )}
 
       {/* Job Match Checker */}
-      <JobMatchChecker profile={profile} experiences={experiences} />
+      <JobMatchChecker />
 
       {/* Course Recommendations */}
       {skillGaps.length > 0 && <SkillGapCourses skillGaps={skillGaps} />}

@@ -38,10 +38,15 @@ export default function AddEventDialog({ open, onClose, applications, onEventAdd
 
     const startDateTime = formData.all_day
       ? formData.start_date
-      : `${formData.start_date}T${formData.start_time}`;
+      : new Date(`${formData.start_date}T${formData.start_time}`).toISOString();
+
+    if (formData.end_date && !formData.end_time) {
+      toast.error("Please enter an end time when an end date is provided.");
+      return;
+    }
 
     const endDateTime = formData.end_date && formData.end_time
-      ? `${formData.end_date}T${formData.end_time}`
+      ? new Date(`${formData.end_date}T${formData.end_time}`).toISOString()
       : null;
 
     if (endDateTime && endDateTime <= startDateTime) {

@@ -45,8 +45,13 @@ export default function Calendar() {
 
   const getEventsForDate = (date) => {
     return events.filter(event => {
-      const eventDate = parseISO(event.start_date);
-      return isSameDay(eventDate, date);
+      if (!event.start_date) return false;
+      try {
+        const eventDate = parseISO(event.start_date);
+        return isSameDay(eventDate, date);
+      } catch {
+        return false;
+      }
     });
   };
 
@@ -200,14 +205,14 @@ export default function Calendar() {
                         {eventTypeLabels[event.event_type]}
                       </span>
                     </div>
-                    {!event.all_day && (
+                    {!event.all_day && event.start_date && (
                       <div className="flex items-center gap-1 text-xs mb-1">
                         <Clock className="w-3 h-3" />
-                        <span>{format(parseISO(event.start_date), "h:mm a")}</span>
+                        <span>{(() => { try { return format(parseISO(event.start_date), "h:mm a"); } catch { return ""; } })()}</span>
                         {event.end_date && (
                           <>
                             <span>-</span>
-                            <span>{format(parseISO(event.end_date), "h:mm a")}</span>
+                            <span>{(() => { try { return format(parseISO(event.end_date), "h:mm a"); } catch { return ""; } })()}</span>
                           </>
                         )}
                       </div>

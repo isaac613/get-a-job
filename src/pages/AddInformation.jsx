@@ -55,6 +55,7 @@ export default function AddInformation() {
   const { user } = useAuth();
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const fileInputRef = React.useRef(null);
 
   const { data: profiles, isLoading: loadingProfile } = useQuery({
     queryKey: ["userProfile", user?.id],
@@ -115,19 +116,19 @@ export default function AddInformation() {
     education_level: "",
     field_of_study: "",
     skills: [],
-    years_experience: 0,
     linkedin_url: "",
   });
 
+  const profileInitialized = React.useRef(null);
   React.useEffect(() => {
-    if (profile) {
+    if (profile && profileInitialized.current !== profile.id) {
+      profileInitialized.current = profile.id;
       setProfileForm({
         full_name: profile.full_name || "",
         five_year_role: profile.five_year_role || "",
         education_level: profile.education_level || "",
         field_of_study: profile.field_of_study || "",
         skills: profile.skills || [],
-        years_experience: profile.years_experience || 0,
         linkedin_url: profile.linkedin_url || "",
       });
     }
@@ -178,7 +179,8 @@ export default function AddInformation() {
     if (!file) return;
     setUploading(true);
     try {
-      const filePath = `${user.id}/${Date.now()}_${file.name}`;
+      const ext = file.name.split(".").pop();
+      const filePath = `${user.id}/resume.${ext}`;
       const { error: uploadError } = await supabase.storage
         .from("resumes")
         .upload(filePath, file, { upsert: true });
@@ -193,6 +195,7 @@ export default function AddInformation() {
       await supabase.from("profiles").update({ resume_url: resumeUrl }).eq("id", user.id);
       queryClient.invalidateQueries({ queryKey: ["userProfile"] });
       toast.success("Resume uploaded successfully!");
+      if (fileInputRef.current) fileInputRef.current.value = "";
     } catch (err) {
       console.error("Resume upload error:", err);
       toast.error("Failed to upload resume: " + err.message);
@@ -298,10 +301,6 @@ export default function AddInformation() {
                 <Input value={profileForm.field_of_study} onChange={(e) => setProfileForm({ ...profileForm, field_of_study: e.target.value })} className="mt-1" placeholder="e.g. Computer Science" />
               </div>
               <div>
-                <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium">Years of Experience</label>
-                <Input type="number" value={profileForm.years_experience} onChange={(e) => setProfileForm({ ...profileForm, years_experience: parseInt(e.target.value) || 0 })} className="mt-1" />
-              </div>
-              <div>
                 <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium">LinkedIn URL</label>
                 <Input value={profileForm.linkedin_url} onChange={(e) => setProfileForm({ ...profileForm, linkedin_url: e.target.value })} className="mt-1" placeholder="https://linkedin.com/in/..." />
               </div>
@@ -329,7 +328,7 @@ export default function AddInformation() {
                 <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 border border-[#E5E5E5] rounded-lg text-sm text-[#525252] hover:bg-[#F5F5F5] transition-colors">
                   <Upload className="w-4 h-4" />
                   {uploading ? "Uploading..." : "Upload Resume"}
-                  <input type="file" className="hidden" accept=".pdf,.doc,.docx" onChange={handleResumeUpload} />
+                  <input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.doc,.docx" onChange={handleResumeUpload} />
                 </label>
                 {profile?.resume_url && <span className="text-xs text-[#059669]">Resume uploaded</span>}
               </div>

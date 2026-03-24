@@ -20,11 +20,10 @@ export default function Tracker() {
   const { user } = useAuth();
   const [showAdd, setShowAdd] = useState(false);
   const [filter, setFilter] = useState("all");
-  const [newApp, setNewApp] = useState({ role_title: "", company: "", status: "interested", job_description: "" });
+  const [newApp, setNewApp] = useState({ role_title: "", company: "", status: "interested" });
 
   const [jobUrl, setJobUrl] = useState("");
   const [jobDescription, setJobDescription] = useState("");
-  const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState("");
   const [addingApp, setAddingApp] = useState(false);
 
@@ -54,7 +53,9 @@ export default function Tracker() {
 
     const { error } = await supabase.from("applications").insert({
       user_id: user.id,
-      ...newApp,
+      role_title: newApp.role_title,
+      company: newApp.company,
+      status: newApp.status,
       tier,
       ...(jd && { job_description: jd }),
     });
@@ -65,21 +66,13 @@ export default function Tracker() {
       return;
     }
 
-    setNewApp({ role_title: "", company: "", status: "interested", job_description: "" });
+
+    setNewApp({ role_title: "", company: "", status: "interested" });
     setJobUrl("");
     setJobDescription("");
     setShowAdd(false);
     setAddingApp(false);
     queryClient.invalidateQueries({ queryKey: ["applications"] });
-  };
-
-  const handleImportFromUrl = async () => {
-    if (!jobUrl.trim()) return;
-    setImporting(true);
-    setImportError("");
-    // Job URL import is not yet supported — requires web scraping capabilities
-    setImportError("Paste the job description text directly when adding a new application. URL-based import is planned for a future update.");
-    setImporting(false);
   };
 
   const filtered =
@@ -184,7 +177,7 @@ export default function Tracker() {
       )}
 
       {/* Add Dialog */}
-      <Dialog open={showAdd} onOpenChange={setShowAdd}>
+      <Dialog open={showAdd} onOpenChange={(open) => { setShowAdd(open); if (!open) setImportError(""); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="text-lg font-semibold">
@@ -192,6 +185,9 @@ export default function Tracker() {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            {importError && (
+              <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{importError}</p>
+            )}
             {/* URL Import */}
             <div className="bg-[#F5F5F5] rounded-lg p-3">
               <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium">

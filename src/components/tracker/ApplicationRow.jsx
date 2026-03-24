@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -37,6 +37,12 @@ export default function ApplicationRow({ app, onUpdate }) {
   const [cvVersionUsed, setCvVersionUsed] = useState(app.cv_version_used || "");
   const [referralAttached, setReferralAttached] = useState(app.referral_attached || false);
 
+  const hasUnsavedChanges =
+    jdText !== (app.job_description || "") ||
+    appliedDate !== (app.applied_date || "") ||
+    cvVersionUsed !== (app.cv_version_used || "") ||
+    referralAttached !== (app.referral_attached || false);
+
   const status = STATUS_LABELS[app.status] || STATUS_LABELS.interested;
 
   const handleSaveJobDescription = async () => {
@@ -64,6 +70,18 @@ export default function ApplicationRow({ app, onUpdate }) {
   };
 
   const [checklist, setChecklist] = useState(app.checklist || {});
+
+  // Re-sync local state when the row collapses, or when the app prop refreshes
+  // without the user having unsaved changes (e.g. a sub-component saves and triggers onUpdate).
+  useEffect(() => {
+    if (!expanded || !hasUnsavedChanges) {
+      setJdText(app.job_description || "");
+      setAppliedDate(app.applied_date || "");
+      setCvVersionUsed(app.cv_version_used || "");
+      setReferralAttached(app.referral_attached || false);
+      setChecklist(app.checklist || {});
+    }
+  }, [expanded, app]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleChecklistChange = async (updated) => {
     const previous = checklist;
@@ -93,7 +111,12 @@ export default function ApplicationRow({ app, onUpdate }) {
   return (
     <div className="bg-white rounded-xl border border-[#E5E5E5] overflow-hidden">
       <button
-        onClick={() => setExpanded(!expanded)}
+        onClick={() => {
+          if (expanded && hasUnsavedChanges) {
+            if (!window.confirm("You have unsaved changes. Collapse anyway?")) return;
+          }
+          setExpanded(!expanded);
+        }}
         aria-label={expanded ? "Collapse application" : "Expand application"}
         className="w-full px-5 py-4 flex items-center justify-between text-left"
       >
@@ -109,7 +132,7 @@ export default function ApplicationRow({ app, onUpdate }) {
         <div className="flex items-center gap-3 flex-shrink-0">
           {app.tier && (
             <span className={cn("text-[10px] font-semibold px-2 py-0.5 rounded-md uppercase",
-              app.tier === "tier_1" ? "tier-badge-1" : "tier-badge-2"
+              app.tier === "tier_1" ? "tier-badge-1" : app.tier === "tier_2" ? "tier-badge-2" : "tier-badge-3"
             )}>
               {app.tier?.replace("_", " ")}
             </span>

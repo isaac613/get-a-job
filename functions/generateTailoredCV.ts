@@ -33,8 +33,10 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Request payload too large.' }, { status: 413 });
     }
     const { job_description, target_role, application_id } = body;
+    const safeTargetRole = String(target_role ?? '').slice(0, 200);
+    const safeJobDescription = String(job_description ?? '').slice(0, 5000);
 
-    if (!target_role) {
+    if (!safeTargetRole) {
       return Response.json({ error: "target_role is required" }, { status: 400 });
     }
     if (application_id !== undefined && typeof application_id !== 'string') {
@@ -111,9 +113,9 @@ Deno.serve(async (req) => {
 CORE PRINCIPLE:
 A CV is not a biography. A CV is evidence that you can perform a specific job.
 
-TARGET ROLE: ${target_role}
+TARGET ROLE: ${safeTargetRole}
 
-${job_description ? `JOB DESCRIPTION:\n${job_description}\n` : ""}
+${safeJobDescription ? `JOB DESCRIPTION:\n${safeJobDescription}\n` : ""}
 
 USER DATA:
 ${JSON.stringify(userContext, null, 2)}
@@ -154,6 +156,7 @@ Return ONLY valid JSON.`;
 
     const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
+      signal: AbortSignal.timeout(45000),
       headers: {
         "Authorization": `Bearer ${openaiKey}`,
         "Content-Type": "application/json",
@@ -190,7 +193,7 @@ Return ONLY valid JSON.`;
       lines.forEach((line: string) => {
         if (y > 280) { doc.addPage(); y = 20; }
         doc.text(line, 20, y);
-        y += fontSize * 0.4;
+        y += fontSize * 0.5;
       });
     };
 
@@ -214,7 +217,7 @@ Return ONLY valid JSON.`;
       addSpace(8);
     }
 
-    if (cvData.experiences?.length > 0) {
+    if (Array.isArray(cvData.experiences) && cvData.experiences.length > 0) {
       addText("PROFESSIONAL EXPERIENCE", 11, true);
       addSpace(4);
       cvData.experiences.forEach((exp: any) => {
@@ -227,7 +230,7 @@ Return ONLY valid JSON.`;
       });
     }
 
-    if (cvData.projects?.length > 0) {
+    if (Array.isArray(cvData.projects) && cvData.projects.length > 0) {
       addText("PROJECTS", 11, true);
       addSpace(4);
       cvData.projects.forEach((proj: any) => {
@@ -263,7 +266,7 @@ Return ONLY valid JSON.`;
 
     // Upload PDF to Supabase Storage
     const pdfBuffer = doc.output("arraybuffer");
-    const safeRole = target_role.slice(0, 100).replace(/[^a-zA-Z0-9_\-]/g, "_");
+    const safeRole = safeTargetRole.replace(/[^a-zA-Z0-9_\-]/g, "_");
     const fileName = `${user.id}/${safeRole}_CV_${Date.now()}.pdf`;
 
     const { error: uploadError } = await serviceClient.storage
@@ -292,23 +295,26 @@ Return ONLY valid JSON.`;
         .update({
           cv_url,
           cv_status: "ready",
-          cv_version_name: `${target_role} CV`,
+          cv_version_name: `${safeTargetRole} CV`,
           cv_skills_emphasized: cvData.core_skills || [],
         })
         .eq("id", application_id)
         .eq("user_id", user.id)
         .select()
         .single();
+      if (!data) {
+        return Response.json({ error: "Application not found or not owned by user." }, { status: 404 });
+      }
       appRecord = data;
     } else {
       const { data } = await supabase
         .from("applications")
         .insert({
           user_id: user.id,
-          role_title: target_role,
+          role_title: safeTargetRole,
           cv_url,
           cv_status: "ready",
-          cv_version_name: `${target_role} CV`,
+          cv_version_name: `${safeTargetRole} CV`,
           cv_skills_emphasized: cvData.core_skills || [],
           status: "interested",
         })
@@ -321,7 +327,7 @@ Return ONLY valid JSON.`;
       cv_url,
       application_id: appRecord?.id,
       fit_analysis: cvData.fit_analysis,
-      message: `CV generated for "${target_role}". Download it using the link, and it's been saved to your Application Tracker.`,
+      message: `CV generated for "${safeTargetRole}". Download it using the link, and it's been saved to your Application Tracker.`,
     });
   } catch (error) {
     console.error("Error generating tailored CV:", error);

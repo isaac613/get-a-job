@@ -6,7 +6,7 @@ export default function GeneratingBanner({ messages, subtitle }) {
   useEffect(() => {
     const t = setInterval(() => setIdx((i) => (i + 1) % messages.length), 3500);
     return () => clearInterval(t);
-  }, [messages.length]);
+  }, [messages]);
   return (
     <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-4 flex items-start gap-3 mb-6">
       <Loader2 className="w-4 h-4 animate-spin text-amber-600 mt-0.5 flex-shrink-0" />

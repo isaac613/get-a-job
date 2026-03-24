@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
 import { useNavigate } from "react-router-dom";
@@ -73,6 +73,9 @@ export default function Onboarding() {
   const [qualificationLevel, setQualificationLevel] = useState("");
   const [overallAssessment, setOverallAssessment] = useState("");
 
+  const mountedRef = useRef(true);
+  useEffect(() => () => { mountedRef.current = false; }, []);
+
   const [saving, setSaving] = useState(false);
   const [finalising, setFinalising] = useState(false);
   const [saveError, setSaveError] = useState(null);
@@ -86,7 +89,8 @@ export default function Onboarding() {
 
   const checkExistingProfile = async () => {
     if (!user) { setCheckingProfile(false); return; }
-    const { data: profiles } = await supabase.from("profiles").select("*").eq("id", user.id);
+    const { data: profiles, error: profileCheckError } = await supabase.from("profiles").select("*").eq("id", user.id);
+    if (profileCheckError) console.error("Error checking existing profile:", profileCheckError);
     if (profiles?.[0]?.onboarding_complete) {
       navigate(createPageUrl("Home"));
     } else if (profiles?.[0]) {
@@ -113,7 +117,7 @@ export default function Onboarding() {
       linkedin_url: extracted.linkedin_url || prev.linkedin_url,
       summary: extracted.summary || prev.summary,
       degree: extracted.degree || edu.degree || prev.degree,
-      field_of_study: extracted.field_of_study || [edu.degree, edu.field_of_study].filter(Boolean).join(" ") || prev.field_of_study,
+      field_of_study: extracted.field_of_study || edu.field_of_study || prev.field_of_study,
       education_level: extracted.education_level || prev.education_level,
       gpa: edu.gpa || prev.gpa,
       honors: edu.honors || prev.honors || [],
@@ -174,7 +178,22 @@ export default function Onboarding() {
   };
 
   const saveProgress = async (stepNum) => {
-    const rawPayload = { ...profileData, onboarding_step: stepNum };
+    // Merge all skill-category arrays into the `skills` field so they're
+    // preserved in the DB if the user abandons and returns mid-onboarding.
+    const mergedSkills = [
+      ...(profileData.hard_skills || []),
+      ...(profileData.tools_software || []),
+      ...(profileData.technical_skills || []),
+      ...(profileData.analytical_skills || []),
+      ...(profileData.communication_skills || []),
+      ...(profileData.leadership_skills || []),
+      ...(profileData.skills || []),
+    ];
+    const rawPayload = {
+      ...profileData,
+      onboarding_step: stepNum,
+      skills: [...new Set(mergedSkills)],
+    };
     const payload = cleanProfilePayload(rawPayload);
     
     // Remove undefined values so we don't accidentally overwrite DB fields with null/undefined unnecessarily
@@ -189,7 +208,8 @@ export default function Onboarding() {
         ...payload,
         full_name: profileData.full_name || user.user_metadata?.full_name || "User",
       }).select();
-      if (!error && data?.[0]) {
+      if (error) throw error;
+      if (data?.[0]) {
         setExistingProfileId(data[0].id);
       }
     }
@@ -216,15 +236,21 @@ export default function Onboarding() {
     setGeneratingRoles(true);
 
     try {
+      // Persist step 7 to DB before the long async call so a refresh doesn't restart from step 6
+      if (existingProfileId) {
+        await supabase.from("profiles").update({ onboarding_step: 7 }).eq("id", existingProfileId);
+      }
+
       const { data, error } = await supabase.functions.invoke("generate-career-analysis", {
         body: {
-          dream_roles: profileData.dream_roles || [],
+          dream_roles: profileData.five_year_role ? [profileData.five_year_role] : [],
         },
       });
 
       if (error) throw error;
 
       const analysisRoles = data?.roles || [];
+      if (!mountedRef.current) return;
       setGeneratedRoles(analysisRoles);
       setQualificationLevel(data?.qualification_level || "Not determined");
       setOverallAssessment(data?.overall_assessment || "");
@@ -261,14 +287,17 @@ export default function Onboarding() {
       }
     } catch (err) {
       console.error("Career analysis error:", err);
+      if (!mountedRef.current) return;
       setTierRevealError("Career analysis failed. Please go back and try again.");
     }
 
+    if (!mountedRef.current) return;
     setGeneratingRoles(false);
   };
 
   // Final step: save everything, mark complete, navigate
   const handleFinalise = async () => {
+    if (finalising) return;
     setFinalising(true);
 
     const allSkills = [
@@ -319,88 +348,88 @@ export default function Onboarding() {
     const oldCertIds = existingCertRes.data?.map((r) => r.id) || [];
     const oldTaskIds = existingTaskRes.data?.map((r) => r.id) || [];
 
-    // Save experiences, projects, certifications
-    const promises = [];
+    // Sequential inserts with per-type rollback tracking — prevents duplicate data on retry
+    // if a partial failure occurs (e.g. experiences saved but certifications failed).
+    const insertedIds = { exp: [], proj: [], cert: [], task: [] };
 
-    if (experiences.length > 0) {
-      promises.push(
-        supabase.from("experiences").insert(
-          experiences.map((e) => ({ ...e, user_id: user.id }))
-        )
-      );
-    }
+    try {
+      if (experiences.length > 0) {
+        const { data, error } = await supabase.from("experiences")
+          .insert(experiences.map((e) => ({ ...e, user_id: user.id })))
+          .select("id");
+        if (error) throw error;
+        insertedIds.exp = (data || []).map((r) => r.id);
+      }
 
-    if (projects.length > 0) {
-      promises.push(
-        supabase.from("projects").insert(
-          projects.map((proj) => ({
+      if (projects.length > 0) {
+        const { data, error } = await supabase.from("projects")
+          .insert(projects.map((proj) => ({
             name: proj.name,
             description: proj.description,
             url: proj.url,
             skills_demonstrated: proj.skills_demonstrated || [],
             user_id: user.id,
-          }))
-        )
-      );
-    }
+          })))
+          .select("id");
+        if (error) throw error;
+        insertedIds.proj = (data || []).map((r) => r.id);
+      }
 
-    if (certifications.length > 0) {
-      promises.push(
-        supabase.from("certifications").insert(
-          certifications.map((cert) => ({
+      if (certifications.length > 0) {
+        const { data, error } = await supabase.from("certifications")
+          .insert(certifications.map((cert) => ({
             name: cert.name,
             issuer: cert.issuer,
             date_earned: cert.date_earned,
             user_id: user.id,
-          }))
-        )
-      );
-    }
-
-    // Generate personalized tasks via Edge Function
-    try {
-      const { data: taskData, error: taskInvokeError } = await supabase.functions.invoke("generate-tasks", {
-        body: { context: "onboarding initial tasks" },
-      });
-      if (taskInvokeError) throw taskInvokeError;
-      if (taskData?.tasks?.length > 0) {
-        promises.push(
-          supabase.from("tasks").insert(
-            taskData.tasks.map((t) => ({
-              title: t.title,
-              description: t.description,
-              category: t.category || "application",
-              priority: t.priority || "medium",
-              role_title: t.role_title || null,
-              is_complete: false,
-              user_id: user.id,
-            }))
-          )
-        );
-      } else {
-        // LLM succeeded but returned no tasks — use fallback
-        promises.push(
-          supabase.from("tasks").insert([
-            { title: "Update your CV for target roles", description: "Tailor your CV based on skill gaps.", category: "cv", priority: "high", is_complete: false, user_id: user.id },
-            { title: "Research target companies", description: "Find active job postings.", category: "application", priority: "high", is_complete: false, user_id: user.id },
-          ])
-        );
+          })))
+          .select("id");
+        if (error) throw error;
+        insertedIds.cert = (data || []).map((r) => r.id);
       }
-    } catch (err) {
-      console.error("Task generation error during onboarding:", err);
-      // Fallback: insert basic tasks if LLM call fails
-      promises.push(
-        supabase.from("tasks").insert([
+
+      // Generate personalized tasks via Edge Function
+      let tasksToInsert = [];
+      try {
+        const { data: taskData, error: taskInvokeError } = await supabase.functions.invoke("generate-tasks", {
+          body: { context: "onboarding initial tasks" },
+        });
+        if (taskInvokeError) throw taskInvokeError;
+        if (taskData?.tasks?.length > 0) {
+          tasksToInsert = taskData.tasks.map((t) => ({
+            title: t.title,
+            description: t.description,
+            category: t.category || "application",
+            priority: t.priority || "medium",
+            role_title: t.role_title || null,
+            is_complete: false,
+            user_id: user.id,
+          }));
+        }
+      } catch (err) {
+        console.error("Task generation error during onboarding:", err);
+      }
+      if (tasksToInsert.length === 0) {
+        tasksToInsert = [
           { title: "Update your CV for target roles", description: "Tailor your CV based on skill gaps.", category: "cv", priority: "high", is_complete: false, user_id: user.id },
           { title: "Research target companies", description: "Find active job postings.", category: "application", priority: "high", is_complete: false, user_id: user.id },
-        ])
-      );
-    }
+        ];
+      }
+      const { data: taskInsertData, error: taskInsertError } = await supabase.from("tasks")
+        .insert(tasksToInsert)
+        .select("id");
+      if (taskInsertError) throw taskInsertError;
+      insertedIds.task = (taskInsertData || []).map((r) => r.id);
 
-    try {
-      await Promise.all(promises);
     } catch (err) {
       console.error("Error saving onboarding data:", err);
+      // Roll back any inserts that succeeded in this attempt so retry starts clean
+      const rollbacks = [];
+      if (insertedIds.exp.length > 0) rollbacks.push(supabase.from("experiences").delete().in("id", insertedIds.exp));
+      if (insertedIds.proj.length > 0) rollbacks.push(supabase.from("projects").delete().in("id", insertedIds.proj));
+      if (insertedIds.cert.length > 0) rollbacks.push(supabase.from("certifications").delete().in("id", insertedIds.cert));
+      if (insertedIds.task.length > 0) rollbacks.push(supabase.from("tasks").delete().in("id", insertedIds.task));
+      if (rollbacks.length > 0) await Promise.all(rollbacks);
       setFinaliseError("Some data could not be saved. Please try again.");
       setFinalising(false);
       return;

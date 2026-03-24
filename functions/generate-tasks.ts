@@ -54,12 +54,24 @@ Deno.serve(async (req) => {
       p_window_seconds: RATE_LIMIT_WINDOW,
     })
     if (!allowed) {
+      await serviceClient.rpc('log_error', {
+        p_user_id: user.id,
+        p_function_name: 'generate-tasks',
+        p_error_message: 'Rate limit exceeded',
+        p_error_details: null,
+      }).catch(() => {});
       return new Response(JSON.stringify({ error: 'Rate limit exceeded. Try again in an hour.' }), {
         status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    const { context } = await req.json()
+    const rawBody = await req.text();
+    if (rawBody.length > 10_000) {
+      return new Response(JSON.stringify({ error: 'Request payload too large.' }), {
+        status: 413, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    const { context } = JSON.parse(rawBody);
     if (context !== undefined && typeof context !== 'string') {
       return new Response(JSON.stringify({ error: 'Invalid context field.' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { Sparkles, Loader2, CheckCircle2, XCircle, ChevronDown, ChevronUp, Plus, FileText, Link } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,8 +15,9 @@ const LOADING_MESSAGES = [
   "Building your assessment...",
 ];
 
-export default function JobMatchChecker({ profile, experiences }) {
+export default function JobMatchChecker() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [mode, setMode] = useState("text"); // "url" or "text"
   const [url, setUrl] = useState("");
   const [jobText, setJobText] = useState("");
@@ -114,6 +116,7 @@ export default function JobMatchChecker({ profile, experiences }) {
       setError("Failed to add to tracker. Please try again.");
       return;
     }
+    queryClient.invalidateQueries({ queryKey: ["applications"] });
     setAddedToTracker(true);
   };
 

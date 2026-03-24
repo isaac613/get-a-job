@@ -13,7 +13,9 @@ const RESPONSE_STATUS = {
 };
 
 export default function NetworkingReferrals({ app, onUpdate }) {
-  const [contacts, setContacts] = useState(app.networking_contacts || []);
+  const [contacts, setContacts] = useState(
+    (app.networking_contacts || []).map((c) => ({ ...c, id: c.id || crypto.randomUUID() }))
+  );
   const [newContact, setNewContact] = useState({
     contact_name: "",
     contact_company: "",
@@ -22,9 +24,10 @@ export default function NetworkingReferrals({ app, onUpdate }) {
     referral_requested: false,
     response_status: "pending",
   });
+  const [saving, setSaving] = useState(false);
 
   const handleAdd = () => {
-    if (!newContact.contact_name) return;
+    if (!newContact.contact_name || saving) return;
     const previous = contacts;
     const updated = [...contacts, { ...newContact, id: crypto.randomUUID() }];
     setContacts(updated);
@@ -40,6 +43,7 @@ export default function NetworkingReferrals({ app, onUpdate }) {
   };
 
   const handleRemove = (id) => {
+    if (saving) return;
     const previous = contacts;
     const updated = contacts.filter((c) => c.id !== id);
     setContacts(updated);
@@ -47,6 +51,7 @@ export default function NetworkingReferrals({ app, onUpdate }) {
   };
 
   const handleUpdate = (id, field, value) => {
+    if (saving) return;
     const previous = contacts;
     const updated = contacts.map((c) => (c.id === id ? { ...c, [field]: value } : c));
     setContacts(updated);
@@ -54,7 +59,9 @@ export default function NetworkingReferrals({ app, onUpdate }) {
   };
 
   const saveContacts = async (updated, previous) => {
+    setSaving(true);
     const { error } = await supabase.from("applications").update({ networking_contacts: updated }).eq("id", app.id);
+    setSaving(false);
     if (error) {
       console.error("Failed to save contacts:", error);
       setContacts(previous);

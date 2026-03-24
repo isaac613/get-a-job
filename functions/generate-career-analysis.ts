@@ -54,6 +54,12 @@ Deno.serve(async (req) => {
       p_window_seconds: RATE_LIMIT_WINDOW,
     })
     if (!allowed) {
+      await serviceClient.rpc('log_error', {
+        p_user_id: user.id,
+        p_function_name: 'generate-career-analysis',
+        p_error_message: 'Rate limit exceeded',
+        p_error_details: null,
+      }).catch(() => {});
       return new Response(JSON.stringify({ error: 'Rate limit exceeded. Try again in an hour.' }), {
         status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -106,6 +112,9 @@ Deno.serve(async (req) => {
       issuer: trunc(c.issuer, 100),
     }));
     const sanitisedDreamRoles = (dream_roles || []).slice(0, 10).map((r: unknown) => trunc(r, 100));
+    const dreamRolesForPrompt = sanitisedDreamRoles.length
+      ? sanitisedDreamRoles
+      : (profile.five_year_role ? [trunc(profile.five_year_role, 100)] : []);
 
     const prompt = `You are a Career Analysis Engine for the "Get A Job" Career Operating System.
 
@@ -117,7 +126,7 @@ USER PROFILE:
 - Experiences: ${JSON.stringify(sanitisedExperiences)}
 - Projects: ${JSON.stringify(sanitisedProjects)}
 - Certifications: ${JSON.stringify(sanitisedCerts)}
-${sanitisedDreamRoles.length ? `- Dream Roles: ${sanitisedDreamRoles.join(', ')}` : ''}
+${dreamRolesForPrompt.length ? `- Dream Roles: ${dreamRolesForPrompt.join(', ')}` : ''}
 
 TASK: Analyze the user's profile and generate a career analysis with tiered role recommendations.
 
@@ -185,6 +194,17 @@ Return ONLY valid JSON. Include 4-6 roles spanning all tiers.`
 
     if (!Array.isArray(result.roles) || result.roles.length === 0) {
       return new Response(JSON.stringify({ error: 'AI returned an unexpected response structure. Please try again.' }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Filter out malformed roles missing required fields
+    const VALID_TIERS = ['tier_1', 'tier_2', 'tier_3'];
+    result.roles = (result.roles as any[]).filter(
+      (r) => typeof r.title === 'string' && r.title.trim() && VALID_TIERS.includes(r.tier)
+    );
+    if (result.roles.length === 0) {
+      return new Response(JSON.stringify({ error: 'AI returned roles with invalid structure. Please try again.' }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }

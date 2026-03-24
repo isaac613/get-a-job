@@ -14,11 +14,14 @@ const STATUS_CONFIG = {
 };
 
 export default function SkillsRequired({ app, onUpdate }) {
-  const [skills, setSkills] = useState(app.skills_required || []);
+  const [skills, setSkills] = useState(
+    (app.skills_required || []).map((s) => ({ ...s, id: s.id || crypto.randomUUID() }))
+  );
   const [newSkill, setNewSkill] = useState({ skill_name: "", status: "missing", evidence_source: "" });
+  const [saving, setSaving] = useState(false);
 
   const handleAdd = () => {
-    if (!newSkill.skill_name) return;
+    if (!newSkill.skill_name || saving) return;
     const previous = skills;
     const updated = [...skills, { ...newSkill, id: crypto.randomUUID() }];
     setSkills(updated);
@@ -27,6 +30,7 @@ export default function SkillsRequired({ app, onUpdate }) {
   };
 
   const handleRemove = (id) => {
+    if (saving) return;
     const previous = skills;
     const updated = skills.filter((s) => s.id !== id);
     setSkills(updated);
@@ -34,6 +38,7 @@ export default function SkillsRequired({ app, onUpdate }) {
   };
 
   const handleUpdate = (id, field, value) => {
+    if (saving) return;
     const previous = skills;
     const updated = skills.map((s) => (s.id === id ? { ...s, [field]: value } : s));
     setSkills(updated);
@@ -41,7 +46,9 @@ export default function SkillsRequired({ app, onUpdate }) {
   };
 
   const saveSkills = async (updated, previous) => {
+    setSaving(true);
     const { error } = await supabase.from("applications").update({ skills_required: updated }).eq("id", app.id);
+    setSaving(false);
     if (error) {
       console.error("Failed to save skills:", error);
       setSkills(previous);

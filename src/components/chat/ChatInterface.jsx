@@ -20,7 +20,7 @@ export default function ChatInterface({ agentName, title, description }) {
     setInput("");
 
     // Add user message and capture updated history for the API call
-    const userMsg = { role: "user", content: text, id: `user-${Date.now()}` };
+    const userMsg = { role: "user", content: text, id: crypto.randomUUID() };
     const updatedMessages = [...messages, userMsg];
     setMessages(updatedMessages);
 
@@ -39,13 +39,13 @@ export default function ChatInterface({ agentName, title, description }) {
 
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: data.reply || "Sorry, I could not generate a response.", id: `assistant-${Date.now()}` },
+        { role: "assistant", content: data.reply || "Sorry, I could not generate a response.", id: crypto.randomUUID() },
       ]);
     } catch (err) {
       console.error("Chat error:", err);
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: "Something went wrong. Please try again.", id: `assistant-${Date.now()}` },
+        { role: "assistant", content: "Something went wrong. Please try again.", id: crypto.randomUUID() },
       ]);
     }
     setSending(false);

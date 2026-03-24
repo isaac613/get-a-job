@@ -49,8 +49,9 @@ export default function CVManagement({ app, onUpdate }) {
       onUpdate(); // Refresh application data
     } catch (error) {
       toast.error("Failed to generate CV: " + error.message);
+    } finally {
+      setGenerating(false);
     }
-    setGenerating(false);
   };
 
 

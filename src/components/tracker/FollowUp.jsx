@@ -6,12 +6,16 @@ import { toast } from "sonner";
 
 export default function FollowUp({ app, onUpdate }) {
   const [followUp, setFollowUp] = useState(app.follow_up || {});
+  const [saving, setSaving] = useState(false);
 
   const handleToggle = async (field) => {
+    if (saving) return;
     const previous = followUp;
     const updated = { ...followUp, [field]: !followUp[field] };
     setFollowUp(updated);
+    setSaving(true);
     const { error } = await supabase.from("applications").update({ follow_up: updated }).eq("id", app.id);
+    setSaving(false);
     if (error) {
       console.error("Failed to save follow-up:", error);
       setFollowUp(previous);
@@ -54,6 +58,7 @@ export default function FollowUp({ app, onUpdate }) {
               <Checkbox
                 checked={followUp[item.key]}
                 onCheckedChange={() => handleToggle(item.key)}
+                disabled={saving}
               />
               <span className="text-sm text-[#0A0A0A] flex-1">{item.label}</span>
               {followUp[item.key] ? (

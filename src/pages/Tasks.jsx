@@ -45,7 +45,7 @@ export default function Tasks() {
     enabled: !!user?.id,
   });
 
-  const { data: profiles = [] } = useQuery({
+  const { data: profiles = [], isError: profileError } = useQuery({
     queryKey: ["userProfile", user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
@@ -106,7 +106,11 @@ export default function Tasks() {
       // Delete old incomplete tasks only after new ones are safely inserted.
       // Filter to is_complete = false to avoid deleting tasks the user completed during the LLM call.
       if (incompleteIds.length > 0) {
-        await supabase.from("tasks").delete().in("id", incompleteIds).eq("is_complete", false);
+        const { error: deleteError } = await supabase.from("tasks").delete().in("id", incompleteIds).eq("is_complete", false);
+        if (deleteError) {
+          console.error("Task cleanup error:", deleteError);
+          toast.error("Tasks generated but old tasks could not be removed. Refresh the page.");
+        }
       }
 
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
@@ -122,11 +126,16 @@ export default function Tasks() {
   const toggleComplete = async (task) => {
     if (togglingIds.has(task.id)) return;
     setTogglingIds((prev) => new Set(prev).add(task.id));
+    // Optimistic update — flip immediately so the UI responds without waiting for DB
+    queryClient.setQueryData(["tasks", user?.id], (prev) =>
+      (prev || []).map((t) => t.id === task.id ? { ...t, is_complete: !task.is_complete } : t)
+    );
     const { error } = await supabase.from("tasks").update({ is_complete: !task.is_complete }).eq("id", task.id);
     setTogglingIds((prev) => { const next = new Set(prev); next.delete(task.id); return next; });
     if (error) {
       console.error("Failed to update task:", error);
       toast.error("Failed to update task. Please try again.");
+      queryClient.invalidateQueries({ queryKey: ["tasks"] }); // revert optimistic update
       return;
     }
     queryClient.invalidateQueries({ queryKey: ["tasks"] });
@@ -148,7 +157,7 @@ export default function Tasks() {
     );
   }
 
-  if (tasksError) {
+  if (tasksError || profileError) {
     return (
       <div className="flex items-center justify-center h-full min-h-[60vh]">
         <div className="flex items-center gap-2 text-sm text-red-600">
