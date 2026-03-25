@@ -55,6 +55,7 @@ const SUBAGENTS = [
     id: "skill_development_agent",
     agentName: "skill_development_agent",
     title: "Skill Development Advisor",
+    page: "SkillDevelopmentAdvisor",
     icon: GraduationCap,
     description: "Analyzes skill gaps, recommends courses, maps skills to projects, and creates learning roadmaps.",
     capabilities: [

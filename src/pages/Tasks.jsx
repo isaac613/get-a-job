@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Brain, CheckCircle2, Circle, AlertCircle } from "lucide-react";
+import { Loader2, Brain, CheckCircle2, Circle, AlertCircle, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -33,6 +33,7 @@ export default function Tasks() {
   const [generating, setGenerating] = useState(false);
   const [filter, setFilter] = useState("all");
   const [togglingIds, setTogglingIds] = useState(new Set());
+  const [deletingIds, setDeletingIds] = useState(new Set());
 
   const { data: tasks = [], isLoading: loadingTasks, isError: tasksError } = useQuery({
     queryKey: ["tasks", user?.id],
@@ -139,6 +140,21 @@ export default function Tasks() {
       return;
     }
     queryClient.invalidateQueries({ queryKey: ["tasks"] });
+  };
+
+  const deleteTask = async (taskId) => {
+    if (deletingIds.has(taskId)) return;
+    setDeletingIds((prev) => new Set(prev).add(taskId));
+    queryClient.setQueryData(["tasks", user?.id], (prev) =>
+      (prev || []).filter((t) => t.id !== taskId)
+    );
+    const { error } = await supabase.from("tasks").delete().eq("id", taskId);
+    setDeletingIds((prev) => { const next = new Set(prev); next.delete(taskId); return next; });
+    if (error) {
+      console.error("Failed to delete task:", error);
+      toast.error("Failed to delete task. Please try again.");
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    }
   };
 
   const sorted = [...tasks].sort((a, b) => {
@@ -276,6 +292,16 @@ export default function Tasks() {
                   </p>
                 )}
               </div>
+              <button
+                onClick={() => deleteTask(task.id)}
+                disabled={deletingIds.has(task.id)}
+                className="flex-shrink-0 text-[#D4D4D4] hover:text-red-500 transition-colors disabled:opacity-50"
+                aria-label="Delete task"
+              >
+                {deletingIds.has(task.id)
+                  ? <Loader2 className="w-4 h-4 animate-spin" />
+                  : <Trash2 className="w-4 h-4" />}
+              </button>
             </div>
           );
         })}

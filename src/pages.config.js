@@ -50,6 +50,7 @@
 import AddInformation from './pages/AddInformation';
 import CareerAgent from './pages/CareerAgent';
 import InterviewCoach from './pages/InterviewCoach';
+import SkillDevelopmentAdvisor from './pages/SkillDevelopmentAdvisor';
 import CareerRoadmap from './pages/CareerRoadmap';
 import Home from './pages/Home';
 import Onboarding from './pages/Onboarding';
@@ -66,6 +67,7 @@ export const PAGES = {
     "AddInformation": AddInformation,
     "CareerAgent": CareerAgent,
     "InterviewCoach": InterviewCoach,
+    "SkillDevelopmentAdvisor": SkillDevelopmentAdvisor,
     "CareerRoadmap": CareerRoadmap,
     "Home": Home,
     "Onboarding": Onboarding,

@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
-import { Send, Loader2, Plus, ListTodo, CheckCircle2 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Send, Loader2, Plus, ListTodo, CheckCircle2, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { createPageUrl } from "@/utils";
 import MessageBubble from "./MessageBubble";
 
 function TaskSuggestionCard({ messageId, tasks, addedTaskSets, onAdd }) {
@@ -40,8 +43,25 @@ function TaskSuggestionCard({ messageId, tasks, addedTaskSets, onAdd }) {
   );
 }
 
+function AgentRedirectCard({ suggestion, onSwitch }) {
+  return (
+    <div className="ml-10 mt-2">
+      <Button
+        size="sm"
+        onClick={() => onSwitch(suggestion.page)}
+        className="h-7 text-xs bg-amber-700 hover:bg-amber-800 gap-1.5"
+      >
+        Switch to {suggestion.label}
+        <ArrowRight className="w-3 h-3" />
+      </Button>
+    </div>
+  );
+}
+
 export default function ChatInterface({ agentName, title, description, applicationId, suggestedPrompts }) {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -82,6 +102,7 @@ export default function ChatInterface({ agentName, title, description, applicati
           content: data.reply || "Sorry, I could not generate a response.",
           id: crypto.randomUUID(),
           suggestedTasks: data.suggested_tasks?.length > 0 ? data.suggested_tasks : null,
+          suggestedAgent: data.suggested_agent || null,
         },
       ]);
     } catch (err) {
@@ -114,7 +135,12 @@ export default function ChatInterface({ agentName, title, description, applicati
       ...prev,
       [messageId]: { ...(prev[messageId] || {}), [taskIndex]: true },
     }));
+    queryClient.invalidateQueries({ queryKey: ["tasks"] });
     toast.success("Task added");
+  };
+
+  const handleSwitchAgent = (page) => {
+    navigate(createPageUrl(page));
   };
 
   const handleKeyDown = (e) => {
@@ -178,6 +204,12 @@ export default function ChatInterface({ agentName, title, description, applicati
                   tasks={msg.suggestedTasks}
                   addedTaskSets={addedTaskSets}
                   onAdd={handleAddTasks}
+                />
+              )}
+              {msg.suggestedAgent && (
+                <AgentRedirectCard
+                  suggestion={msg.suggestedAgent}
+                  onSwitch={handleSwitchAgent}
                 />
               )}
             </React.Fragment>
