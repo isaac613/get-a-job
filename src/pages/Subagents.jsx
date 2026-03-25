@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { MessageSquare, Briefcase, BookOpen, GraduationCap, ChevronDown, ChevronUp, Info, Brain } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { createPageUrl } from "@/utils";
 
 const SUBAGENTS = [
   {
@@ -38,6 +39,7 @@ const SUBAGENTS = [
     id: "interview_coach",
     agentName: "interview_coach",
     title: "Interview Coach",
+    page: "InterviewCoach",
     icon: MessageSquare,
     description: "Prepares you for interviews with likely questions, answer frameworks, and gap analysis.",
     capabilities: [
@@ -110,28 +112,29 @@ export default function Subagents() {
         </p>
       </div>
 
-      {/* Banner indicating agents are coming soon */}
-      <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-4 mb-6">
-        <p className="text-sm font-semibold text-amber-800">AI Agents — Coming Soon</p>
-        <p className="text-xs text-amber-700 mt-1">
-          These specialist agents are under development. Use the main AI Chat in the sidebar for career questions in the meantime.
-        </p>
-      </div>
-
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {SUBAGENTS.map((agent) => {
           const Icon = agent.icon;
+          const isLive = !!agent.page;
           return (
             <div
               key={agent.id}
-              className="bg-white rounded-xl border border-[#E5E5E5] p-6 hover:border-[#D4D4D4] transition-all group opacity-75"
+              onClick={isLive ? () => navigate(createPageUrl(agent.page)) : undefined}
+              className={`bg-white rounded-xl border border-[#E5E5E5] p-6 transition-all group ${isLive ? "hover:border-[#D4D4D4] cursor-pointer" : "opacity-60"}`}
             >
               <div className="flex items-start gap-4 w-full text-left">
-                <div className="w-10 h-10 rounded-lg bg-[#F5F5F5] flex items-center justify-center flex-shrink-0 group-hover:bg-[#0A0A0A] transition-colors">
-                  <Icon className="w-5 h-5 text-[#525252] group-hover:text-white transition-colors" />
+                <div className={`w-10 h-10 rounded-lg bg-[#F5F5F5] flex items-center justify-center flex-shrink-0 transition-colors ${isLive ? "group-hover:bg-[#0A0A0A]" : ""}`}>
+                  <Icon className={`w-5 h-5 text-[#525252] transition-colors ${isLive ? "group-hover:text-white" : ""}`} />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-sm font-semibold text-[#0A0A0A]">{agent.title}</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-semibold text-[#0A0A0A]">{agent.title}</h3>
+                    {isLive ? (
+                      <span className="text-[10px] font-medium bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">Live</span>
+                    ) : (
+                      <span className="text-[10px] font-medium bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Coming Soon</span>
+                    )}
+                  </div>
                   <p className="text-xs text-[#A3A3A3] mt-1 leading-relaxed">{agent.description}</p>
                 </div>
               </div>

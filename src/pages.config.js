@@ -49,6 +49,7 @@
  */
 import AddInformation from './pages/AddInformation';
 import CareerAgent from './pages/CareerAgent';
+import InterviewCoach from './pages/InterviewCoach';
 import CareerRoadmap from './pages/CareerRoadmap';
 import Home from './pages/Home';
 import Onboarding from './pages/Onboarding';
@@ -64,6 +65,7 @@ import __Layout from './Layout.jsx';
 export const PAGES = {
     "AddInformation": AddInformation,
     "CareerAgent": CareerAgent,
+    "InterviewCoach": InterviewCoach,
     "CareerRoadmap": CareerRoadmap,
     "Home": Home,
     "Onboarding": Onboarding,
