@@ -3,11 +3,17 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
 import { useQueryClient } from "@tanstack/react-query";
-import { Send, Loader2, Plus, ListTodo, CheckCircle2, ArrowRight } from "lucide-react";
+import { Send, Loader2, Plus, ListTodo, CheckCircle2, ArrowRight, Route } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { createPageUrl } from "@/utils";
 import MessageBubble from "./MessageBubble";
+
+const TIER_LABELS = {
+  tier_1: "Tier 1 — Qualified Today",
+  tier_2: "Tier 2 — Slight Stretch",
+  tier_3: "Tier 3 — Future Path",
+};
 
 function TaskSuggestionCard({ messageId, tasks, addedTaskSets, onAdd }) {
   const addedForMessage = addedTaskSets[messageId] || {};
@@ -43,6 +49,53 @@ function TaskSuggestionCard({ messageId, tasks, addedTaskSets, onAdd }) {
   );
 }
 
+function RoadmapChangeCard({ messageId, changes, applied, onApply }) {
+  if (applied[messageId]) {
+    return (
+      <div className="ml-10 mt-2 bg-emerald-50 border border-emerald-200 rounded-xl p-4 max-w-xl">
+        <div className="flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+          <p className="text-xs font-semibold text-emerald-800">Roadmap changes applied</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="ml-10 mt-2 bg-indigo-50 border border-indigo-200 rounded-xl p-4 max-w-xl">
+      <div className="flex items-center gap-2 mb-3">
+        <Route className="w-3.5 h-3.5 text-indigo-700" />
+        <p className="text-xs font-semibold text-indigo-800">Proposed Roadmap Changes</p>
+      </div>
+      <ul className="space-y-2 mb-3">
+        {changes.map((change, i) => (
+          <li key={i} className="text-xs text-indigo-700 leading-relaxed">
+            {change.action === "update_tier" && (
+              <span>Move <strong>{change.role_title}</strong> → {TIER_LABELS[change.new_tier] || change.new_tier}</span>
+            )}
+            {change.action === "add_role" && (
+              <span>Add <strong>{change.title}</strong> as {TIER_LABELS[change.tier] || change.tier}</span>
+            )}
+            {change.action === "remove_role" && (
+              <span>Remove <strong>{change.role_title}</strong></span>
+            )}
+            {change.reason && (
+              <span className="text-indigo-500"> — {change.reason}</span>
+            )}
+          </li>
+        ))}
+      </ul>
+      <Button
+        size="sm"
+        onClick={() => onApply(messageId, changes)}
+        className="h-7 text-xs bg-indigo-700 hover:bg-indigo-800 gap-1.5"
+      >
+        Apply Changes
+      </Button>
+    </div>
+  );
+}
+
 function AgentRedirectCard({ suggestion, onSwitch }) {
   return (
     <div className="ml-10 mt-2">
@@ -66,6 +119,7 @@ export default function ChatInterface({ agentName, title, description, applicati
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [addedTaskSets, setAddedTaskSets] = useState({});
+  const [appliedRoadmapSets, setAppliedRoadmapSets] = useState({});
   const bottomRef = useRef(null);
 
   useEffect(() => {
@@ -103,6 +157,7 @@ export default function ChatInterface({ agentName, title, description, applicati
           id: crypto.randomUUID(),
           suggestedTasks: data.suggested_tasks?.length > 0 ? data.suggested_tasks : null,
           suggestedAgent: data.suggested_agent || null,
+          suggestedRoadmapChanges: data.suggested_roadmap_changes?.length > 0 ? data.suggested_roadmap_changes : null,
         },
       ]);
     } catch (err) {
@@ -137,6 +192,42 @@ export default function ChatInterface({ agentName, title, description, applicati
     }));
     queryClient.invalidateQueries({ queryKey: ["tasks"] });
     toast.success("Task added");
+  };
+
+  const handleApplyRoadmapChanges = async (messageId, changes) => {
+    if (!user?.id || appliedRoadmapSets[messageId]) return;
+    let hasError = false;
+    for (const change of changes) {
+      if (change.action === "update_tier") {
+        const { error } = await supabase
+          .from("career_roles")
+          .update({ tier: change.new_tier })
+          .eq("user_id", user.id)
+          .ilike("title", change.role_title);
+        if (error) { console.error("Roadmap update_tier error:", error); hasError = true; }
+      } else if (change.action === "add_role") {
+        const { error } = await supabase.from("career_roles").insert({
+          user_id: user.id,
+          title: change.title,
+          tier: change.tier,
+        });
+        if (error) { console.error("Roadmap add_role error:", error); hasError = true; }
+      } else if (change.action === "remove_role") {
+        const { error } = await supabase
+          .from("career_roles")
+          .delete()
+          .eq("user_id", user.id)
+          .ilike("title", change.role_title);
+        if (error) { console.error("Roadmap remove_role error:", error); hasError = true; }
+      }
+    }
+    if (hasError) {
+      toast.error("Some changes could not be applied. Please try again.");
+      return;
+    }
+    setAppliedRoadmapSets((prev) => ({ ...prev, [messageId]: true }));
+    queryClient.invalidateQueries({ queryKey: ["careerRoles"] });
+    toast.success("Roadmap updated");
   };
 
   const handleSwitchAgent = (page) => {
@@ -204,6 +295,14 @@ export default function ChatInterface({ agentName, title, description, applicati
                   tasks={msg.suggestedTasks}
                   addedTaskSets={addedTaskSets}
                   onAdd={handleAddTasks}
+                />
+              )}
+              {msg.suggestedRoadmapChanges && (
+                <RoadmapChangeCard
+                  messageId={msg.id}
+                  changes={msg.suggestedRoadmapChanges}
+                  applied={appliedRoadmapSets}
+                  onApply={handleApplyRoadmapChanges}
                 />
               )}
               {msg.suggestedAgent && (

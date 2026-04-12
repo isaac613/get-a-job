@@ -8,6 +8,7 @@ const SUBAGENTS = [
   {
     id: "career_agent",
     agentName: "career_agent",
+    page: "CareerAgent",
     title: "AI Career Agent",
     icon: Brain,
     description: "Your main career advisor — analyzes your full profile, maps qualifications to roles, and creates actionable plans.",
