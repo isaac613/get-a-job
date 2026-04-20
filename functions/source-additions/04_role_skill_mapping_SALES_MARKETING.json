@@ -1,426 +1,11 @@
 {
-  "library_name": "get_a_job_role_skill_mapping",
-  "version": "1.1",
-  "last_updated": "2026-04-15",
-  "role_skill_mapping": [
-    {
-      "role_id": "customer_support_representative",
-      "research_status": "mapped_v1_confident",
-      "core_skills": [
-        "customer_communication",
-        "problem_solving",
-        "customer_support_operations"
-      ],
-      "secondary_skills": [
-        "crm_management",
-        "customer_orientation",
-        "organization"
-      ],
-      "differentiator_skills": [
-        "empathy",
-        "analytical_thinking"
-      ]
-    },
-    {
-      "role_id": "customer_support_specialist",
-      "research_status": "mapped_v1_confident",
-      "core_skills": [
-        "customer_communication",
-        "customer_support_operations",
-        "problem_solving",
-        "customer_orientation"
-      ],
-      "secondary_skills": [
-        "crm_management",
-        "technical_troubleshooting",
-        "escalation_handling"
-      ],
-      "differentiator_skills": [
-        "technical_documentation",
-        "analytical_thinking"
-      ]
-    },
-    {
-      "role_id": "technical_support_engineer",
-      "research_status": "mapped_v1_confident",
-      "core_skills": [
-        "technical_troubleshooting",
-        "debugging",
-        "problem_solving",
-        "customer_communication"
-      ],
-      "secondary_skills": [
-        "technical_communication",
-        "api_integrations",
-        "technical_documentation",
-        "analytical_thinking"
-      ],
-      "differentiator_skills": [
-        "cloud_tools",
-        "cross_functional_collaboration"
-      ]
-    },
-    {
-      "role_id": "senior_support_engineer",
-      "research_status": "mapped_v1_confident",
-      "core_skills": [
-        "advanced_debugging",
-        "incident_management",
-        "technical_leadership",
-        "technical_troubleshooting"
-      ],
-      "secondary_skills": [
-        "technical_documentation",
-        "api_integrations",
-        "cloud_tools",
-        "analytical_thinking"
-      ],
-      "differentiator_skills": [
-        "customer_communication",
-        "cross_functional_collaboration"
-      ]
-    },
-    {
-      "role_id": "customer_onboarding_specialist",
-      "research_status": "mapped_v1_confident",
-      "core_skills": [
-        "onboarding_training",
-        "customer_communication",
-        "product_knowledge",
-        "product_adoption"
-      ],
-      "secondary_skills": [
-        "project_management",
-        "customer_orientation",
-        "organization"
-      ],
-      "differentiator_skills": [
-        "onboarding_strategy",
-        "crm_management"
-      ]
-    },
-    {
-      "role_id": "customer_success_associate",
-      "research_status": "mapped_v1_confident",
-      "core_skills": [
-        "customer_communication",
-        "relationship_building",
-        "product_adoption",
-        "onboarding_training"
-      ],
-      "secondary_skills": [
-        "customer_retention",
-        "crm_management",
-        "customer_health_monitoring"
-      ],
-      "differentiator_skills": [
-        "data_analysis",
-        "stakeholder_management"
-      ]
-    },
-    {
-      "role_id": "implementation_specialist",
-      "research_status": "mapped_v1_confident",
-      "core_skills": [
-        "implementation_management",
-        "project_management",
-        "requirements_gathering",
-        "customer_communication"
-      ],
-      "secondary_skills": [
-        "api_integrations",
-        "workflow_design",
-        "problem_solving",
-        "stakeholder_management"
-      ],
-      "differentiator_skills": [
-        "technical_communication",
-        "process_improvement"
-      ]
-    },
-    {
-      "role_id": "implementation_manager",
-      "research_status": "mapped_v1_confident",
-      "core_skills": [
-        "implementation_management",
-        "project_management",
-        "stakeholder_management",
-        "delivery_execution"
-      ],
-      "secondary_skills": [
-        "partner_management",
-        "api_integrations",
-        "customer_communication",
-        "problem_solving"
-      ],
-      "differentiator_skills": [
-        "product_adoption",
-        "cross_functional_collaboration"
-      ]
-    },
-    {
-      "role_id": "project_manager_customer_delivery",
-      "research_status": "mapped_v1_confident",
-      "core_skills": [
-        "project_management",
-        "stakeholder_management",
-        "risk_management",
-        "customer_communication"
-      ],
-      "secondary_skills": [
-        "implementation_management",
-        "delivery_execution",
-        "process_improvement",
-        "analytical_thinking"
-      ],
-      "differentiator_skills": [
-        "technical_communication",
-        "crm_management"
-      ]
-    },
-    {
-      "role_id": "customer_success_manager",
-      "research_status": "mapped_v1_confident",
-      "core_skills": [
-        "customer_relationship_management",
-        "customer_communication",
-        "customer_retention",
-        "product_adoption",
-        "stakeholder_management"
-      ],
-      "secondary_skills": [
-        "renewal_management",
-        "customer_health_monitoring",
-        "data_analysis",
-        "sales_collaboration"
-      ],
-      "differentiator_skills": [
-        "value_realization",
-        "customer_advocacy",
-        "onboarding_strategy"
-      ]
-    },
-    {
-      "role_id": "senior_customer_success_manager",
-      "research_status": "mapped_v1_confident",
-      "core_skills": [
-        "executive_relationships",
-        "retention_strategy",
-        "customer_health_management",
-        "commercial_mindset"
-      ],
-      "secondary_skills": [
-        "customer_relationship_management",
-        "stakeholder_management",
-        "renewal_management",
-        "customer_communication"
-      ],
-      "differentiator_skills": [
-        "customer_advocacy",
-        "data_analysis",
-        "cross_functional_collaboration"
-      ]
-    },
-    {
-      "role_id": "technical_account_manager",
-      "research_status": "mapped_v1_confident",
-      "core_skills": [
-        "technical_problem_solving",
-        "customer_relationship_management",
-        "business_understanding",
-        "technical_communication"
-      ],
-      "secondary_skills": [
-        "api_integrations",
-        "technical_troubleshooting",
-        "implementation_management",
-        "value_realization"
-      ],
-      "differentiator_skills": [
-        "stakeholder_management",
-        "cross_functional_collaboration",
-        "product_knowledge"
-      ]
-    },
-    {
-      "role_id": "account_manager",
-      "research_status": "mapped_v1_confident",
-      "core_skills": [
-        "account_management",
-        "customer_relationship_management",
-        "upselling_cross_selling",
-        "negotiation"
-      ],
-      "secondary_skills": [
-        "customer_communication",
-        "renewal_management",
-        "stakeholder_management",
-        "crm_management"
-      ],
-      "differentiator_skills": [
-        "data_analysis",
-        "commercial_mindset"
-      ]
-    },
-    {
-      "role_id": "customer_experience_specialist",
-      "research_status": "mapped_v1_confident",
-      "core_skills": [
-        "customer_communication",
-        "customer_orientation",
-        "customer_support_operations",
-        "problem_solving"
-      ],
-      "secondary_skills": [
-        "escalation_handling",
-        "process_improvement",
-        "cross_functional_collaboration"
-      ],
-      "differentiator_skills": [
-        "customer_advocacy",
-        "organization"
-      ]
-    },
-    {
-      "role_id": "customer_experience_manager",
-      "research_status": "mapped_v1_confident",
-      "core_skills": [
-        "customer_journey_management",
-        "data_analysis",
-        "cross_functional_collaboration",
-        "customer_communication"
-      ],
-      "secondary_skills": [
-        "process_design",
-        "process_improvement",
-        "customer_advocacy",
-        "project_management"
-      ],
-      "differentiator_skills": [
-        "stakeholder_management",
-        "customer_health_monitoring"
-      ]
-    },
-    {
-      "role_id": "sales_engineer",
-      "research_status": "mapped_v1_confident",
-      "core_skills": [
-        "presentation_skills",
-        "technical_explanation",
-        "customer_discovery",
-        "product_knowledge"
-      ],
-      "secondary_skills": [
-        "technical_communication",
-        "pre_sales_support",
-        "api_integrations",
-        "crm_management"
-      ],
-      "differentiator_skills": [
-        "stakeholder_management",
-        "business_understanding"
-      ]
-    },
-    {
-      "role_id": "support_team_lead",
-      "research_status": "mapped_v1_confident",
-      "core_skills": [
-        "people_management",
-        "customer_support_operations",
-        "coaching",
-        "incident_management"
-      ],
-      "secondary_skills": [
-        "problem_solving",
-        "technical_documentation",
-        "customer_success_metrics",
-        "process_improvement"
-      ],
-      "differentiator_skills": [
-        "technical_leadership",
-        "cross_functional_collaboration"
-      ]
-    },
-    {
-      "role_id": "customer_success_team_lead",
-      "research_status": "mapped_v1_confident",
-      "core_skills": [
-        "people_management",
-        "coaching",
-        "customer_success_metrics",
-        "customer_retention"
-      ],
-      "secondary_skills": [
-        "renewal_management",
-        "expansion_strategy",
-        "customer_health_monitoring",
-        "customer_relationship_management"
-      ],
-      "differentiator_skills": [
-        "process_improvement",
-        "cross_functional_collaboration"
-      ]
-    },
-    {
-      "role_id": "director_customer_success",
-      "research_status": "mapped_v1_confident",
-      "core_skills": [
-        "leadership",
-        "customer_success_strategy",
-        "cross_functional_alignment",
-        "operational_management"
-      ],
-      "secondary_skills": [
-        "retention_strategy",
-        "expansion_strategy",
-        "customer_success_metrics",
-        "organizational_design"
-      ],
-      "differentiator_skills": [
-        "executive_relationships",
-        "cross_functional_collaboration"
-      ]
-    },
-    {
-      "role_id": "director_customer_success_operations",
-      "research_status": "mapped_v1_confident",
-      "core_skills": [
-        "process_design",
-        "systems_thinking",
-        "data_analysis",
-        "salesforce"
-      ],
-      "secondary_skills": [
-        "crm_management",
-        "process_improvement",
-        "operational_management",
-        "project_management"
-      ],
-      "differentiator_skills": [
-        "cross_functional_alignment",
-        "customer_success_metrics"
-      ]
-    },
-    {
-      "role_id": "vp_customer_success",
-      "research_status": "mapped_v1_confident",
-      "core_skills": [
-        "executive_leadership",
-        "retention_strategy",
-        "organizational_design",
-        "cross_functional_exec_presence"
-      ],
-      "secondary_skills": [
-        "customer_success_strategy",
-        "cross_functional_alignment",
-        "leadership",
-        "operational_management"
-      ],
-      "differentiator_skills": [
-        "expansion_strategy",
-        "executive_relationships"
-      ]
-    },
+  "sector": "Sales_and_Marketing",
+  "version": "v1",
+  "last_updated": "2026-04-20",
+  "description": "New role-skill mappings to append to 04_role_skill_mapping.json for Sales and Marketing sectors.",
+
+  "role_skill_mapping_additions": [
+
     {
       "role_id": "sales_development_representative",
       "research_status": "mapped_v1_confident",
@@ -443,6 +28,7 @@
         "product_knowledge"
       ]
     },
+
     {
       "role_id": "business_development_representative",
       "research_status": "mapped_v1_confident",
@@ -465,6 +51,7 @@
         "stakeholder_management"
       ]
     },
+
     {
       "role_id": "account_executive",
       "research_status": "mapped_v1_confident",
@@ -488,6 +75,7 @@
         "product_knowledge"
       ]
     },
+
     {
       "role_id": "senior_account_executive",
       "research_status": "mapped_v1_confident",
@@ -512,6 +100,7 @@
         "commercial_mindset"
       ]
     },
+
     {
       "role_id": "enterprise_account_executive",
       "research_status": "mapped_v1_confident",
@@ -536,6 +125,7 @@
         "presentation_skills"
       ]
     },
+
     {
       "role_id": "sales_manager",
       "research_status": "mapped_v1_confident",
@@ -559,6 +149,7 @@
         "commercial_mindset"
       ]
     },
+
     {
       "role_id": "sales_director",
       "research_status": "mapped_v1_confident",
@@ -582,6 +173,7 @@
         "commercial_mindset"
       ]
     },
+
     {
       "role_id": "vp_sales",
       "research_status": "mapped_v1_confident",
@@ -606,6 +198,7 @@
         "business_understanding"
       ]
     },
+
     {
       "role_id": "sales_operations_manager",
       "research_status": "mapped_v1_confident",
@@ -629,6 +222,7 @@
         "workflow_automation"
       ]
     },
+
     {
       "role_id": "channel_partner_manager",
       "research_status": "mapped_v1_confident",
@@ -652,6 +246,7 @@
         "commercial_mindset"
       ]
     },
+
     {
       "role_id": "marketing_coordinator",
       "research_status": "mapped_v1_confident",
@@ -674,6 +269,7 @@
         "community_management"
       ]
     },
+
     {
       "role_id": "marketing_manager",
       "research_status": "mapped_v1_confident",
@@ -697,6 +293,7 @@
         "social_media_management"
       ]
     },
+
     {
       "role_id": "growth_marketing_manager",
       "research_status": "mapped_v1_confident",
@@ -720,6 +317,7 @@
         "product_metrics"
       ]
     },
+
     {
       "role_id": "performance_marketing_manager",
       "research_status": "mapped_v1_confident",
@@ -742,6 +340,7 @@
         "b2b_marketing"
       ]
     },
+
     {
       "role_id": "lifecycle_marketing_manager",
       "research_status": "mapped_v1_confident",
@@ -765,6 +364,7 @@
         "sales_collaboration"
       ]
     },
+
     {
       "role_id": "product_marketing_manager",
       "research_status": "mapped_v1_confident",
@@ -788,6 +388,7 @@
         "product_knowledge"
       ]
     },
+
     {
       "role_id": "content_marketing_manager",
       "research_status": "mapped_v1_confident",
@@ -810,6 +411,7 @@
         "technical_communication"
       ]
     },
+
     {
       "role_id": "seo_manager",
       "research_status": "mapped_v1_confident",
@@ -833,6 +435,7 @@
         "product_metrics"
       ]
     },
+
     {
       "role_id": "social_media_manager",
       "research_status": "mapped_v1_confident",
@@ -855,6 +458,7 @@
         "customer_communication"
       ]
     },
+
     {
       "role_id": "head_of_marketing",
       "research_status": "mapped_v1_confident",
@@ -878,6 +482,7 @@
         "commercial_mindset"
       ]
     },
+
     {
       "role_id": "vp_marketing",
       "research_status": "mapped_v1_confident",
@@ -902,5 +507,6 @@
         "commercial_mindset"
       ]
     }
+
   ]
 }
