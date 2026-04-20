@@ -1,0 +1,268 @@
+{
+  "proof_signal_library": [
+    {
+      "id": "handled_customer_tickets",
+      "description": "Handled customer support tickets or inquiries",
+      "tags": [
+        "support",
+        "customers",
+        "tickets"
+      ],
+      "maps_to_skills": [
+        "customer_communication",
+        "problem_solving",
+        "customer_support_operations"
+      ],
+      "strength_level": "medium"
+    },
+    {
+      "id": "led_customer_calls",
+      "description": "Led calls or meetings with customers",
+      "tags": [
+        "communication",
+        "calls",
+        "customers"
+      ],
+      "maps_to_skills": [
+        "customer_communication",
+        "stakeholder_management"
+      ],
+      "strength_level": "medium"
+    },
+    {
+      "id": "resolved_technical_issues",
+      "description": "Diagnosed and resolved technical issues",
+      "tags": [
+        "technical",
+        "debugging"
+      ],
+      "maps_to_skills": [
+        "technical_troubleshooting",
+        "problem_solving"
+      ],
+      "strength_level": "high"
+    },
+    {
+      "id": "used_crm_systems",
+      "description": "Worked with CRM tools like Salesforce or HubSpot",
+      "tags": [
+        "crm",
+        "tools"
+      ],
+      "maps_to_skills": [
+        "crm_management",
+        "data_analysis"
+      ],
+      "strength_level": "medium"
+    },
+    {
+      "id": "led_onboarding_sessions",
+      "description": "Conducted onboarding or training sessions for customers",
+      "tags": [
+        "onboarding",
+        "training"
+      ],
+      "maps_to_skills": [
+        "onboarding_training",
+        "customer_communication",
+        "product_knowledge"
+      ],
+      "strength_level": "high"
+    },
+    {
+      "id": "managed_customer_accounts",
+      "description": "Owned and managed customer relationships",
+      "tags": [
+        "accounts",
+        "relationships"
+      ],
+      "maps_to_skills": [
+        "account_management",
+        "customer_relationship_management"
+      ],
+      "strength_level": "high"
+    },
+    {
+      "id": "handled_escalations",
+      "description": "Managed difficult or high-priority customer issues",
+      "tags": [
+        "escalations",
+        "support"
+      ],
+      "maps_to_skills": [
+        "escalation_handling",
+        "customer_communication"
+      ],
+      "strength_level": "high"
+    },
+    {
+      "id": "collaborated_cross_functionally",
+      "description": "Worked with multiple internal teams",
+      "tags": [
+        "teams",
+        "collaboration"
+      ],
+      "maps_to_skills": [
+        "cross_functional_collaboration",
+        "stakeholder_management"
+      ],
+      "strength_level": "medium"
+    },
+    {
+      "id": "supported_sales_process",
+      "description": "Worked with sales teams on deals or handoffs",
+      "tags": [
+        "sales",
+        "collaboration"
+      ],
+      "maps_to_skills": [
+        "sales_collaboration",
+        "stakeholder_management"
+      ],
+      "strength_level": "medium"
+    },
+    {
+      "id": "delivered_product_demos",
+      "description": "Presented or demoed product to customers",
+      "tags": [
+        "demo",
+        "presentation"
+      ],
+      "maps_to_skills": [
+        "pre_sales_support",
+        "technical_communication"
+      ],
+      "strength_level": "high"
+    },
+    {
+      "id": "managed_implementations",
+      "description": "Led or supported product implementation or setup",
+      "tags": [
+        "implementation",
+        "delivery"
+      ],
+      "maps_to_skills": [
+        "implementation_management",
+        "project_management"
+      ],
+      "strength_level": "high"
+    },
+    {
+      "id": "analyzed_customer_data",
+      "description": "Used data to monitor performance or make decisions",
+      "tags": [
+        "data",
+        "analysis"
+      ],
+      "maps_to_skills": [
+        "data_analysis",
+        "analytical_thinking"
+      ],
+      "strength_level": "medium"
+    },
+    {
+      "id": "improved_processes",
+      "description": "Identified and improved workflows or processes",
+      "tags": [
+        "process",
+        "optimization"
+      ],
+      "maps_to_skills": [
+        "process_improvement",
+        "project_management"
+      ],
+      "strength_level": "high"
+    },
+    {
+      "id": "drove_product_adoption",
+      "description": "Encouraged or increased product usage",
+      "tags": [
+        "adoption",
+        "engagement"
+      ],
+      "maps_to_skills": [
+        "product_adoption",
+        "value_realization"
+      ],
+      "strength_level": "high"
+    },
+    {
+      "id": "managed_renewals",
+      "description": "Handled contract renewals or retention efforts",
+      "tags": [
+        "renewals",
+        "retention"
+      ],
+      "maps_to_skills": [
+        "renewal_management",
+        "customer_retention"
+      ],
+      "strength_level": "high"
+    },
+    {
+      "id": "identified_upsell_opportunities",
+      "description": "Identified or executed upsell/cross-sell opportunities",
+      "tags": [
+        "revenue",
+        "growth"
+      ],
+      "maps_to_skills": [
+        "upselling_cross_selling",
+        "account_management"
+      ],
+      "strength_level": "high"
+    },
+    {
+      "id": "wrote_documentation",
+      "description": "Created technical or customer-facing documentation",
+      "tags": [
+        "docs",
+        "writing"
+      ],
+      "maps_to_skills": [
+        "technical_documentation",
+        "technical_communication"
+      ],
+      "strength_level": "medium"
+    },
+    {
+      "id": "worked_with_apis",
+      "description": "Worked with APIs or system integrations",
+      "tags": [
+        "api",
+        "integrations"
+      ],
+      "maps_to_skills": [
+        "api_integrations",
+        "technical_troubleshooting"
+      ],
+      "strength_level": "high"
+    },
+    {
+      "id": "monitored_customer_health",
+      "description": "Tracked customer metrics like usage, CSAT, NPS",
+      "tags": [
+        "metrics",
+        "health"
+      ],
+      "maps_to_skills": [
+        "customer_health_monitoring",
+        "data_analysis"
+      ],
+      "strength_level": "medium"
+    },
+    {
+      "id": "acted_as_customer_advocate",
+      "description": "Represented customer needs internally",
+      "tags": [
+        "customer",
+        "feedback"
+      ],
+      "maps_to_skills": [
+        "customer_advocacy",
+        "stakeholder_management"
+      ],
+      "strength_level": "high"
+    }
+  ]
+}

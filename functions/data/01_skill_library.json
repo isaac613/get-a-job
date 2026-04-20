@@ -1,0 +1,1468 @@
+{
+  "skill_library": [
+    {
+      "id": "customer_communication",
+      "name": "Customer Communication",
+      "category": "soft_skill",
+      "tags": [
+        "communication",
+        "customer-facing",
+        "core"
+      ],
+      "common_roles": [
+        "customer_success_manager",
+        "account_manager",
+        "customer_support_specialist"
+      ],
+      "related_skills": [
+        "stakeholder_management",
+        "escalation_handling"
+      ]
+    },
+    {
+      "id": "stakeholder_management",
+      "name": "Stakeholder Management",
+      "category": "business_skill",
+      "tags": [
+        "relationships",
+        "cross-functional",
+        "alignment"
+      ],
+      "common_roles": [
+        "customer_success_manager",
+        "technical_account_manager",
+        "implementation_manager"
+      ],
+      "related_skills": [
+        "customer_communication",
+        "cross_functional_collaboration"
+      ]
+    },
+    {
+      "id": "problem_solving",
+      "name": "Problem Solving",
+      "category": "core_skill",
+      "tags": [
+        "analysis",
+        "troubleshooting",
+        "decision-making"
+      ],
+      "common_roles": [
+        "all"
+      ],
+      "related_skills": [
+        "analytical_thinking",
+        "technical_troubleshooting"
+      ]
+    },
+    {
+      "id": "customer_relationship_management",
+      "name": "Customer Relationship Management",
+      "category": "business_skill",
+      "tags": [
+        "retention",
+        "relationships",
+        "ownership"
+      ],
+      "common_roles": [
+        "customer_success_manager",
+        "account_manager"
+      ],
+      "related_skills": [
+        "customer_retention",
+        "stakeholder_management"
+      ]
+    },
+    {
+      "id": "escalation_handling",
+      "name": "Escalation Handling",
+      "category": "support_skill",
+      "tags": [
+        "support",
+        "conflict",
+        "urgency"
+      ],
+      "common_roles": [
+        "customer_support_specialist",
+        "customer_success_manager"
+      ],
+      "related_skills": [
+        "customer_communication",
+        "problem_solving"
+      ]
+    },
+    {
+      "id": "account_management",
+      "name": "Account Management",
+      "category": "business_skill",
+      "tags": [
+        "accounts",
+        "ownership",
+        "growth"
+      ],
+      "common_roles": [
+        "account_manager",
+        "customer_success_manager"
+      ],
+      "related_skills": [
+        "customer_relationship_management",
+        "upselling_cross_selling"
+      ]
+    },
+    {
+      "id": "upselling_cross_selling",
+      "name": "Upselling & Cross-selling",
+      "category": "commercial_skill",
+      "tags": [
+        "revenue",
+        "growth",
+        "sales"
+      ],
+      "common_roles": [
+        "customer_success_manager",
+        "account_manager"
+      ],
+      "related_skills": [
+        "account_management",
+        "customer_retention"
+      ]
+    },
+    {
+      "id": "customer_retention",
+      "name": "Customer Retention",
+      "category": "business_skill",
+      "tags": [
+        "churn",
+        "renewals",
+        "engagement"
+      ],
+      "common_roles": [
+        "customer_success_manager"
+      ],
+      "related_skills": [
+        "customer_relationship_management",
+        "renewal_management"
+      ]
+    },
+    {
+      "id": "onboarding_training",
+      "name": "Onboarding & Training",
+      "category": "customer_success_skill",
+      "tags": [
+        "onboarding",
+        "training",
+        "adoption"
+      ],
+      "common_roles": [
+        "customer_success_manager",
+        "customer_onboarding_specialist"
+      ],
+      "related_skills": [
+        "product_adoption",
+        "customer_communication"
+      ]
+    },
+    {
+      "id": "value_realization",
+      "name": "Value Realization",
+      "category": "strategic_skill",
+      "tags": [
+        "roi",
+        "outcomes",
+        "strategy"
+      ],
+      "common_roles": [
+        "customer_success_manager",
+        "technical_account_manager"
+      ],
+      "related_skills": [
+        "product_adoption",
+        "customer_retention"
+      ]
+    },
+    {
+      "id": "technical_troubleshooting",
+      "name": "Technical Troubleshooting",
+      "category": "technical_skill",
+      "tags": [
+        "debugging",
+        "logs",
+        "issues"
+      ],
+      "common_roles": [
+        "technical_support_engineer",
+        "technical_account_manager"
+      ],
+      "related_skills": [
+        "problem_solving",
+        "analytical_thinking"
+      ]
+    },
+    {
+      "id": "product_knowledge",
+      "name": "Product Knowledge",
+      "category": "core_skill",
+      "tags": [
+        "product",
+        "features",
+        "expertise"
+      ],
+      "common_roles": [
+        "all"
+      ],
+      "related_skills": [
+        "technical_communication",
+        "onboarding_training"
+      ]
+    },
+    {
+      "id": "api_integrations",
+      "name": "API / Integrations Understanding",
+      "category": "technical_skill",
+      "tags": [
+        "api",
+        "integrations",
+        "systems"
+      ],
+      "common_roles": [
+        "technical_account_manager",
+        "technical_support_engineer",
+        "sales_engineer"
+      ],
+      "related_skills": [
+        "technical_troubleshooting",
+        "technical_communication"
+      ]
+    },
+    {
+      "id": "data_analysis",
+      "name": "Data Analysis",
+      "category": "technical_business_skill",
+      "tags": [
+        "data",
+        "metrics",
+        "analytics"
+      ],
+      "common_roles": [
+        "customer_success_manager",
+        "account_manager"
+      ],
+      "related_skills": [
+        "analytical_thinking",
+        "customer_health_monitoring"
+      ]
+    },
+    {
+      "id": "project_management",
+      "name": "Project / Process Management",
+      "category": "business_skill",
+      "tags": [
+        "projects",
+        "execution",
+        "coordination"
+      ],
+      "common_roles": [
+        "implementation_manager",
+        "technical_account_manager",
+        "project_manager_customer_delivery"
+      ],
+      "related_skills": [
+        "cross_functional_collaboration",
+        "process_improvement"
+      ]
+    },
+    {
+      "id": "customer_support_operations",
+      "name": "Customer Support Operations",
+      "category": "support_skill",
+      "tags": [
+        "tickets",
+        "sla",
+        "support"
+      ],
+      "common_roles": [
+        "customer_support_specialist",
+        "support_team_lead"
+      ],
+      "related_skills": [
+        "technical_troubleshooting"
+      ]
+    },
+    {
+      "id": "crm_management",
+      "name": "CRM Management",
+      "category": "technical_business_skill",
+      "tags": [
+        "crm",
+        "salesforce",
+        "data"
+      ],
+      "common_roles": [
+        "customer_success_manager",
+        "account_manager",
+        "customer_support_specialist"
+      ],
+      "related_skills": [
+        "data_analysis"
+      ]
+    },
+    {
+      "id": "onboarding_strategy",
+      "name": "Customer Onboarding Strategy",
+      "category": "strategic_skill",
+      "tags": [
+        "process",
+        "scaling",
+        "onboarding"
+      ],
+      "common_roles": [
+        "customer_success_manager"
+      ],
+      "related_skills": [
+        "onboarding_training"
+      ]
+    },
+    {
+      "id": "implementation_management",
+      "name": "Implementation Management",
+      "category": "technical_business_skill",
+      "tags": [
+        "implementation",
+        "delivery",
+        "setup"
+      ],
+      "common_roles": [
+        "implementation_manager",
+        "technical_account_manager",
+        "implementation_specialist"
+      ],
+      "related_skills": [
+        "project_management"
+      ]
+    },
+    {
+      "id": "technical_communication",
+      "name": "Technical Communication",
+      "category": "hybrid_skill",
+      "tags": [
+        "translation",
+        "clarity",
+        "technical"
+      ],
+      "common_roles": [
+        "technical_account_manager",
+        "sales_engineer",
+        "technical_support_engineer"
+      ],
+      "related_skills": [
+        "customer_communication"
+      ]
+    },
+    {
+      "id": "product_adoption",
+      "name": "Product Adoption",
+      "category": "customer_success_skill",
+      "tags": [
+        "usage",
+        "engagement",
+        "growth"
+      ],
+      "common_roles": [
+        "customer_success_manager",
+        "customer_success_associate"
+      ],
+      "related_skills": [
+        "value_realization"
+      ]
+    },
+    {
+      "id": "customer_health_monitoring",
+      "name": "Customer Health Monitoring",
+      "category": "analytical_skill",
+      "tags": [
+        "csat",
+        "nps",
+        "health"
+      ],
+      "common_roles": [
+        "customer_success_manager",
+        "senior_customer_success_manager"
+      ],
+      "related_skills": [
+        "data_analysis"
+      ]
+    },
+    {
+      "id": "renewal_management",
+      "name": "Renewal Management",
+      "category": "commercial_skill",
+      "tags": [
+        "renewals",
+        "contracts",
+        "retention"
+      ],
+      "common_roles": [
+        "customer_success_manager",
+        "account_manager"
+      ],
+      "related_skills": [
+        "customer_retention"
+      ]
+    },
+    {
+      "id": "sales_collaboration",
+      "name": "Sales Collaboration",
+      "category": "business_skill",
+      "tags": [
+        "sales",
+        "alignment",
+        "deals"
+      ],
+      "common_roles": [
+        "customer_success_manager",
+        "account_manager"
+      ],
+      "related_skills": [
+        "upselling_cross_selling"
+      ]
+    },
+    {
+      "id": "pre_sales_support",
+      "name": "Pre-Sales Support",
+      "category": "technical_commercial_skill",
+      "tags": [
+        "demo",
+        "poc",
+        "sales"
+      ],
+      "common_roles": [
+        "sales_engineer"
+      ],
+      "related_skills": [
+        "technical_communication"
+      ]
+    },
+    {
+      "id": "process_improvement",
+      "name": "Process Improvement",
+      "category": "operational_skill",
+      "tags": [
+        "optimization",
+        "efficiency"
+      ],
+      "common_roles": [
+        "all"
+      ],
+      "related_skills": [
+        "project_management"
+      ]
+    },
+    {
+      "id": "cross_functional_collaboration",
+      "name": "Cross-functional Collaboration",
+      "category": "business_skill",
+      "tags": [
+        "teams",
+        "collaboration"
+      ],
+      "common_roles": [
+        "all"
+      ],
+      "related_skills": [
+        "stakeholder_management"
+      ]
+    },
+    {
+      "id": "customer_advocacy",
+      "name": "Customer Advocacy",
+      "category": "strategic_skill",
+      "tags": [
+        "voice_of_customer",
+        "feedback"
+      ],
+      "common_roles": [
+        "customer_success_manager"
+      ],
+      "related_skills": [
+        "product_adoption"
+      ]
+    },
+    {
+      "id": "technical_documentation",
+      "name": "Technical Documentation",
+      "category": "technical_skill",
+      "tags": [
+        "docs",
+        "writing"
+      ],
+      "common_roles": [
+        "technical_support_engineer"
+      ],
+      "related_skills": [
+        "technical_communication"
+      ]
+    },
+    {
+      "id": "analytical_thinking",
+      "name": "Analytical Thinking",
+      "category": "core_skill",
+      "tags": [
+        "logic",
+        "analysis"
+      ],
+      "common_roles": [
+        "all"
+      ],
+      "related_skills": [
+        "problem_solving"
+      ]
+    },
+    {
+      "id": "empathy",
+      "name": "Empathy",
+      "category": "soft_skill",
+      "tags": [
+        "customer-facing",
+        "support",
+        "relationship"
+      ],
+      "common_roles": [
+        "customer_support_representative",
+        "customer_support_specialist"
+      ],
+      "related_skills": [
+        "customer_communication",
+        "customer_orientation"
+      ]
+    },
+    {
+      "id": "organization",
+      "name": "Organization",
+      "category": "core_skill",
+      "tags": [
+        "planning",
+        "coordination",
+        "execution"
+      ],
+      "common_roles": [
+        "all"
+      ],
+      "related_skills": [
+        "project_management",
+        "process_improvement"
+      ]
+    },
+    {
+      "id": "customer_orientation",
+      "name": "Customer Orientation",
+      "category": "soft_skill",
+      "tags": [
+        "customer-centric",
+        "service",
+        "support"
+      ],
+      "common_roles": [
+        "customer_support_specialist",
+        "customer_experience_specialist"
+      ],
+      "related_skills": [
+        "customer_communication",
+        "empathy"
+      ]
+    },
+    {
+      "id": "debugging",
+      "name": "Debugging",
+      "category": "technical_skill",
+      "tags": [
+        "technical",
+        "issues",
+        "root-cause"
+      ],
+      "common_roles": [
+        "technical_support_engineer",
+        "senior_support_engineer"
+      ],
+      "related_skills": [
+        "technical_troubleshooting",
+        "analytical_thinking"
+      ]
+    },
+    {
+      "id": "cloud_tools",
+      "name": "Cloud Tools",
+      "category": "technical_skill",
+      "tags": [
+        "cloud",
+        "infrastructure",
+        "platforms"
+      ],
+      "common_roles": [
+        "technical_support_engineer",
+        "senior_support_engineer"
+      ],
+      "related_skills": [
+        "technical_troubleshooting",
+        "api_integrations"
+      ]
+    },
+    {
+      "id": "advanced_debugging",
+      "name": "Advanced Debugging",
+      "category": "technical_skill",
+      "tags": [
+        "advanced",
+        "root-cause",
+        "complex-systems"
+      ],
+      "common_roles": [
+        "senior_support_engineer"
+      ],
+      "related_skills": [
+        "debugging",
+        "technical_troubleshooting"
+      ]
+    },
+    {
+      "id": "incident_management",
+      "name": "Incident Management",
+      "category": "technical_operational_skill",
+      "tags": [
+        "incidents",
+        "escalations",
+        "response"
+      ],
+      "common_roles": [
+        "senior_support_engineer",
+        "support_team_lead"
+      ],
+      "related_skills": [
+        "advanced_debugging",
+        "escalation_handling"
+      ]
+    },
+    {
+      "id": "technical_leadership",
+      "name": "Technical Leadership",
+      "category": "technical_leadership_skill",
+      "tags": [
+        "mentoring",
+        "guidance",
+        "technical"
+      ],
+      "common_roles": [
+        "senior_support_engineer"
+      ],
+      "related_skills": [
+        "coaching",
+        "advanced_debugging"
+      ]
+    },
+    {
+      "id": "relationship_building",
+      "name": "Relationship Building",
+      "category": "soft_skill",
+      "tags": [
+        "relationships",
+        "trust",
+        "customer-facing"
+      ],
+      "common_roles": [
+        "customer_success_associate",
+        "customer_success_manager"
+      ],
+      "related_skills": [
+        "customer_communication",
+        "customer_relationship_management"
+      ]
+    },
+    {
+      "id": "requirements_gathering",
+      "name": "Requirements Gathering",
+      "category": "business_skill",
+      "tags": [
+        "discovery",
+        "requirements",
+        "implementation"
+      ],
+      "common_roles": [
+        "implementation_specialist",
+        "implementation_manager"
+      ],
+      "related_skills": [
+        "stakeholder_management",
+        "business_understanding"
+      ]
+    },
+    {
+      "id": "workflow_design",
+      "name": "Workflow Design",
+      "category": "business_skill",
+      "tags": [
+        "workflow",
+        "process",
+        "implementation"
+      ],
+      "common_roles": [
+        "implementation_specialist",
+        "implementation_manager"
+      ],
+      "related_skills": [
+        "process_design",
+        "requirements_gathering"
+      ]
+    },
+    {
+      "id": "delivery_execution",
+      "name": "Delivery Execution",
+      "category": "operational_skill",
+      "tags": [
+        "delivery",
+        "execution",
+        "implementation"
+      ],
+      "common_roles": [
+        "implementation_manager",
+        "project_manager_customer_delivery"
+      ],
+      "related_skills": [
+        "project_management",
+        "stakeholder_management"
+      ]
+    },
+    {
+      "id": "partner_management",
+      "name": "Partner Management",
+      "category": "business_skill",
+      "tags": [
+        "partners",
+        "coordination",
+        "external"
+      ],
+      "common_roles": [
+        "implementation_manager"
+      ],
+      "related_skills": [
+        "stakeholder_management",
+        "delivery_execution"
+      ]
+    },
+    {
+      "id": "risk_management",
+      "name": "Risk Management",
+      "category": "business_skill",
+      "tags": [
+        "risk",
+        "project",
+        "mitigation"
+      ],
+      "common_roles": [
+        "project_manager_customer_delivery"
+      ],
+      "related_skills": [
+        "project_management",
+        "analytical_thinking"
+      ]
+    },
+    {
+      "id": "executive_relationships",
+      "name": "Executive Relationships",
+      "category": "leadership_skill",
+      "tags": [
+        "executive",
+        "stakeholders",
+        "strategic"
+      ],
+      "common_roles": [
+        "senior_customer_success_manager"
+      ],
+      "related_skills": [
+        "stakeholder_management",
+        "customer_relationship_management"
+      ]
+    },
+    {
+      "id": "retention_strategy",
+      "name": "Retention Strategy",
+      "category": "strategic_skill",
+      "tags": [
+        "retention",
+        "strategy",
+        "renewals"
+      ],
+      "common_roles": [
+        "senior_customer_success_manager",
+        "vp_customer_success"
+      ],
+      "related_skills": [
+        "customer_retention",
+        "renewal_management"
+      ]
+    },
+    {
+      "id": "customer_health_management",
+      "name": "Customer Health Management",
+      "category": "analytical_business_skill",
+      "tags": [
+        "health",
+        "risk",
+        "retention"
+      ],
+      "common_roles": [
+        "senior_customer_success_manager"
+      ],
+      "related_skills": [
+        "customer_health_monitoring",
+        "data_analysis"
+      ]
+    },
+    {
+      "id": "commercial_mindset",
+      "name": "Commercial Mindset",
+      "category": "commercial_skill",
+      "tags": [
+        "growth",
+        "revenue",
+        "business"
+      ],
+      "common_roles": [
+        "senior_customer_success_manager",
+        "account_manager"
+      ],
+      "related_skills": [
+        "upselling_cross_selling",
+        "account_management"
+      ]
+    },
+    {
+      "id": "technical_problem_solving",
+      "name": "Technical Problem Solving",
+      "category": "technical_skill",
+      "tags": [
+        "technical",
+        "solutioning",
+        "analysis"
+      ],
+      "common_roles": [
+        "technical_account_manager"
+      ],
+      "related_skills": [
+        "technical_troubleshooting",
+        "problem_solving"
+      ]
+    },
+    {
+      "id": "business_understanding",
+      "name": "Business Understanding",
+      "category": "business_skill",
+      "tags": [
+        "business",
+        "context",
+        "outcomes"
+      ],
+      "common_roles": [
+        "technical_account_manager",
+        "implementation_manager"
+      ],
+      "related_skills": [
+        "value_realization",
+        "stakeholder_management"
+      ]
+    },
+    {
+      "id": "negotiation",
+      "name": "Negotiation",
+      "category": "commercial_skill",
+      "tags": [
+        "commercial",
+        "deals",
+        "renewals"
+      ],
+      "common_roles": [
+        "account_manager"
+      ],
+      "related_skills": [
+        "account_management",
+        "renewal_management"
+      ]
+    },
+    {
+      "id": "customer_journey_management",
+      "name": "Customer Journey Management",
+      "category": "strategic_skill",
+      "tags": [
+        "journey",
+        "cx",
+        "experience"
+      ],
+      "common_roles": [
+        "customer_experience_manager"
+      ],
+      "related_skills": [
+        "customer_advocacy",
+        "process_improvement"
+      ]
+    },
+    {
+      "id": "presentation_skills",
+      "name": "Presentation Skills",
+      "category": "soft_skill",
+      "tags": [
+        "presentation",
+        "demo",
+        "communication"
+      ],
+      "common_roles": [
+        "sales_engineer",
+        "account_manager"
+      ],
+      "related_skills": [
+        "technical_communication",
+        "customer_communication"
+      ]
+    },
+    {
+      "id": "technical_explanation",
+      "name": "Technical Explanation",
+      "category": "hybrid_skill",
+      "tags": [
+        "technical",
+        "explanation",
+        "clarity"
+      ],
+      "common_roles": [
+        "sales_engineer",
+        "technical_account_manager"
+      ],
+      "related_skills": [
+        "technical_communication",
+        "presentation_skills"
+      ]
+    },
+    {
+      "id": "customer_discovery",
+      "name": "Customer Discovery",
+      "category": "business_skill",
+      "tags": [
+        "discovery",
+        "needs",
+        "customer"
+      ],
+      "common_roles": [
+        "sales_engineer"
+      ],
+      "related_skills": [
+        "stakeholder_management",
+        "business_understanding"
+      ]
+    },
+    {
+      "id": "people_management",
+      "name": "People Management",
+      "category": "leadership_skill",
+      "tags": [
+        "management",
+        "team",
+        "leadership"
+      ],
+      "common_roles": [
+        "support_team_lead",
+        "customer_success_team_lead"
+      ],
+      "related_skills": [
+        "coaching",
+        "leadership"
+      ]
+    },
+    {
+      "id": "coaching",
+      "name": "Coaching",
+      "category": "leadership_skill",
+      "tags": [
+        "coaching",
+        "mentoring",
+        "development"
+      ],
+      "common_roles": [
+        "support_team_lead",
+        "customer_success_team_lead"
+      ],
+      "related_skills": [
+        "people_management",
+        "technical_leadership"
+      ]
+    },
+    {
+      "id": "customer_success_metrics",
+      "name": "Customer Success Metrics",
+      "category": "analytical_business_skill",
+      "tags": [
+        "metrics",
+        "retention",
+        "expansion"
+      ],
+      "common_roles": [
+        "customer_success_team_lead",
+        "director_customer_success"
+      ],
+      "related_skills": [
+        "customer_health_monitoring",
+        "data_analysis"
+      ]
+    },
+    {
+      "id": "expansion_strategy",
+      "name": "Expansion Strategy",
+      "category": "strategic_commercial_skill",
+      "tags": [
+        "expansion",
+        "growth",
+        "strategy"
+      ],
+      "common_roles": [
+        "customer_success_team_lead",
+        "director_customer_success"
+      ],
+      "related_skills": [
+        "upselling_cross_selling",
+        "retention_strategy"
+      ]
+    },
+    {
+      "id": "leadership",
+      "name": "Leadership",
+      "category": "leadership_skill",
+      "tags": [
+        "leadership",
+        "management",
+        "strategy"
+      ],
+      "common_roles": [
+        "director_customer_success",
+        "vp_customer_success"
+      ],
+      "related_skills": [
+        "people_management",
+        "executive_leadership"
+      ]
+    },
+    {
+      "id": "customer_success_strategy",
+      "name": "Customer Success Strategy",
+      "category": "strategic_skill",
+      "tags": [
+        "customer-success",
+        "strategy",
+        "function"
+      ],
+      "common_roles": [
+        "director_customer_success",
+        "vp_customer_success"
+      ],
+      "related_skills": [
+        "retention_strategy",
+        "expansion_strategy"
+      ]
+    },
+    {
+      "id": "cross_functional_alignment",
+      "name": "Cross-functional Alignment",
+      "category": "leadership_skill",
+      "tags": [
+        "alignment",
+        "cross-functional",
+        "leadership"
+      ],
+      "common_roles": [
+        "director_customer_success",
+        "vp_customer_success"
+      ],
+      "related_skills": [
+        "stakeholder_management",
+        "cross_functional_collaboration"
+      ]
+    },
+    {
+      "id": "operational_management",
+      "name": "Operational Management",
+      "category": "operational_skill",
+      "tags": [
+        "operations",
+        "management",
+        "scaling"
+      ],
+      "common_roles": [
+        "director_customer_success"
+      ],
+      "related_skills": [
+        "process_improvement",
+        "systems_thinking"
+      ]
+    },
+    {
+      "id": "process_design",
+      "name": "Process Design",
+      "category": "operational_skill",
+      "tags": [
+        "process",
+        "design",
+        "systems"
+      ],
+      "common_roles": [
+        "director_customer_success_operations",
+        "customer_experience_manager"
+      ],
+      "related_skills": [
+        "process_improvement",
+        "systems_thinking"
+      ]
+    },
+    {
+      "id": "systems_thinking",
+      "name": "Systems Thinking",
+      "category": "strategic_skill",
+      "tags": [
+        "systems",
+        "operations",
+        "scaling"
+      ],
+      "common_roles": [
+        "director_customer_success_operations"
+      ],
+      "related_skills": [
+        "process_design",
+        "operational_management"
+      ]
+    },
+    {
+      "id": "salesforce",
+      "name": "Salesforce",
+      "category": "technical_business_skill",
+      "tags": [
+        "salesforce",
+        "crm",
+        "tooling"
+      ],
+      "common_roles": [
+        "director_customer_success_operations",
+        "account_manager"
+      ],
+      "related_skills": [
+        "crm_management"
+      ]
+    },
+    {
+      "id": "executive_leadership",
+      "name": "Executive Leadership",
+      "category": "leadership_skill",
+      "tags": [
+        "executive",
+        "leadership",
+        "org"
+      ],
+      "common_roles": [
+        "vp_customer_success"
+      ],
+      "related_skills": [
+        "leadership",
+        "organizational_design"
+      ]
+    },
+    {
+      "id": "organizational_design",
+      "name": "Organizational Design",
+      "category": "strategic_skill",
+      "tags": [
+        "org-design",
+        "structure",
+        "leadership"
+      ],
+      "common_roles": [
+        "vp_customer_success"
+      ],
+      "related_skills": [
+        "executive_leadership",
+        "operational_management"
+      ]
+    },
+    {
+      "id": "cross_functional_exec_presence",
+      "name": "Cross-functional Executive Presence",
+      "category": "leadership_skill",
+      "tags": [
+        "executive",
+        "presence",
+        "cross-functional"
+      ],
+      "common_roles": [
+        "vp_customer_success"
+      ],
+      "related_skills": [
+        "executive_leadership",
+        "cross_functional_alignment"
+      ]
+    },
+    {
+      "id": "product_discovery",
+      "name": "Product Discovery",
+      "category": "product_skill",
+      "tags": [
+        "discovery",
+        "user research",
+        "validation"
+      ],
+      "common_roles": [
+        "product_manager",
+        "product_analyst"
+      ],
+      "related_skills": [
+        "customer_discovery",
+        "analytical_thinking"
+      ]
+    },
+    {
+      "id": "roadmap_prioritization",
+      "name": "Roadmap & Prioritization",
+      "category": "product_skill",
+      "tags": [
+        "roadmap",
+        "prioritization",
+        "strategy"
+      ],
+      "common_roles": [
+        "product_manager"
+      ],
+      "related_skills": [
+        "product_strategy",
+        "stakeholder_management"
+      ]
+    },
+    {
+      "id": "product_strategy",
+      "name": "Product Strategy",
+      "category": "strategic_skill",
+      "tags": [
+        "product",
+        "strategy",
+        "vision"
+      ],
+      "common_roles": [
+        "product_manager"
+      ],
+      "related_skills": [
+        "roadmap_prioritization",
+        "business_understanding"
+      ]
+    },
+    {
+      "id": "feature_definition",
+      "name": "Feature Definition & PRDs",
+      "category": "product_skill",
+      "tags": [
+        "requirements",
+        "prd",
+        "features"
+      ],
+      "common_roles": [
+        "product_manager",
+        "product_analyst"
+      ],
+      "related_skills": [
+        "requirements_gathering",
+        "product_discovery"
+      ]
+    },
+    {
+      "id": "product_metrics",
+      "name": "Product Metrics & KPI Definition",
+      "category": "analytical_product_skill",
+      "tags": [
+        "kpi",
+        "metrics",
+        "product"
+      ],
+      "common_roles": [
+        "product_manager",
+        "product_analyst"
+      ],
+      "related_skills": [
+        "data_analysis",
+        "customer_success_metrics"
+      ]
+    },
+    {
+      "id": "ab_testing",
+      "name": "A/B Testing & Experimentation",
+      "category": "analytical_product_skill",
+      "tags": [
+        "experiments",
+        "testing",
+        "optimization"
+      ],
+      "common_roles": [
+        "product_analyst",
+        "product_manager"
+      ],
+      "related_skills": [
+        "data_analysis",
+        "product_metrics"
+      ]
+    },
+    {
+      "id": "user_behavior_analysis",
+      "name": "User Behavior Analysis",
+      "category": "analytical_product_skill",
+      "tags": [
+        "funnels",
+        "cohorts",
+        "behavior"
+      ],
+      "common_roles": [
+        "product_analyst"
+      ],
+      "related_skills": [
+        "data_analysis",
+        "product_metrics"
+      ]
+    },
+    {
+      "id": "dashboarding",
+      "name": "Dashboarding & Data Visualization",
+      "category": "analytical_skill",
+      "tags": [
+        "dashboards",
+        "bi",
+        "visualization"
+      ],
+      "common_roles": [
+        "product_analyst",
+        "customer_success_operations"
+      ],
+      "related_skills": [
+        "data_analysis"
+      ]
+    },
+    {
+      "id": "sql",
+      "name": "SQL",
+      "category": "technical_skill",
+      "tags": [
+        "sql",
+        "databases",
+        "querying"
+      ],
+      "common_roles": [
+        "product_analyst"
+      ],
+      "related_skills": [
+        "data_analysis"
+      ]
+    },
+    {
+      "id": "ai_product_thinking",
+      "name": "AI Product Thinking",
+      "category": "product_skill",
+      "tags": [
+        "ai",
+        "llm",
+        "product"
+      ],
+      "common_roles": [
+        "product_manager",
+        "product_analyst"
+      ],
+      "related_skills": [
+        "product_strategy",
+        "analytical_thinking"
+      ]
+    },
+    {
+      "id": "prompt_engineering",
+      "name": "Prompt Engineering",
+      "category": "technical_ai_skill",
+      "tags": [
+        "ai",
+        "llm",
+        "prompts"
+      ],
+      "common_roles": [
+        "product_analyst",
+        "ai_product_manager"
+      ],
+      "related_skills": [
+        "ai_product_thinking"
+      ]
+    },
+    {
+      "id": "workflow_automation",
+      "name": "Workflow Automation",
+      "category": "operational_technical_skill",
+      "tags": [
+        "automation",
+        "zapier",
+        "process"
+      ],
+      "common_roles": [
+        "product_operations",
+        "operations"
+      ],
+      "related_skills": [
+        "process_improvement",
+        "systems_thinking"
+      ]
+    },
+    {
+      "id": "api_workflows",
+      "name": "API Workflows & Integrations",
+      "category": "technical_skill",
+      "tags": [
+        "api",
+        "automation",
+        "integration"
+      ],
+      "common_roles": [
+        "product_operations",
+        "technical_roles"
+      ],
+      "related_skills": [
+        "api_integrations",
+        "workflow_automation"
+      ]
+    },
+    {
+      "id": "process_scaling",
+      "name": "Process Scaling",
+      "category": "operational_skill",
+      "tags": [
+        "scaling",
+        "ops",
+        "efficiency"
+      ],
+      "common_roles": [
+        "customer_success_operations",
+        "product_operations"
+      ],
+      "related_skills": [
+        "process_design",
+        "systems_thinking"
+      ]
+    },
+    {
+      "id": "release_management",
+      "name": "Release Management",
+      "category": "operational_skill",
+      "tags": [
+        "release",
+        "deployment",
+        "coordination"
+      ],
+      "common_roles": [
+        "product_operations"
+      ],
+      "related_skills": [
+        "project_management",
+        "delivery_execution"
+      ]
+    }
+  ]
+}

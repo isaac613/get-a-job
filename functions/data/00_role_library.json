@@ -1,0 +1,2112 @@
+{
+  "library_name": "get_a_job_role_library",
+  "version": "1.1",
+  "last_updated": "2026-04-15",
+  "description": "Standardized role taxonomy for role matching, job classification, and career path logic across post-sale, operations, and product roles.",
+  "role_families": [
+    "Support",
+    "Onboarding_Implementation",
+    "Relationship_Growth",
+    "Customer_Experience",
+    "Leadership",
+    "Operations",
+    "Product"
+  ],
+  "seniority_levels": [
+    "Entry",
+    "Mid",
+    "Senior",
+    "Lead_Manager",
+    "Director_Head",
+    "VP_Executive"
+  ],
+  "roles": [
+    {
+      "id": "customer_support_representative",
+      "standardized_title": "Customer Support Representative",
+      "alternate_titles": [
+        "Customer Service Representative",
+        "CSR",
+        "Customer Service Associate",
+        "Customer Care Representative"
+      ],
+      "role_family": "Support",
+      "seniority": "Entry",
+      "core_purpose": "Resolve basic customer inquiries and issues and maintain customer satisfaction.",
+      "core_responsibilities": [
+        "Respond to customer inquiries via chat, email, or phone",
+        "Troubleshoot basic product or service issues",
+        "Escalate complex problems to higher support tiers",
+        "Document customer interactions",
+        "Maintain customer satisfaction"
+      ],
+      "required_skills": [
+        "customer_communication",
+        "empathy",
+        "problem_solving",
+        "organization"
+      ],
+      "preferred_skills": [
+        "crm_management",
+        "customer_orientation"
+      ],
+      "tools": [
+        "CRM",
+        "email",
+        "chat_tools",
+        "ticketing_systems"
+      ],
+      "technical_depth": "Low",
+      "customer_facing_level": "High",
+      "revenue_ownership": "None",
+      "strategic_level": "Execution",
+      "lifecycle_stage": [
+        "Support"
+      ],
+      "typical_backgrounds": [
+        "customer_service",
+        "retail",
+        "call_center",
+        "support"
+      ],
+      "next_roles": [
+        "customer_support_specialist",
+        "customer_onboarding_specialist",
+        "customer_success_associate"
+      ],
+      "similar_roles": [
+        "Customer Support Specialist",
+        "Customer Experience Representative"
+      ],
+      "not_to_confuse_with": [
+        "Customer Success Manager",
+        "Implementation Specialist"
+      ],
+      "keywords": [
+        "tickets",
+        "customer inquiries",
+        "chat support",
+        "phone support",
+        "customer satisfaction",
+        "escalation",
+        "service"
+      ]
+    },
+    {
+      "id": "customer_support_specialist",
+      "standardized_title": "Customer Support Specialist",
+      "alternate_titles": [
+        "Client Service Representative",
+        "B2B Support Specialist",
+        "SaaS Support Specialist"
+      ],
+      "role_family": "Support",
+      "seniority": "Entry",
+      "core_purpose": "Resolve customer issues in a B2B or SaaS environment with stronger product and systems exposure.",
+      "core_responsibilities": [
+        "Handle support tickets across email, chat, and phone",
+        "Support customers using software products",
+        "Troubleshoot configuration issues",
+        "Coordinate with internal teams for resolution",
+        "Maintain service quality and response times"
+      ],
+      "required_skills": [
+        "customer_communication",
+        "customer_orientation",
+        "problem_solving",
+        "organization"
+      ],
+      "preferred_skills": [
+        "crm_management",
+        "data_analysis"
+      ],
+      "tools": [
+        "CRM",
+        "Zendesk",
+        "Salesforce",
+        "Excel"
+      ],
+      "technical_depth": "Medium",
+      "customer_facing_level": "High",
+      "revenue_ownership": "None",
+      "strategic_level": "Execution",
+      "lifecycle_stage": [
+        "Support"
+      ],
+      "typical_backgrounds": [
+        "customer_service",
+        "support",
+        "client_services"
+      ],
+      "next_roles": [
+        "technical_support_engineer",
+        "customer_success_associate",
+        "customer_onboarding_specialist"
+      ],
+      "similar_roles": [
+        "Customer Support Representative",
+        "Technical Support Specialist"
+      ],
+      "not_to_confuse_with": [
+        "Customer Success Manager",
+        "Technical Account Manager"
+      ],
+      "keywords": [
+        "ticket system",
+        "configuration",
+        "crm integrations",
+        "customer issues",
+        "b2b support",
+        "saas support"
+      ]
+    },
+    {
+      "id": "technical_support_engineer",
+      "standardized_title": "Technical Support Engineer",
+      "alternate_titles": [
+        "Support Engineer",
+        "Technical Support Specialist",
+        "Customer Support Engineer"
+      ],
+      "role_family": "Support",
+      "seniority": "Mid",
+      "core_purpose": "Resolve complex technical issues and act as the bridge between customers and engineering.",
+      "core_responsibilities": [
+        "Debug technical issues",
+        "Analyze logs, APIs, integrations, and configurations",
+        "Escalate product bugs to engineering",
+        "Document solutions and knowledge base content",
+        "Support customers in technical environments"
+      ],
+      "required_skills": [
+        "technical_troubleshooting",
+        "debugging",
+        "analytical_thinking",
+        "customer_communication"
+      ],
+      "preferred_skills": [
+        "api_integrations",
+        "cloud_tools"
+      ],
+      "tools": [
+        "Jira",
+        "Zendesk",
+        "Postman",
+        "SQL",
+        "logs",
+        "monitoring_tools"
+      ],
+      "technical_depth": "High",
+      "customer_facing_level": "Medium",
+      "revenue_ownership": "None",
+      "strategic_level": "Execution",
+      "lifecycle_stage": [
+        "Support"
+      ],
+      "typical_backgrounds": [
+        "technical_support",
+        "it_support",
+        "implementation",
+        "software_support"
+      ],
+      "next_roles": [
+        "senior_support_engineer",
+        "technical_account_manager",
+        "sales_engineer"
+      ],
+      "similar_roles": [
+        "Technical Support Specialist",
+        "Support Engineer"
+      ],
+      "not_to_confuse_with": [
+        "Customer Success Manager",
+        "Account Manager"
+      ],
+      "keywords": [
+        "debugging",
+        "api",
+        "logs",
+        "jira",
+        "sql",
+        "technical issues",
+        "troubleshooting",
+        "engineering escalation"
+      ]
+    },
+    {
+      "id": "senior_support_engineer",
+      "standardized_title": "Senior Support Engineer",
+      "alternate_titles": [
+        "Tier 2 Support Engineer",
+        "Tier 3 Support Engineer",
+        "Senior Technical Support Engineer"
+      ],
+      "role_family": "Support",
+      "seniority": "Senior",
+      "core_purpose": "Own complex escalations, mentor others, and resolve high-impact technical issues.",
+      "core_responsibilities": [
+        "Handle advanced escalations",
+        "Lead incident resolution",
+        "Mentor junior support engineers",
+        "Partner deeply with engineering and product",
+        "Improve documentation and troubleshooting patterns"
+      ],
+      "required_skills": [
+        "advanced_debugging",
+        "incident_management",
+        "technical_leadership",
+        "customer_communication"
+      ],
+      "preferred_skills": [
+        "cloud_tools",
+        "technical_documentation"
+      ],
+      "tools": [
+        "monitoring_tools",
+        "cloud_platforms",
+        "ticketing_systems",
+        "knowledge_base"
+      ],
+      "technical_depth": "High",
+      "customer_facing_level": "Medium",
+      "revenue_ownership": "None",
+      "strategic_level": "Tactical",
+      "lifecycle_stage": [
+        "Support"
+      ],
+      "typical_backgrounds": [
+        "technical_support_engineer",
+        "systems_engineering"
+      ],
+      "next_roles": [
+        "support_team_lead",
+        "technical_account_manager",
+        "sales_engineer"
+      ],
+      "similar_roles": [
+        "Technical Support Engineer"
+      ],
+      "not_to_confuse_with": [
+        "VP Customer Success",
+        "Customer Experience Manager"
+      ],
+      "keywords": [
+        "escalations",
+        "tier 2",
+        "tier 3",
+        "incident response",
+        "complex issues",
+        "mentoring"
+      ]
+    },
+    {
+      "id": "customer_onboarding_specialist",
+      "standardized_title": "Customer Onboarding Specialist",
+      "alternate_titles": [
+        "Onboarding Specialist",
+        "Customer Onboarding Manager",
+        "Onboarding Associate"
+      ],
+      "role_family": "Onboarding_Implementation",
+      "seniority": "Entry",
+      "core_purpose": "Guide new customers through initial setup, education, and early product adoption.",
+      "core_responsibilities": [
+        "Guide new customers through setup",
+        "Provide training and education",
+        "Support early usage and activation",
+        "Help customers reach first value",
+        "Coordinate onboarding tasks"
+      ],
+      "required_skills": [
+        "customer_communication",
+        "onboarding_training",
+        "organization",
+        "product_knowledge"
+      ],
+      "preferred_skills": [
+        "project_management",
+        "customer_orientation"
+      ],
+      "tools": [
+        "CRM",
+        "Zoom",
+        "email",
+        "help_center_tools"
+      ],
+      "technical_depth": "Medium",
+      "customer_facing_level": "High",
+      "revenue_ownership": "Influence",
+      "strategic_level": "Execution",
+      "lifecycle_stage": [
+        "Onboarding",
+        "Adoption"
+      ],
+      "typical_backgrounds": [
+        "support",
+        "customer_success_associate",
+        "training"
+      ],
+      "next_roles": [
+        "implementation_specialist",
+        "customer_success_associate",
+        "customer_success_manager"
+      ],
+      "similar_roles": [
+        "Implementation Specialist",
+        "Customer Success Associate"
+      ],
+      "not_to_confuse_with": [
+        "HR Onboarding Specialist"
+      ],
+      "keywords": [
+        "onboarding",
+        "setup",
+        "activation",
+        "training",
+        "time to value",
+        "early adoption"
+      ]
+    },
+    {
+      "id": "customer_success_associate",
+      "standardized_title": "Customer Success Associate",
+      "alternate_titles": [
+        "Customer Success Specialist",
+        "Junior Customer Success Manager",
+        "Client Success Associate"
+      ],
+      "role_family": "Onboarding_Implementation",
+      "seniority": "Entry",
+      "core_purpose": "Support customer adoption, satisfaction, and retention in an entry-level customer success capacity.",
+      "core_responsibilities": [
+        "Support onboarding and adoption",
+        "Handle customer check-ins",
+        "Assist with renewals and retention efforts",
+        "Track customer health and engagement",
+        "Collect feedback for internal teams"
+      ],
+      "required_skills": [
+        "customer_communication",
+        "relationship_building",
+        "organization",
+        "problem_solving"
+      ],
+      "preferred_skills": [
+        "crm_management",
+        "data_analysis"
+      ],
+      "tools": [
+        "CRM",
+        "customer_success_platforms",
+        "email",
+        "video_calls"
+      ],
+      "technical_depth": "Medium",
+      "customer_facing_level": "High",
+      "revenue_ownership": "Influence",
+      "strategic_level": "Execution",
+      "lifecycle_stage": [
+        "Adoption",
+        "Retention"
+      ],
+      "typical_backgrounds": [
+        "support",
+        "onboarding",
+        "client_services"
+      ],
+      "next_roles": [
+        "customer_success_manager",
+        "implementation_specialist",
+        "account_manager"
+      ],
+      "similar_roles": [
+        "Customer Onboarding Specialist",
+        "Customer Success Manager"
+      ],
+      "not_to_confuse_with": [
+        "Customer Support Representative"
+      ],
+      "keywords": [
+        "adoption",
+        "customer health",
+        "retention",
+        "check-ins",
+        "customer journey",
+        "renewals"
+      ]
+    },
+    {
+      "id": "implementation_specialist",
+      "standardized_title": "Implementation Specialist",
+      "alternate_titles": [
+        "Implementation Consultant",
+        "Customer Delivery Specialist",
+        "Deployment Specialist"
+      ],
+      "role_family": "Onboarding_Implementation",
+      "seniority": "Mid",
+      "core_purpose": "Translate customer needs into working product setup, configuration, and go-live execution.",
+      "core_responsibilities": [
+        "Gather requirements",
+        "Configure product for customer environment",
+        "Coordinate implementation tasks",
+        "Support integrations and setup",
+        "Drive go-live readiness"
+      ],
+      "required_skills": [
+        "project_management",
+        "requirements_gathering",
+        "problem_solving",
+        "customer_communication"
+      ],
+      "preferred_skills": [
+        "api_integrations",
+        "workflow_design"
+      ],
+      "tools": [
+        "CRM",
+        "project_management_tools",
+        "integration_tools",
+        "documentation_tools"
+      ],
+      "technical_depth": "Medium",
+      "customer_facing_level": "High",
+      "revenue_ownership": "Influence",
+      "strategic_level": "Tactical",
+      "lifecycle_stage": [
+        "Onboarding",
+        "Adoption"
+      ],
+      "typical_backgrounds": [
+        "onboarding",
+        "support",
+        "customer_success_associate"
+      ],
+      "next_roles": [
+        "implementation_manager",
+        "technical_account_manager",
+        "customer_success_manager"
+      ],
+      "similar_roles": [
+        "Customer Onboarding Specialist",
+        "Implementation Manager"
+      ],
+      "not_to_confuse_with": [
+        "Project Manager",
+        "Customer Support Specialist"
+      ],
+      "keywords": [
+        "implementation",
+        "go live",
+        "setup",
+        "requirements",
+        "configuration",
+        "delivery"
+      ]
+    },
+    {
+      "id": "implementation_manager",
+      "standardized_title": "Implementation Manager",
+      "alternate_titles": [
+        "Customer Delivery Manager",
+        "Client Implementation Manager",
+        "Delivery Manager"
+      ],
+      "role_family": "Onboarding_Implementation",
+      "seniority": "Senior",
+      "core_purpose": "Own end-to-end implementation delivery and ensure successful rollout into customer workflows.",
+      "core_responsibilities": [
+        "Own post-sale delivery",
+        "Manage implementation lifecycle",
+        "Coordinate stakeholders and partners",
+        "Drive go-live and activation",
+        "Manage timelines, scope, and issues"
+      ],
+      "required_skills": [
+        "stakeholder_management",
+        "project_management",
+        "delivery_execution",
+        "customer_communication"
+      ],
+      "preferred_skills": [
+        "api_integrations",
+        "partner_management",
+        "product_adoption"
+      ],
+      "tools": [
+        "project_management_tools",
+        "CRM",
+        "documentation_tools",
+        "status_reporting_tools"
+      ],
+      "technical_depth": "Medium_High",
+      "customer_facing_level": "High",
+      "revenue_ownership": "Influence",
+      "strategic_level": "Tactical",
+      "lifecycle_stage": [
+        "Onboarding",
+        "Adoption"
+      ],
+      "typical_backgrounds": [
+        "implementation_specialist",
+        "customer_success",
+        "technical_delivery"
+      ],
+      "next_roles": [
+        "project_manager_customer_delivery",
+        "technical_account_manager",
+        "director_customer_success"
+      ],
+      "similar_roles": [
+        "Customer Delivery Manager",
+        "Project Manager"
+      ],
+      "not_to_confuse_with": [
+        "Customer Success Manager",
+        "Internal Project Manager"
+      ],
+      "keywords": [
+        "implementation",
+        "rollout",
+        "go live",
+        "delivery",
+        "partners",
+        "requirements",
+        "activation"
+      ]
+    },
+    {
+      "id": "project_manager_customer_delivery",
+      "standardized_title": "Project Manager (Customer Delivery)",
+      "alternate_titles": [
+        "Customer Deployment Project Manager",
+        "Implementation Project Manager",
+        "Customer Delivery Project Manager"
+      ],
+      "role_family": "Onboarding_Implementation",
+      "seniority": "Senior",
+      "core_purpose": "Coordinate complex customer deployment projects from kickoff through implementation and closure.",
+      "core_responsibilities": [
+        "Lead delivery governance",
+        "Manage milestones, scope, and risks",
+        "Coordinate internal and external stakeholders",
+        "Run delivery ceremonies",
+        "Drive project readiness and closure"
+      ],
+      "required_skills": [
+        "project_management",
+        "stakeholder_management",
+        "risk_management",
+        "customer_communication"
+      ],
+      "preferred_skills": [
+        "crm_management",
+        "analytical_thinking"
+      ],
+      "tools": [
+        "Jira",
+        "Confluence",
+        "CRM",
+        "project_management_tools"
+      ],
+      "technical_depth": "Medium",
+      "customer_facing_level": "High",
+      "revenue_ownership": "None",
+      "strategic_level": "Tactical",
+      "lifecycle_stage": [
+        "Onboarding",
+        "Implementation"
+      ],
+      "typical_backgrounds": [
+        "implementation_manager",
+        "professional_services",
+        "project_management"
+      ],
+      "next_roles": [
+        "support_team_lead",
+        "director_customer_success",
+        "implementation_manager"
+      ],
+      "similar_roles": [
+        "Implementation Manager"
+      ],
+      "not_to_confuse_with": [
+        "Customer Experience Manager",
+        "Product Manager"
+      ],
+      "keywords": [
+        "project plan",
+        "milestones",
+        "raid log",
+        "stakeholder management",
+        "deployment",
+        "project closure"
+      ]
+    },
+    {
+      "id": "customer_success_manager",
+      "standardized_title": "Customer Success Manager",
+      "alternate_titles": [
+        "CSM",
+        "Client Success Manager",
+        "Customer Success Specialist"
+      ],
+      "role_family": "Relationship_Growth",
+      "seniority": "Mid",
+      "core_purpose": "Drive customer adoption, retention, and long-term value realization.",
+      "core_responsibilities": [
+        "Own customer relationships",
+        "Drive product adoption",
+        "Monitor health and risk",
+        "Support renewals and expansion",
+        "Act as trusted advisor"
+      ],
+      "required_skills": [
+        "customer_relationship_management",
+        "customer_communication",
+        "problem_solving",
+        "stakeholder_management"
+      ],
+      "preferred_skills": [
+        "renewal_management",
+        "upselling_cross_selling",
+        "customer_health_monitoring",
+        "data_analysis"
+      ],
+      "tools": [
+        "CRM",
+        "customer_success_platforms",
+        "video_calls",
+        "dashboards"
+      ],
+      "technical_depth": "Medium",
+      "customer_facing_level": "High",
+      "revenue_ownership": "Direct",
+      "strategic_level": "Tactical",
+      "lifecycle_stage": [
+        "Adoption",
+        "Retention",
+        "Expansion"
+      ],
+      "typical_backgrounds": [
+        "customer_success_associate",
+        "onboarding",
+        "support",
+        "account_management"
+      ],
+      "next_roles": [
+        "senior_customer_success_manager",
+        "technical_account_manager",
+        "customer_success_team_lead"
+      ],
+      "similar_roles": [
+        "Account Manager",
+        "Technical Account Manager"
+      ],
+      "not_to_confuse_with": [
+        "Customer Support Specialist",
+        "Implementation Manager"
+      ],
+      "keywords": [
+        "retention",
+        "adoption",
+        "renewals",
+        "customer health",
+        "churn",
+        "stakeholder management",
+        "upsell",
+        "trusted advisor"
+      ]
+    },
+    {
+      "id": "senior_customer_success_manager",
+      "standardized_title": "Senior Customer Success Manager",
+      "alternate_titles": [
+        "Enterprise Customer Success Manager",
+        "Strategic Customer Success Manager"
+      ],
+      "role_family": "Relationship_Growth",
+      "seniority": "Senior",
+      "core_purpose": "Own high-value accounts and lead strategic customer outcomes and retention.",
+      "core_responsibilities": [
+        "Manage strategic or enterprise accounts",
+        "Handle escalations",
+        "Drive retention and expansion strategy",
+        "Build executive relationships",
+        "Mentor less experienced CSMs"
+      ],
+      "required_skills": [
+        "executive_relationships",
+        "retention_strategy",
+        "customer_health_management",
+        "commercial_mindset"
+      ],
+      "preferred_skills": [
+        "stakeholder_management",
+        "cross_functional_collaboration"
+      ],
+      "tools": [
+        "CRM",
+        "customer_success_platforms",
+        "reporting_dashboards"
+      ],
+      "technical_depth": "Medium",
+      "customer_facing_level": "High",
+      "revenue_ownership": "Direct",
+      "strategic_level": "Tactical_Strategic",
+      "lifecycle_stage": [
+        "Retention",
+        "Expansion"
+      ],
+      "typical_backgrounds": [
+        "customer_success_manager",
+        "account_manager"
+      ],
+      "next_roles": [
+        "customer_success_team_lead",
+        "director_customer_success"
+      ],
+      "similar_roles": [
+        "Account Manager",
+        "Technical Account Manager"
+      ],
+      "not_to_confuse_with": [
+        "Support Engineer"
+      ],
+      "keywords": [
+        "enterprise accounts",
+        "strategic accounts",
+        "renewals",
+        "expansion",
+        "executive stakeholders"
+      ]
+    },
+    {
+      "id": "technical_account_manager",
+      "standardized_title": "Technical Account Manager",
+      "alternate_titles": [
+        "TAM"
+      ],
+      "role_family": "Relationship_Growth",
+      "seniority": "Senior",
+      "core_purpose": "Combine technical expertise and account ownership to help customers succeed with complex products.",
+      "core_responsibilities": [
+        "Act as technical advisor",
+        "Guide customers through technical challenges",
+        "Align product capabilities to business goals",
+        "Coordinate technical stakeholders",
+        "Proactively prevent issues"
+      ],
+      "required_skills": [
+        "technical_problem_solving",
+        "customer_relationship_management",
+        "customer_communication",
+        "business_understanding"
+      ],
+      "preferred_skills": [
+        "api_integrations",
+        "technical_troubleshooting",
+        "project_management",
+        "value_realization"
+      ],
+      "tools": [
+        "CRM",
+        "ticketing_systems",
+        "technical_docs",
+        "integration_tools"
+      ],
+      "technical_depth": "High",
+      "customer_facing_level": "High",
+      "revenue_ownership": "Influence",
+      "strategic_level": "Tactical_Strategic",
+      "lifecycle_stage": [
+        "Adoption",
+        "Retention",
+        "Expansion"
+      ],
+      "typical_backgrounds": [
+        "support_engineer",
+        "implementation_manager",
+        "technical_customer_success"
+      ],
+      "next_roles": [
+        "sales_engineer",
+        "customer_success_team_lead",
+        "director_customer_success"
+      ],
+      "similar_roles": [
+        "Customer Success Manager",
+        "Solutions Engineer"
+      ],
+      "not_to_confuse_with": [
+        "Account Manager",
+        "Support Engineer"
+      ],
+      "keywords": [
+        "technical advisor",
+        "architecture",
+        "integrations",
+        "technical success",
+        "trusted advisor",
+        "proactive support"
+      ]
+    },
+    {
+      "id": "account_manager",
+      "standardized_title": "Account Manager",
+      "alternate_titles": [
+        "Strategic Account Manager",
+        "Client Account Manager"
+      ],
+      "role_family": "Relationship_Growth",
+      "seniority": "Mid",
+      "core_purpose": "Maintain and grow client relationships with a stronger commercial focus.",
+      "core_responsibilities": [
+        "Manage customer accounts",
+        "Own renewals and upsell motions",
+        "Coordinate internal teams",
+        "Resolve client issues",
+        "Drive account growth"
+      ],
+      "required_skills": [
+        "account_management",
+        "negotiation",
+        "customer_communication",
+        "organization"
+      ],
+      "preferred_skills": [
+        "customer_retention",
+        "stakeholder_management",
+        "crm_management",
+        "renewal_management"
+      ],
+      "tools": [
+        "CRM",
+        "reporting_tools",
+        "presentation_tools"
+      ],
+      "technical_depth": "Low_Medium",
+      "customer_facing_level": "High",
+      "revenue_ownership": "Direct",
+      "strategic_level": "Tactical",
+      "lifecycle_stage": [
+        "Retention",
+        "Expansion"
+      ],
+      "typical_backgrounds": [
+        "customer_success_manager",
+        "sales",
+        "client_services"
+      ],
+      "next_roles": [
+        "senior_customer_success_manager",
+        "director_customer_success"
+      ],
+      "similar_roles": [
+        "Customer Success Manager"
+      ],
+      "not_to_confuse_with": [
+        "Technical Account Manager",
+        "Account Executive"
+      ],
+      "keywords": [
+        "accounts",
+        "client relationships",
+        "upsell",
+        "renewals",
+        "revenue",
+        "account growth"
+      ]
+    },
+    {
+      "id": "customer_experience_specialist",
+      "standardized_title": "Customer Experience Specialist",
+      "alternate_titles": [
+        "CX Specialist",
+        "Customer Experience Representative"
+      ],
+      "role_family": "Customer_Experience",
+      "seniority": "Entry",
+      "core_purpose": "Support customers while helping improve experience quality across touchpoints.",
+      "core_responsibilities": [
+        "Handle customer interactions",
+        "Maintain service quality metrics",
+        "Identify friction points",
+        "Collaborate across teams to improve experience"
+      ],
+      "required_skills": [
+        "customer_communication",
+        "organization",
+        "customer_orientation"
+      ],
+      "preferred_skills": [
+        "process_improvement",
+        "cross_functional_collaboration"
+      ],
+      "tools": [
+        "support_tools",
+        "crm",
+        "reporting_tools"
+      ],
+      "technical_depth": "Low",
+      "customer_facing_level": "High",
+      "revenue_ownership": "None",
+      "strategic_level": "Execution",
+      "lifecycle_stage": [
+        "Support",
+        "Experience"
+      ],
+      "typical_backgrounds": [
+        "customer_service",
+        "support"
+      ],
+      "next_roles": [
+        "customer_experience_manager",
+        "customer_success_associate"
+      ],
+      "similar_roles": [
+        "Customer Support Representative"
+      ],
+      "not_to_confuse_with": [
+        "Customer Experience Manager"
+      ],
+      "keywords": [
+        "customer experience",
+        "response time",
+        "resolution speed",
+        "service quality",
+        "cx"
+      ]
+    },
+    {
+      "id": "customer_experience_manager",
+      "standardized_title": "Customer Experience Manager",
+      "alternate_titles": [
+        "CX Manager"
+      ],
+      "role_family": "Customer_Experience",
+      "seniority": "Senior",
+      "core_purpose": "Optimize the end-to-end customer journey and improve customer loyalty through better systems and touchpoints.",
+      "core_responsibilities": [
+        "Map customer journey",
+        "Analyze NPS, CSAT, and experience data",
+        "Improve customer-facing processes",
+        "Partner with marketing, support, and product",
+        "Drive customer experience strategy"
+      ],
+      "required_skills": [
+        "customer_journey_management",
+        "data_analysis",
+        "cross_functional_collaboration",
+        "customer_communication"
+      ],
+      "preferred_skills": [
+        "process_design",
+        "project_management"
+      ],
+      "tools": [
+        "analytics_tools",
+        "crm",
+        "survey_tools",
+        "reporting_dashboards"
+      ],
+      "technical_depth": "Low",
+      "customer_facing_level": "Low_Medium",
+      "revenue_ownership": "Influence",
+      "strategic_level": "Strategic",
+      "lifecycle_stage": [
+        "Experience"
+      ],
+      "typical_backgrounds": [
+        "customer_service",
+        "customer_success",
+        "operations",
+        "marketing"
+      ],
+      "next_roles": [
+        "director_customer_success",
+        "director_customer_success_operations"
+      ],
+      "similar_roles": [
+        "Customer Experience Specialist"
+      ],
+      "not_to_confuse_with": [
+        "Project Manager",
+        "Customer Success Manager"
+      ],
+      "keywords": [
+        "customer journey",
+        "nps",
+        "csat",
+        "touchpoints",
+        "experience strategy",
+        "loyalty"
+      ]
+    },
+    {
+      "id": "sales_engineer",
+      "standardized_title": "Sales Engineer",
+      "alternate_titles": [
+        "Solutions Engineer",
+        "Pre-Sales Engineer"
+      ],
+      "role_family": "Relationship_Growth",
+      "seniority": "Mid",
+      "core_purpose": "Support the sales process by acting as the technical expert in customer conversations and solution design.",
+      "core_responsibilities": [
+        "Deliver technical demos",
+        "Answer technical questions",
+        "Support proposal creation",
+        "Run proof of concepts",
+        "Translate customer needs into technical solutions"
+      ],
+      "required_skills": [
+        "presentation_skills",
+        "technical_explanation",
+        "customer_discovery",
+        "product_knowledge"
+      ],
+      "preferred_skills": [
+        "technical_communication",
+        "crm_management",
+        "pre_sales_support"
+      ],
+      "tools": [
+        "CRM",
+        "demo_tools",
+        "presentation_tools"
+      ],
+      "technical_depth": "High",
+      "customer_facing_level": "High",
+      "revenue_ownership": "Influence",
+      "strategic_level": "Tactical",
+      "lifecycle_stage": [
+        "Pre_Sale",
+        "Sale"
+      ],
+      "typical_backgrounds": [
+        "support_engineer",
+        "product_specialist",
+        "technical_customer_success"
+      ],
+      "next_roles": [
+        "technical_account_manager",
+        "account_manager"
+      ],
+      "similar_roles": [
+        "Solutions Architect"
+      ],
+      "not_to_confuse_with": [
+        "Customer Success Manager",
+        "Implementation Specialist"
+      ],
+      "keywords": [
+        "technical demo",
+        "proof of concept",
+        "proposal",
+        "pre sales",
+        "product expert"
+      ]
+    },
+    {
+      "id": "support_team_lead",
+      "standardized_title": "Support Team Lead",
+      "alternate_titles": [
+        "Customer Support Manager",
+        "Technical Support Manager"
+      ],
+      "role_family": "Leadership",
+      "seniority": "Lead_Manager",
+      "core_purpose": "Lead support teams, improve support quality, and manage operational performance.",
+      "core_responsibilities": [
+        "Coach and manage support team",
+        "Track KPIs and service levels",
+        "Handle escalations",
+        "Improve processes",
+        "Coordinate staffing and coverage"
+      ],
+      "required_skills": [
+        "people_management",
+        "customer_support_operations",
+        "coaching",
+        "problem_solving"
+      ],
+      "preferred_skills": [
+        "incident_management",
+        "customer_success_metrics",
+        "technical_documentation"
+      ],
+      "tools": [
+        "ticketing_systems",
+        "dashboards",
+        "reporting_tools"
+      ],
+      "technical_depth": "Medium",
+      "customer_facing_level": "Medium",
+      "revenue_ownership": "None",
+      "strategic_level": "Tactical_People",
+      "lifecycle_stage": [
+        "Support"
+      ],
+      "typical_backgrounds": [
+        "customer_support_specialist",
+        "technical_support_engineer",
+        "senior_support_engineer"
+      ],
+      "next_roles": [
+        "director_customer_success",
+        "director_customer_success_operations"
+      ],
+      "similar_roles": [
+        "Customer Success Team Lead"
+      ],
+      "not_to_confuse_with": [
+        "Customer Success Manager"
+      ],
+      "keywords": [
+        "manage team",
+        "support metrics",
+        "sla",
+        "coaching",
+        "escalations",
+        "team performance",
+        "people leadership"
+      ]
+    },
+    {
+      "id": "customer_success_team_lead",
+      "standardized_title": "Customer Success Team Lead",
+      "alternate_titles": [
+        "Manager, Customer Success",
+        "Customer Success Manager (people manager)"
+      ],
+      "role_family": "Leadership",
+      "seniority": "Lead_Manager",
+      "core_purpose": "Manage a team of CSMs and improve customer retention, expansion, and team performance.",
+      "core_responsibilities": [
+        "Lead and mentor CSMs",
+        "Track retention and expansion metrics",
+        "Improve playbooks and workflows",
+        "Support escalations",
+        "Drive team performance"
+      ],
+      "required_skills": [
+        "people_management",
+        "coaching",
+        "customer_success_metrics",
+        "customer_communication"
+      ],
+      "preferred_skills": [
+        "renewal_management",
+        "expansion_strategy",
+        "process_improvement"
+      ],
+      "tools": [
+        "CRM",
+        "customer_success_platforms",
+        "dashboards"
+      ],
+      "technical_depth": "Medium",
+      "customer_facing_level": "Medium",
+      "revenue_ownership": "Direct",
+      "strategic_level": "Tactical_People",
+      "lifecycle_stage": [
+        "Retention",
+        "Expansion"
+      ],
+      "typical_backgrounds": [
+        "customer_success_manager",
+        "senior_customer_success_manager"
+      ],
+      "next_roles": [
+        "director_customer_success",
+        "director_customer_success_operations"
+      ],
+      "similar_roles": [
+        "Support Team Lead"
+      ],
+      "not_to_confuse_with": [
+        "Director of Customer Success"
+      ],
+      "keywords": [
+        "lead team",
+        "retention targets",
+        "coach csm",
+        "expansion",
+        "team performance",
+        "playbooks",
+        "team coaching",
+        "manager escalation"
+      ]
+    },
+    {
+      "id": "director_customer_success",
+      "standardized_title": "Director of Customer Success",
+      "alternate_titles": [
+        "Head of Customer Success"
+      ],
+      "role_family": "Leadership",
+      "seniority": "Director_Head",
+      "core_purpose": "Own the customer success function, strategy, and team structure.",
+      "core_responsibilities": [
+        "Define customer success strategy",
+        "Build team processes and playbooks",
+        "Own retention and expansion performance",
+        "Partner with sales, product, and support",
+        "Manage managers or broader CS org"
+      ],
+      "required_skills": [
+        "leadership",
+        "customer_success_strategy",
+        "cross_functional_alignment",
+        "operational_management"
+      ],
+      "preferred_skills": [
+        "customer_success_metrics",
+        "expansion_strategy",
+        "retention_strategy"
+      ],
+      "tools": [
+        "CRM",
+        "customer_success_platforms",
+        "dashboards",
+        "forecasting_tools"
+      ],
+      "technical_depth": "Medium",
+      "customer_facing_level": "Medium",
+      "revenue_ownership": "Direct",
+      "strategic_level": "Strategic",
+      "lifecycle_stage": [
+        "Retention",
+        "Expansion"
+      ],
+      "typical_backgrounds": [
+        "customer_success_team_lead",
+        "senior_customer_success_manager",
+        "account_management_lead"
+      ],
+      "next_roles": [
+        "vp_customer_success"
+      ],
+      "similar_roles": [
+        "Head of Customer Success"
+      ],
+      "not_to_confuse_with": [
+        "Director of Customer Success Operations"
+      ],
+      "keywords": [
+        "cs strategy",
+        "playbooks",
+        "retention",
+        "expansion",
+        "leadership",
+        "customer success function",
+        "org design",
+        "function ownership",
+        "team strategy",
+        "manager leadership"
+      ]
+    },
+    {
+      "id": "director_customer_success_operations",
+      "standardized_title": "Director of Customer Success Operations",
+      "alternate_titles": [
+        "Head of Customer Success Operations",
+        "CS Ops Director"
+      ],
+      "role_family": "Operations",
+      "seniority": "Director_Head",
+      "core_purpose": "Build and scale the systems, workflows, metrics, and automation behind the post-sale organization.",
+      "core_responsibilities": [
+        "Own CS operating model",
+        "Build health scores and churn signals",
+        "Standardize playbooks and SLAs",
+        "Own CS dashboards and tooling",
+        "Drive process compliance and automation"
+      ],
+      "required_skills": [
+        "process_design",
+        "systems_thinking",
+        "data_analysis",
+        "salesforce"
+      ],
+      "preferred_skills": [
+        "crm_management",
+        "process_improvement",
+        "operational_management"
+      ],
+      "tools": [
+        "Salesforce",
+        "Gainsight",
+        "Totango",
+        "Gong",
+        "dashboards"
+      ],
+      "technical_depth": "Medium",
+      "customer_facing_level": "Low",
+      "revenue_ownership": "Influence",
+      "strategic_level": "Strategic",
+      "lifecycle_stage": [
+        "Operations"
+      ],
+      "typical_backgrounds": [
+        "customer_success_operations",
+        "revops",
+        "business_operations"
+      ],
+      "next_roles": [
+        "vp_customer_success"
+      ],
+      "similar_roles": [
+        "Revenue Operations"
+      ],
+      "not_to_confuse_with": [
+        "Director of Customer Success"
+      ],
+      "keywords": [
+        "health scoring",
+        "playbooks",
+        "slas",
+        "automation",
+        "customer success operations",
+        "dashboards"
+      ]
+    },
+    {
+      "id": "vp_customer_success",
+      "standardized_title": "VP Customer Success",
+      "alternate_titles": [
+        "Vice President of Customer Success"
+      ],
+      "role_family": "Leadership",
+      "seniority": "VP_Executive",
+      "core_purpose": "Own the entire post-sale organization, customer outcomes, retention, and expansion strategy.",
+      "core_responsibilities": [
+        "Lead global or company-wide customer success organization",
+        "Own retention and expansion outcomes",
+        "Build customer journey strategy",
+        "Partner with executive team",
+        "Represent customer voice at the highest level"
+      ],
+      "required_skills": [
+        "executive_leadership",
+        "retention_strategy",
+        "organizational_design",
+        "cross_functional_exec_presence"
+      ],
+      "preferred_skills": [
+        "customer_success_strategy",
+        "cross_functional_alignment",
+        "leadership"
+      ],
+      "tools": [
+        "executive_dashboards",
+        "crm",
+        "forecasting_tools"
+      ],
+      "technical_depth": "Medium",
+      "customer_facing_level": "Low_Medium",
+      "revenue_ownership": "Direct",
+      "strategic_level": "Executive_Strategic",
+      "lifecycle_stage": [
+        "Retention",
+        "Expansion",
+        "Leadership"
+      ],
+      "typical_backgrounds": [
+        "director_customer_success",
+        "director_customer_success_operations",
+        "professional_services_leadership"
+      ],
+      "next_roles": [],
+      "similar_roles": [
+        "Chief Customer Officer"
+      ],
+      "not_to_confuse_with": [
+        "Customer Success Team Lead"
+      ],
+      "keywords": [
+        "global cs",
+        "retention",
+        "nrr",
+        "grr",
+        "expansion",
+        "executive",
+        "post sales org",
+        "executive leadership",
+        "org strategy",
+        "global leadership",
+        "board level"
+      ]
+    },
+    {
+      "id": "project_manager",
+      "standardized_title": "Project Manager",
+      "alternate_titles": [
+        "Project Lead",
+        "Project Delivery Manager",
+        "Implementation Project Manager"
+      ],
+      "role_family": "Operations",
+      "seniority": "Mid",
+      "core_purpose": "Drive execution of defined projects by managing timelines, stakeholders, risks, and delivery milestones.",
+      "core_responsibilities": [
+        "Own project execution from kickoff through delivery",
+        "Build and manage project plans, timelines, and milestones",
+        "Coordinate cross-functional teams and track dependencies",
+        "Identify risks, blockers, and delivery gaps",
+        "Communicate project status and escalate issues when needed"
+      ],
+      "required_skills": [
+        "project_management",
+        "stakeholder_management",
+        "risk_management",
+        "cross_functional_collaboration"
+      ],
+      "preferred_skills": [
+        "process_improvement",
+        "delivery_execution",
+        "customer_communication"
+      ],
+      "tools": [
+        "Jira",
+        "Monday",
+        "Asana",
+        "Confluence",
+        "project_management_tools"
+      ],
+      "technical_depth": "Medium",
+      "customer_facing_level": "Medium",
+      "revenue_ownership": "None",
+      "strategic_level": "Tactical",
+      "lifecycle_stage": [
+        "Execution",
+        "Delivery"
+      ],
+      "typical_backgrounds": [
+        "project_coordination",
+        "operations",
+        "implementation"
+      ],
+      "next_roles": [
+        "technical_project_manager",
+        "program_manager",
+        "product_operations_manager"
+      ],
+      "similar_roles": [
+        "Technical Project Manager",
+        "Program Manager"
+      ],
+      "not_to_confuse_with": [
+        "Product Manager",
+        "Product Operations Manager"
+      ],
+      "keywords": [
+        "timeline",
+        "milestones",
+        "execution",
+        "delivery",
+        "dependencies",
+        "risks",
+        "stakeholders"
+      ]
+    },
+    {
+      "id": "technical_project_manager",
+      "standardized_title": "Technical Project Manager",
+      "alternate_titles": [
+        "TPM",
+        "Technology Project Manager",
+        "Technical Project Owner"
+      ],
+      "role_family": "Operations",
+      "seniority": "Senior",
+      "core_purpose": "Lead delivery of technically complex projects by translating business goals into structured execution plans across engineering and business teams.",
+      "core_responsibilities": [
+        "Manage technically complex projects end-to-end",
+        "Translate technical requirements into plans, scope, and deliverables",
+        "Coordinate engineering, product, infrastructure, and operations stakeholders",
+        "Track technical blockers, risks, and dependencies",
+        "Drive execution quality across technical workstreams"
+      ],
+      "required_skills": [
+        "project_management",
+        "technical_communication",
+        "stakeholder_management",
+        "risk_management"
+      ],
+      "preferred_skills": [
+        "api_integrations",
+        "delivery_execution",
+        "systems_thinking",
+        "process_improvement"
+      ],
+      "tools": [
+        "Jira",
+        "Confluence",
+        "Monday",
+        "Asana",
+        "project_management_tools"
+      ],
+      "technical_depth": "High",
+      "customer_facing_level": "Medium",
+      "revenue_ownership": "None",
+      "strategic_level": "Tactical",
+      "lifecycle_stage": [
+        "Execution",
+        "Delivery",
+        "Implementation"
+      ],
+      "typical_backgrounds": [
+        "project_management",
+        "engineering",
+        "technical_operations"
+      ],
+      "next_roles": [
+        "program_manager",
+        "product_manager"
+      ],
+      "similar_roles": [
+        "Project Manager",
+        "Program Manager"
+      ],
+      "not_to_confuse_with": [
+        "Product Manager",
+        "Product Analyst"
+      ],
+      "keywords": [
+        "technical delivery",
+        "engineering coordination",
+        "system requirements",
+        "technical dependencies",
+        "implementation",
+        "execution"
+      ]
+    },
+    {
+      "id": "program_manager",
+      "standardized_title": "Program Manager",
+      "alternate_titles": [
+        "Senior Program Manager",
+        "Lead Program Manager",
+        "Program Lead",
+        "Technical Program Manager"
+      ],
+      "role_family": "Operations",
+      "seniority": "Senior",
+      "core_purpose": "Coordinate multiple related projects or workstreams to achieve broader strategic business outcomes.",
+      "core_responsibilities": [
+        "Own multi-project program execution and alignment",
+        "Coordinate workstreams across multiple teams and stakeholders",
+        "Drive program governance, reporting, and execution cadence",
+        "Manage risks, dependencies, and strategic tradeoffs across the program",
+        "Ensure initiatives stay aligned with broader business goals"
+      ],
+      "required_skills": [
+        "program_management",
+        "stakeholder_management",
+        "cross_functional_alignment",
+        "risk_management"
+      ],
+      "preferred_skills": [
+        "project_management",
+        "operational_management",
+        "executive_communication",
+        "strategic_planning"
+      ],
+      "tools": [
+        "Jira",
+        "Confluence",
+        "roadmapping_tools",
+        "dashboards",
+        "project_management_tools"
+      ],
+      "technical_depth": "Medium_High",
+      "customer_facing_level": "Medium",
+      "revenue_ownership": "Influence",
+      "strategic_level": "Tactical_Strategic",
+      "lifecycle_stage": [
+        "Planning",
+        "Execution",
+        "Governance"
+      ],
+      "typical_backgrounds": [
+        "project_management",
+        "technical_project_management",
+        "operations"
+      ],
+      "next_roles": [
+        "product_operations_manager"
+      ],
+      "similar_roles": [
+        "Technical Project Manager",
+        "Project Manager"
+      ],
+      "not_to_confuse_with": [
+        "Product Manager",
+        "Product Operations Manager"
+      ],
+      "keywords": [
+        "program",
+        "multi-project",
+        "governance",
+        "cross-functional",
+        "strategic initiatives",
+        "dependencies",
+        "cadence"
+      ]
+    },
+    {
+      "id": "product_manager",
+      "standardized_title": "Product Manager",
+      "alternate_titles": [
+        "PM",
+        "Digital Product Manager",
+        "Product Lead"
+      ],
+      "role_family": "Product",
+      "seniority": "Mid",
+      "core_purpose": "Define what should be built and why by aligning user needs, business goals, and product strategy.",
+      "core_responsibilities": [
+        "Own product discovery, prioritization, and roadmap decisions",
+        "Translate customer and market needs into product requirements",
+        "Partner with design and engineering to deliver product features",
+        "Define product success metrics and evaluate outcomes",
+        "Align internal stakeholders around product direction and tradeoffs"
+      ],
+      "required_skills": [
+        "product_strategy",
+        "roadmapping_prioritization",
+        "customer_research",
+        "cross_functional_collaboration"
+      ],
+      "preferred_skills": [
+        "market_analysis",
+        "kpi_definition",
+        "product_communication",
+        "data_informed_decision_making"
+      ],
+      "tools": [
+        "Jira",
+        "Confluence",
+        "roadmapping_tools",
+        "analytics_tools",
+        "product_docs"
+      ],
+      "technical_depth": "Medium",
+      "customer_facing_level": "Medium_High",
+      "revenue_ownership": "Influence",
+      "strategic_level": "Strategic",
+      "lifecycle_stage": [
+        "Discovery",
+        "Planning",
+        "Launch",
+        "Iteration"
+      ],
+      "typical_backgrounds": [
+        "business_analysis",
+        "project_management",
+        "product_operations",
+        "engineering"
+      ],
+      "next_roles": [
+        "technical_product_manager",
+        "product_operations_manager"
+      ],
+      "similar_roles": [
+        "Technical Product Manager",
+        "Product Owner"
+      ],
+      "not_to_confuse_with": [
+        "Project Manager",
+        "Program Manager",
+        "Product Analyst",
+        "Product Operations Manager"
+      ],
+      "keywords": [
+        "roadmap",
+        "discovery",
+        "product strategy",
+        "prioritization",
+        "user needs",
+        "requirements",
+        "product lifecycle"
+      ]
+    },
+    {
+      "id": "technical_product_manager",
+      "standardized_title": "Technical Product Manager",
+      "alternate_titles": [
+        "AI Product Manager",
+        "Platform Product Manager",
+        "Technical PM"
+      ],
+      "role_family": "Product",
+      "seniority": "Senior",
+      "core_purpose": "Own product direction for technically complex products by combining product judgment with strong engineering and systems understanding.",
+      "core_responsibilities": [
+        "Own roadmap and requirements for technically complex product areas",
+        "Translate customer and business needs into technically viable product direction",
+        "Partner deeply with engineering on architecture, APIs, systems, and tradeoffs",
+        "Define success metrics and evaluate technical product outcomes",
+        "Support prioritization across technical complexity, user value, and business impact"
+      ],
+      "required_skills": [
+        "product_strategy",
+        "technical_communication",
+        "roadmapping_prioritization",
+        "systems_thinking"
+      ],
+      "preferred_skills": [
+        "api_integrations",
+        "customer_research",
+        "data_informed_decision_making",
+        "cross_functional_collaboration"
+      ],
+      "tools": [
+        "Jira",
+        "Confluence",
+        "roadmapping_tools",
+        "analytics_tools",
+        "technical_docs"
+      ],
+      "technical_depth": "High",
+      "customer_facing_level": "Medium_High",
+      "revenue_ownership": "Influence",
+      "strategic_level": "Strategic",
+      "lifecycle_stage": [
+        "Discovery",
+        "Planning",
+        "Launch",
+        "Iteration"
+      ],
+      "typical_backgrounds": [
+        "engineering",
+        "product_management",
+        "technical_project_management"
+      ],
+      "next_roles": [
+        "product_manager"
+      ],
+      "similar_roles": [
+        "Product Manager",
+        "Technical Project Manager"
+      ],
+      "not_to_confuse_with": [
+        "Project Manager",
+        "Program Manager",
+        "Product Analyst"
+      ],
+      "keywords": [
+        "technical product",
+        "platform",
+        "apis",
+        "systems",
+        "architecture",
+        "ai product",
+        "technical roadmap"
+      ]
+    },
+    {
+      "id": "product_operations_manager",
+      "standardized_title": "Product Operations Manager",
+      "alternate_titles": [
+        "Product Operations Specialist",
+        "Product Ops Manager",
+        "Product PMO"
+      ],
+      "role_family": "Operations",
+      "seniority": "Mid",
+      "core_purpose": "Improve how product teams operate by optimizing processes, tools, documentation, and operating cadence.",
+      "core_responsibilities": [
+        "Own product team workflows, documentation, and operating processes",
+        "Improve intake, sprint operations, release readiness, and cross-team coordination",
+        "Maintain planning artifacts, governance frameworks, and team visibility systems",
+        "Identify inefficiencies and drive process improvements across product teams",
+        "Support tooling, automation, and operational consistency at scale"
+      ],
+      "required_skills": [
+        "process_design",
+        "workflow_optimization",
+        "documentation_governance",
+        "cross_functional_collaboration"
+      ],
+      "preferred_skills": [
+        "automation_workflows",
+        "operational_analytics",
+        "tooling_systems_management",
+        "project_management"
+      ],
+      "tools": [
+        "Jira",
+        "Confluence",
+        "Monday",
+        "Notion",
+        "automation_tools"
+      ],
+      "technical_depth": "Medium",
+      "customer_facing_level": "Low",
+      "revenue_ownership": "None",
+      "strategic_level": "Tactical_Strategic",
+      "lifecycle_stage": [
+        "Planning",
+        "Execution",
+        "Operations"
+      ],
+      "typical_backgrounds": [
+        "operations",
+        "project_management",
+        "product_coordination"
+      ],
+      "next_roles": [
+        "program_manager",
+        "product_manager"
+      ],
+      "similar_roles": [
+        "Program Manager",
+        "Business Operations Manager"
+      ],
+      "not_to_confuse_with": [
+        "Product Manager",
+        "Project Manager",
+        "Product Analyst"
+      ],
+      "keywords": [
+        "product ops",
+        "release process",
+        "documentation",
+        "governance",
+        "tooling",
+        "workflow",
+        "operating cadence"
+      ]
+    },
+    {
+      "id": "product_analyst",
+      "standardized_title": "Product Analyst",
+      "alternate_titles": [
+        "Product Data Analyst",
+        "Product & BI Analyst",
+        "Growth Product Analyst"
+      ],
+      "role_family": "Product",
+      "seniority": "Mid",
+      "core_purpose": "Turn product and user data into actionable insights that improve product decisions, experiments, and performance.",
+      "core_responsibilities": [
+        "Analyze user behavior, funnels, retention, adoption, and feature performance",
+        "Build dashboards, reports, and KPI frameworks for product decision-making",
+        "Design and evaluate experiments such as A/B tests",
+        "Translate ambiguous product questions into structured analytical approaches",
+        "Partner with product, R&D, and business teams to support data-informed decisions"
+      ],
+      "required_skills": [
+        "sql_analysis",
+        "product_metrics_analysis",
+        "ab_testing_experimentation",
+        "data_storytelling"
+      ],
+      "preferred_skills": [
+        "dashboard_building",
+        "user_behavior_analysis",
+        "cohort_retention_analysis",
+        "statistical_validation"
+      ],
+      "tools": [
+        "SQL",
+        "Looker",
+        "Tableau",
+        "Power BI",
+        "Mixpanel",
+        "Amplitude"
+      ],
+      "technical_depth": "Medium_High",
+      "customer_facing_level": "Low",
+      "revenue_ownership": "Influence",
+      "strategic_level": "Tactical_Strategic",
+      "lifecycle_stage": [
+        "Discovery",
+        "Optimization",
+        "Iteration"
+      ],
+      "typical_backgrounds": [
+        "data_analysis",
+        "business_intelligence",
+        "analytics"
+      ],
+      "next_roles": [
+        "product_manager"
+      ],
+      "similar_roles": [
+        "Business Intelligence Analyst",
+        "Data Analyst"
+      ],
+      "not_to_confuse_with": [
+        "Product Manager",
+        "Product Operations Manager",
+        "Project Manager"
+      ],
+      "keywords": [
+        "funnels",
+        "retention",
+        "ab testing",
+        "dashboards",
+        "product metrics",
+        "cohorts",
+        "user behavior"
+      ]
+    }
+  ],
+  "classification_logic": {
+    "core_rule": "Do not classify based on title alone. Classify using responsibilities, keywords, tools, ownership signals, and seniority signals.",
+    "role_family_rules": {
+      "Support": [
+        "tickets",
+        "troubleshooting",
+        "debugging",
+        "sla",
+        "logs",
+        "escalation",
+        "support queue"
+      ],
+      "Onboarding_Implementation": [
+        "onboarding",
+        "implementation",
+        "go live",
+        "rollout",
+        "requirements gathering",
+        "setup",
+        "configuration",
+        "delivery"
+      ],
+      "Relationship_Growth": [
+        "retention",
+        "adoption",
+        "renewals",
+        "upsell",
+        "cross sell",
+        "customer health",
+        "stakeholder management"
+      ],
+      "Customer_Experience": [
+        "customer journey",
+        "nps",
+        "csat",
+        "touchpoints",
+        "experience strategy",
+        "loyalty"
+      ],
+      "Leadership": [
+        "lead team",
+        "manage team",
+        "coach",
+        "build strategy",
+        "own function",
+        "global org"
+      ],
+      "Operations": [
+        "playbooks",
+        "dashboards",
+        "health scoring",
+        "automation",
+        "process compliance",
+        "operating model",
+        "timeline",
+        "milestones",
+        "execution",
+        "delivery",
+        "dependencies",
+        "program",
+        "governance",
+        "implementation",
+        "workflow",
+        "release process",
+        "operating cadence"
+      ],
+      "Product": [
+        "roadmap",
+        "product roadmap",
+        "prioritization",
+        "feature prioritization",
+        "Discovery",
+        "product strategy",
+        "user needs",
+        "requirements",
+        "feature definition",
+        "go to market",
+        "product metrics",
+        "ab testing"
+      ]
+    },
+    "seniority_rules": {
+      "Entry": [
+        "associate",
+        "junior",
+        "0-2 years"
+      ],
+      "Mid": [
+        "2-4 years",
+        "own customers",
+        "manage tasks independently"
+      ],
+      "Senior": [
+        "5+ years",
+        "complex accounts",
+        "strategic customers",
+        "escalations"
+      ],
+      "Lead_Manager": [
+        "lead team",
+        "mentor",
+        "manager",
+        "people leadership"
+      ],
+      "Director_Head": [
+        "own function",
+        "define playbooks",
+        "build department",
+        "manage managers"
+      ],
+      "VP_Executive": [
+        "executive",
+        "global",
+        "revenue accountability",
+        "org leadership"
+      ]
+    },
+    "attribute_rules": {
+      "technical_depth_high": [
+        "api",
+        "sql",
+        "logs",
+        "debugging",
+        "integrations",
+        "kubernetes",
+        "networking"
+      ],
+      "customer_facing_high": [
+        "client meetings",
+        "customer calls",
+        "stakeholders",
+        "trusted advisor",
+        "account ownership"
+      ],
+      "revenue_direct": [
+        "renewals",
+        "upsell",
+        "cross sell",
+        "expansion",
+        "revenue growth"
+      ],
+      "strategic_high": [
+        "strategy",
+        "playbooks",
+        "operating model",
+        "customer journey",
+        "global org",
+        "roadmap",
+        "product strategy",
+        "prioritization"
+      ]
+    }
+  }
+}
