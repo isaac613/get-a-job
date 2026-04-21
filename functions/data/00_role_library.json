@@ -1808,80 +1808,6 @@
       ]
     },
     {
-      "id": "product_operations_manager",
-      "standardized_title": "Product Operations Manager",
-      "alternate_titles": [
-        "Product Operations Specialist",
-        "Product Ops Manager",
-        "Product PMO"
-      ],
-      "role_family": "Operations",
-      "seniority": "Mid",
-      "core_purpose": "Improve how product teams operate by optimizing processes, tools, documentation, and operating cadence.",
-      "core_responsibilities": [
-        "Own product team workflows, documentation, and operating processes",
-        "Improve intake, sprint operations, release readiness, and cross-team coordination",
-        "Maintain planning artifacts, governance frameworks, and team visibility systems",
-        "Identify inefficiencies and drive process improvements across product teams",
-        "Support tooling, automation, and operational consistency at scale"
-      ],
-      "required_skills": [
-        "process_design",
-        "workflow_optimization",
-        "documentation_governance",
-        "cross_functional_collaboration"
-      ],
-      "preferred_skills": [
-        "automation_workflows",
-        "operational_analytics",
-        "tooling_systems_management",
-        "project_management"
-      ],
-      "tools": [
-        "Jira",
-        "Confluence",
-        "Monday",
-        "Notion",
-        "automation_tools"
-      ],
-      "technical_depth": "Medium",
-      "customer_facing_level": "Low",
-      "revenue_ownership": "None",
-      "strategic_level": "Tactical_Strategic",
-      "lifecycle_stage": [
-        "Planning",
-        "Execution",
-        "Operations"
-      ],
-      "typical_backgrounds": [
-        "operations",
-        "project_management",
-        "product_coordination"
-      ],
-      "next_roles": [
-        "program_manager",
-        "product_manager"
-      ],
-      "similar_roles": [
-        "Program Manager",
-        "Business Operations Manager"
-      ],
-      "not_to_confuse_with": [
-        "Product Manager",
-        "Project Manager",
-        "Product Analyst"
-      ],
-      "keywords": [
-        "product ops",
-        "release process",
-        "documentation",
-        "governance",
-        "tooling",
-        "workflow",
-        "operating cadence"
-      ]
-    },
-    {
       "id": "product_analyst",
       "standardized_title": "Product Analyst",
       "alternate_titles": [
@@ -3815,98 +3741,6 @@
       ]
     },
     {
-      "id": "product_manager",
-      "standardized_title": "Product Manager",
-      "alternate_titles": [
-        "PM",
-        "Product Owner",
-        "Product Lead (entry context)"
-      ],
-      "role_family": "Product",
-      "seniority": "Mid",
-      "core_purpose": "Own the end-to-end lifecycle of one or more product areas \u2014 from discovery through delivery and iteration \u2014 driving measurable user and business outcomes.",
-      "core_responsibilities": [
-        "Define and own the product roadmap for assigned domains",
-        "Conduct discovery with customers, stakeholders, and market research",
-        "Write clear PRDs, user stories, and technical specifications",
-        "Prioritize backlog based on business value, customer impact, and technical feasibility",
-        "Partner with engineering, design, and data teams through full product lifecycle",
-        "Define product KPIs and monitor performance post-launch",
-        "Run A/B tests and experiments to optimize features",
-        "Collaborate with marketing, sales, and CS on go-to-market execution",
-        "Use AI tools to accelerate research, documentation, and discovery"
-      ],
-      "required_skills": [
-        "roadmap_prioritization",
-        "product_discovery",
-        "prd_writing",
-        "product_lifecycle_management",
-        "product_metrics",
-        "cross_functional_collaboration"
-      ],
-      "preferred_skills": [
-        "agile_scrum",
-        "ux_product_design_sense",
-        "ai_product_management",
-        "customer_discovery_interviews",
-        "data_analysis",
-        "b2b_product_management"
-      ],
-      "tools": [
-        "Jira",
-        "Confluence",
-        "Notion",
-        "Figma",
-        "Mixpanel",
-        "Amplitude",
-        "SQL",
-        "AI tools",
-        "Monday.com"
-      ],
-      "technical_depth": "Medium",
-      "customer_facing_level": "Medium",
-      "revenue_ownership": "Indirect",
-      "strategic_level": "Execution-Strategic",
-      "lifecycle_stage": [
-        "Discovery",
-        "Delivery",
-        "Growth"
-      ],
-      "typical_backgrounds": [
-        "associate_product_manager",
-        "business_analyst",
-        "customer_success_manager",
-        "software_engineer",
-        "product_analyst"
-      ],
-      "next_roles": [
-        "senior_product_manager",
-        "technical_product_manager"
-      ],
-      "similar_roles": [
-        "Product Owner",
-        "Product Lead"
-      ],
-      "not_to_confuse_with": [
-        "Project Manager",
-        "Senior Product Manager",
-        "Associate Product Manager"
-      ],
-      "keywords": [
-        "roadmap",
-        "PRD",
-        "discovery",
-        "backlog",
-        "A/B testing",
-        "user stories",
-        "product lifecycle",
-        "KPIs",
-        "cross-functional",
-        "AI",
-        "B2B SaaS"
-      ]
-    },
-    {
       "id": "senior_product_manager",
       "standardized_title": "Senior Product Manager",
       "alternate_titles": [
@@ -4088,93 +3922,6 @@
       ]
     },
     {
-      "id": "technical_product_manager",
-      "standardized_title": "Technical Product Manager",
-      "alternate_titles": [
-        "Technical PM",
-        "TPM",
-        "Engineering-Focused PM"
-      ],
-      "role_family": "Product",
-      "seniority": "Mid",
-      "core_purpose": "Bridge business requirements and technical execution by combining deep engineering understanding with product management to lead complex technical products.",
-      "core_responsibilities": [
-        "Own product lifecycle from business vision through deep technical specification",
-        "Write PRDs and detailed low-level design documents (LLD)",
-        "Translate business and customer needs into technical requirements",
-        "Work closely with engineering on architecture decisions and tradeoffs",
-        "Manage product roadmap and prioritize backlog based on business and technical complexity",
-        "Lead agile ceremonies including sprint planning and backlog grooming",
-        "Work hands-on with AI-based systems and tools",
-        "Lead rollout and adoption of new technical capabilities across the organization"
-      ],
-      "required_skills": [
-        "technical_product_management",
-        "prd_writing",
-        "agile_scrum",
-        "product_lifecycle_management",
-        "cross_functional_collaboration",
-        "analytical_thinking"
-      ],
-      "preferred_skills": [
-        "api_integrations",
-        "ai_product_management",
-        "technical_communication",
-        "product_metrics",
-        "delivery_execution"
-      ],
-      "tools": [
-        "Jira",
-        "Confluence",
-        "Figma",
-        "SQL",
-        "GitHub",
-        "AI tools",
-        "Postman"
-      ],
-      "technical_depth": "High",
-      "customer_facing_level": "Low-Medium",
-      "revenue_ownership": "Indirect",
-      "strategic_level": "Execution-Strategic",
-      "lifecycle_stage": [
-        "Discovery",
-        "Delivery"
-      ],
-      "typical_backgrounds": [
-        "software_engineer",
-        "full_stack_developer",
-        "backend_engineer",
-        "product_manager"
-      ],
-      "next_roles": [
-        "senior_product_manager",
-        "engineering_manager",
-        "head_of_product"
-      ],
-      "similar_roles": [
-        "Technical PM",
-        "Engineering PM"
-      ],
-      "not_to_confuse_with": [
-        "Product Manager",
-        "Engineering Manager",
-        "Solutions Engineer"
-      ],
-      "keywords": [
-        "technical PM",
-        "TPM",
-        "LLD",
-        "PRD",
-        "engineering",
-        "agile",
-        "scrum",
-        "AI",
-        "technical specs",
-        "full stack",
-        "architecture"
-      ]
-    },
-    {
       "id": "product_operations_manager",
       "standardized_title": "Product Operations Manager",
       "alternate_titles": [
@@ -4353,102 +4100,6 @@
         "CPO",
         "product org",
         "product-market fit"
-      ]
-    },
-    {
-      "id": "product_analyst",
-      "standardized_title": "Product Analyst",
-      "alternate_titles": [
-        "Product Analytics Manager",
-        "Growth Analyst",
-        "Product Data Analyst",
-        "Analytics Partner"
-      ],
-      "role_family": "Product",
-      "seniority": "Mid",
-      "core_purpose": "Act as an embedded analytical partner to product and growth teams \u2014 translating user behavior and data into product decisions, roadmap influence, and measurable outcomes.",
-      "core_responsibilities": [
-        "Partner with product managers to define success metrics and influence roadmap prioritization",
-        "Own product analyses end-to-end \u2014 problem framing, exploration, modeling, and recommendations",
-        "Design and analyze A/B tests and product experiments with statistical rigor",
-        "Analyze user behavior, funnels, retention, cohorts, and feature adoption",
-        "Build dashboards and data visualizations for product and leadership teams",
-        "Translate complex data into clear narratives and actionable insights",
-        "Collaborate with engineering, design, and CS on product decisions",
-        "Use AI and automation tools to accelerate analysis and delivery"
-      ],
-      "required_skills": [
-        "data_analysis",
-        "sql",
-        "user_behavior_analysis",
-        "product_metrics",
-        "ab_testing",
-        "analytical_thinking",
-        "dashboarding"
-      ],
-      "preferred_skills": [
-        "ai_tools_marketing",
-        "product_discovery",
-        "cross_functional_collaboration",
-        "presentation_skills",
-        "python"
-      ],
-      "tools": [
-        "SQL",
-        "Python",
-        "Mixpanel",
-        "Amplitude",
-        "Tableau",
-        "Looker",
-        "Power BI",
-        "GA4",
-        "Excel",
-        "AI tools"
-      ],
-      "technical_depth": "Medium-High",
-      "customer_facing_level": "Low",
-      "revenue_ownership": "None",
-      "strategic_level": "Execution-Strategic",
-      "lifecycle_stage": [
-        "Discovery",
-        "Growth",
-        "Optimization"
-      ],
-      "typical_backgrounds": [
-        "data_analyst",
-        "business_analyst",
-        "statistics",
-        "industrial_engineering",
-        "economics"
-      ],
-      "next_roles": [
-        "senior_product_analyst",
-        "product_manager",
-        "data_scientist"
-      ],
-      "similar_roles": [
-        "Growth Analyst",
-        "Product Data Analyst",
-        "Analytics Partner"
-      ],
-      "not_to_confuse_with": [
-        "Data Analyst",
-        "Business Analyst",
-        "Product Manager"
-      ],
-      "keywords": [
-        "product analytics",
-        "SQL",
-        "A/B testing",
-        "funnels",
-        "retention",
-        "cohorts",
-        "dashboards",
-        "experimentation",
-        "user behavior",
-        "product metrics",
-        "BI",
-        "data-driven"
       ]
     },
     {
@@ -6330,7 +5981,9 @@
           "bi_analyst"
         ]
       },
-      "market_notes_israel": "Growing demand in Israeli SaaS companies. Many entry-level RevOps roles are titled 'Sales Operations Analyst' or 'GTM Operations Analyst.' Salesforce and HubSpot admin skills are table stakes. SQL is increasingly expected even at junior levels."
+      "market_notes_israel": "Growing demand in Israeli SaaS companies. Many entry-level RevOps roles are titled 'Sales Operations Analyst' or 'GTM Operations Analyst.' Salesforce and HubSpot admin skills are table stakes. SQL is increasingly expected even at junior levels.",
+      "role_family": "RevOps_BizOps",
+      "seniority": "Mid"
     },
     {
       "role_id": "revops_manager",
@@ -6369,7 +6022,9 @@
           "sales_manager"
         ]
       },
-      "market_notes_israel": "High demand across Israeli B2B SaaS companies, especially in growth-stage startups. Role often combines Sales Ops and Marketing Ops under one umbrella. Salesforce expertise and AI-driven process implementation (AI agents, automation workflows) are increasingly listed as advantages. Companies like Cato Networks, Appcharge, and Base44 actively hire for this role in Israel."
+      "market_notes_israel": "High demand across Israeli B2B SaaS companies, especially in growth-stage startups. Role often combines Sales Ops and Marketing Ops under one umbrella. Salesforce expertise and AI-driven process implementation (AI agents, automation workflows) are increasingly listed as advantages. Companies like Cato Networks, Appcharge, and Base44 actively hire for this role in Israel.",
+      "role_family": "RevOps_BizOps",
+      "seniority": "Senior"
     },
     {
       "role_id": "head_of_revops",
@@ -6407,7 +6062,9 @@
           "vp_finance"
         ]
       },
-      "market_notes_israel": "Found in growth-stage and late-stage Israeli tech companies. Some companies use 'Director of RevOps' or 'VP RevOps' depending on company size. The role increasingly requires AI fluency and experience implementing AI-driven workflows. Strong commercial acumen and ability to partner with C-suite are differentiators."
+      "market_notes_israel": "Found in growth-stage and late-stage Israeli tech companies. Some companies use 'Director of RevOps' or 'VP RevOps' depending on company size. The role increasingly requires AI fluency and experience implementing AI-driven workflows. Strong commercial acumen and ability to partner with C-suite are differentiators.",
+      "role_family": "RevOps_BizOps",
+      "seniority": "Director_Head"
     },
     {
       "role_id": "business_analyst",
@@ -6447,7 +6104,9 @@
           "product_analyst"
         ]
       },
-      "market_notes_israel": "Very common across Israeli tech \u2014 from fintechs (Nayax, Plus500) to gaming (Papaya, Playtika) to ad-tech. Two flavors dominate: (1) Salesforce Business Analyst focused on CRM processes and (2) Business Data Analyst focused on dashboards and reporting. SQL and BI tools are increasingly must-haves rather than nice-to-haves. Many listings accept fresh graduates with 1-2 years experience."
+      "market_notes_israel": "Very common across Israeli tech \u2014 from fintechs (Nayax, Plus500) to gaming (Papaya, Playtika) to ad-tech. Two flavors dominate: (1) Salesforce Business Analyst focused on CRM processes and (2) Business Data Analyst focused on dashboards and reporting. SQL and BI tools are increasingly must-haves rather than nice-to-haves. Many listings accept fresh graduates with 1-2 years experience.",
+      "role_family": "RevOps_BizOps",
+      "seniority": "Mid"
     },
     {
       "role_id": "business_ops_analyst",
@@ -6484,7 +6143,9 @@
           "fpa_analyst"
         ]
       },
-      "market_notes_israel": "Common in scaling fintech and SaaS companies. Often the first operations hire in a growing startup. Requires strong Excel skills and attention to detail. Companies like Candex hire for this role with 2 years experience. A good entry point for business graduates who want to move into operations leadership."
+      "market_notes_israel": "Common in scaling fintech and SaaS companies. Often the first operations hire in a growing startup. Requires strong Excel skills and attention to detail. Companies like Candex hire for this role with 2 years experience. A good entry point for business graduates who want to move into operations leadership.",
+      "role_family": "RevOps_BizOps",
+      "seniority": "Mid"
     },
     {
       "role_id": "business_ops_manager",
@@ -6523,7 +6184,9 @@
           "product_ops_manager"
         ]
       },
-      "market_notes_israel": "Found across Israeli tech companies from early-stage to scale-ups. Role scope varies significantly by company size \u2014 in smaller startups it can be a jack-of-all-trades role, while in larger companies it focuses on specific operational domains. Experience with OKR frameworks and cross-functional program management is increasingly expected. Companies like Daisy hire at the junior end (1-2 years) while others expect 3+ years."
+      "market_notes_israel": "Found across Israeli tech companies from early-stage to scale-ups. Role scope varies significantly by company size \u2014 in smaller startups it can be a jack-of-all-trades role, while in larger companies it focuses on specific operational domains. Experience with OKR frameworks and cross-functional program management is increasingly expected. Companies like Daisy hire at the junior end (1-2 years) while others expect 3+ years.",
+      "role_family": "RevOps_BizOps",
+      "seniority": "Senior"
     },
     {
       "role_id": "strategy_ops_manager",
@@ -6562,7 +6225,9 @@
           "vp_finance"
         ]
       },
-      "market_notes_israel": "Common in growth-stage Israeli tech companies. Often filled by ex-consultants (McKinsey, BCG, Bain, Deloitte) or ex-investment banking professionals. Companies like Mindspace and Plus500 hire for this role. Strong financial modeling and business case development skills are differentiators. The role frequently evolves into a Chief of Staff position."
+      "market_notes_israel": "Common in growth-stage Israeli tech companies. Often filled by ex-consultants (McKinsey, BCG, Bain, Deloitte) or ex-investment banking professionals. Companies like Mindspace and Plus500 hire for this role. Strong financial modeling and business case development skills are differentiators. The role frequently evolves into a Chief of Staff position.",
+      "role_family": "RevOps_BizOps",
+      "seniority": "Senior"
     },
     {
       "role_id": "chief_of_staff",
@@ -6602,7 +6267,9 @@
           "head_of_revops"
         ]
       },
-      "market_notes_israel": "Rapidly growing role in Israeli tech, especially in scale-ups and growth-stage companies. Companies like Hello Heart, Atera, MazeBolt, and Mindspace actively hire Chiefs of Staff in Tel Aviv. Most require 5-8+ years of experience. Management consulting or investment banking background is strongly preferred (McKinsey, BCG, Bain, TASC). MBA is often required or strongly preferred. AI fluency is becoming a must-have. The role typically requires non-standard hours to align with US-based executives and 20-40% international travel."
+      "market_notes_israel": "Rapidly growing role in Israeli tech, especially in scale-ups and growth-stage companies. Companies like Hello Heart, Atera, MazeBolt, and Mindspace actively hire Chiefs of Staff in Tel Aviv. Most require 5-8+ years of experience. Management consulting or investment banking background is strongly preferred (McKinsey, BCG, Bain, TASC). MBA is often required or strongly preferred. AI fluency is becoming a must-have. The role typically requires non-standard hours to align with US-based executives and 20-40% international travel.",
+      "role_family": "RevOps_BizOps",
+      "seniority": "Senior"
     },
     {
       "role_id": "vp_operations",
@@ -6643,7 +6310,9 @@
           "vp_finance"
         ]
       },
-      "market_notes_israel": "Found in established Israeli tech companies with global operations. Companies like Ship4wd and Helfy hire for this role. Often requires experience managing offshore teams (Philippines, Eastern Europe, India) and comfort operating across time zones. Deep domain expertise (logistics, fintech, SaaS) is usually required. MBA is often preferred. The role increasingly requires experience with tech-enabled operations and AI-driven process improvement."
+      "market_notes_israel": "Found in established Israeli tech companies with global operations. Companies like Ship4wd and Helfy hire for this role. Often requires experience managing offshore teams (Philippines, Eastern Europe, India) and comfort operating across time zones. Deep domain expertise (logistics, fintech, SaaS) is usually required. MBA is often preferred. The role increasingly requires experience with tech-enabled operations and AI-driven process improvement.",
+      "role_family": "RevOps_BizOps",
+      "seniority": "VP_Executive"
     },
     {
       "role_id": "junior_software_engineer",
@@ -6687,7 +6356,9 @@
           "devops_engineer"
         ]
       },
-      "market_notes_israel": "Strong entry pipeline in Israel through university programs, army tech units (8200, Mamram, etc.), and bootcamps. Many companies hire new grads with BSc in CS or equivalent military experience. Companies like VAST Data, XM Cyber, and Emerson actively recruit junior engineers in Tel Aviv. AI/ML bootcamp programs (fully funded, ~5 months) are emerging as an alternative entry path. GPA requirements (85+) and psychometric scores are common filters for structured programs."
+      "market_notes_israel": "Strong entry pipeline in Israel through university programs, army tech units (8200, Mamram, etc.), and bootcamps. Many companies hire new grads with BSc in CS or equivalent military experience. Companies like VAST Data, XM Cyber, and Emerson actively recruit junior engineers in Tel Aviv. AI/ML bootcamp programs (fully funded, ~5 months) are emerging as an alternative entry path. GPA requirements (85+) and psychometric scores are common filters for structured programs.",
+      "role_family": "Engineering",
+      "seniority": "Entry"
     },
     {
       "role_id": "software_engineer",
@@ -6739,7 +6410,9 @@
           "data_engineer"
         ]
       },
-      "market_notes_israel": "Core hiring target across Israeli startups and scale-ups. Typical requirements are 3-5 years of experience with strong backend skills. Python and Node.js/TypeScript dominate the stack in Tel Aviv. Companies like Venice, Oligo, Seal Security, and Simply actively hire at this level. Full-stack capability is increasingly expected even in 'backend' roles. Cybersecurity and SaaS companies form a large portion of the employer base. Microservices architecture experience is becoming a baseline expectation."
+      "market_notes_israel": "Core hiring target across Israeli startups and scale-ups. Typical requirements are 3-5 years of experience with strong backend skills. Python and Node.js/TypeScript dominate the stack in Tel Aviv. Companies like Venice, Oligo, Seal Security, and Simply actively hire at this level. Full-stack capability is increasingly expected even in 'backend' roles. Cybersecurity and SaaS companies form a large portion of the employer base. Microservices architecture experience is becoming a baseline expectation.",
+      "role_family": "Engineering",
+      "seniority": "Mid"
     },
     {
       "role_id": "senior_software_engineer",
@@ -6794,7 +6467,9 @@
           "solutions_architect"
         ]
       },
-      "market_notes_israel": "High-demand role across the Israeli market. Typical requirements are 5-8+ years of experience. Companies like Taboola, Sett, april, Apiiro, and WINN.AI hire aggressively at this level. End-to-end ownership is the consistent theme \u2014 companies expect senior engineers to ship features from design to production with full accountability. Big data experience (Kafka, Spark, distributed databases) is a strong differentiator at ad-tech and data-heavy companies. LLM/AI experience is emerging as a preferred qualification even for non-AI companies."
+      "market_notes_israel": "High-demand role across the Israeli market. Typical requirements are 5-8+ years of experience. Companies like Taboola, Sett, april, Apiiro, and WINN.AI hire aggressively at this level. End-to-end ownership is the consistent theme \u2014 companies expect senior engineers to ship features from design to production with full accountability. Big data experience (Kafka, Spark, distributed databases) is a strong differentiator at ad-tech and data-heavy companies. LLM/AI experience is emerging as a preferred qualification even for non-AI companies.",
+      "role_family": "Engineering",
+      "seniority": "Senior"
     },
     {
       "role_id": "staff_engineer",
@@ -6847,7 +6522,9 @@
           "solutions_architect"
         ]
       },
-      "market_notes_israel": "Emerging as a distinct and valued role in Israeli scale-ups. Companies like Tomorrow.io and Yotpo have clear Staff Engineer positions with explicit 'force multiplier' expectations. The role requires 8-10+ years of experience and architectural mastery. AI-first development practices (integrating AI tools like Cursor and Copilot into engineering workflows) are becoming a defining requirement at companies like Tomorrow.io. Full-stack fluency \u2014 deep understanding from database internals to frontend frameworks \u2014 is expected. This role is distinct from Engineering Manager: Staff Engineers lead through technical influence, not people management."
+      "market_notes_israel": "Emerging as a distinct and valued role in Israeli scale-ups. Companies like Tomorrow.io and Yotpo have clear Staff Engineer positions with explicit 'force multiplier' expectations. The role requires 8-10+ years of experience and architectural mastery. AI-first development practices (integrating AI tools like Cursor and Copilot into engineering workflows) are becoming a defining requirement at companies like Tomorrow.io. Full-stack fluency \u2014 deep understanding from database internals to frontend frameworks \u2014 is expected. This role is distinct from Engineering Manager: Staff Engineers lead through technical influence, not people management.",
+      "role_family": "Engineering",
+      "seniority": "Senior"
     },
     {
       "role_id": "tech_lead",
@@ -6900,7 +6577,9 @@
           "solutions_architect"
         ]
       },
-      "market_notes_israel": "One of the most common leadership roles in Israeli tech. Companies like monday.com, Antidote Health, Eyeviation, Scala Bio, Classiq, and EyeControl all actively hire Tech Leads. The consistent expectation is hands-on coding (often 50-70% of time) combined with technical leadership. Python is the dominant backend language for this role. AI/LLM integration into developer workflows is emerging as a key requirement \u2014 Classiq, EyeControl, and Scala Bio all explicitly mention AI tool fluency. Many Tech Lead roles in Israel are in early-stage startups where the TL is the first or second senior engineering hire."
+      "market_notes_israel": "One of the most common leadership roles in Israeli tech. Companies like monday.com, Antidote Health, Eyeviation, Scala Bio, Classiq, and EyeControl all actively hire Tech Leads. The consistent expectation is hands-on coding (often 50-70% of time) combined with technical leadership. Python is the dominant backend language for this role. AI/LLM integration into developer workflows is emerging as a key requirement \u2014 Classiq, EyeControl, and Scala Bio all explicitly mention AI tool fluency. Many Tech Lead roles in Israel are in early-stage startups where the TL is the first or second senior engineering hire.",
+      "role_family": "Engineering",
+      "seniority": "Lead_Manager"
     },
     {
       "role_id": "engineering_manager",
@@ -6953,7 +6632,9 @@
           "product_manager"
         ]
       },
-      "market_notes_israel": "Critical mid-management role across Israeli tech. Companies like Wenrix, GMT, and Cye actively hire Engineering Managers. The role requires a balance of technical depth and people leadership \u2014 most listings require 5-7+ years of engineering experience plus 2+ years of leadership. Hands-on capability is consistently expected: Israeli companies want managers who can review code, troubleshoot production issues, and participate in architecture discussions. Python and Java are the most common backend languages. Fintech (GMT) and cybersecurity (Cye) are major hiring sectors for this role in Israel."
+      "market_notes_israel": "Critical mid-management role across Israeli tech. Companies like Wenrix, GMT, and Cye actively hire Engineering Managers. The role requires a balance of technical depth and people leadership \u2014 most listings require 5-7+ years of engineering experience plus 2+ years of leadership. Hands-on capability is consistently expected: Israeli companies want managers who can review code, troubleshoot production issues, and participate in architecture discussions. Python and Java are the most common backend languages. Fintech (GMT) and cybersecurity (Cye) are major hiring sectors for this role in Israel.",
+      "role_family": "Engineering",
+      "seniority": "Lead_Manager"
     },
     {
       "role_id": "senior_engineering_manager",
@@ -7004,7 +6685,9 @@
           "head_of_product"
         ]
       },
-      "market_notes_israel": "Companies like Navina and SeeTrue hire at this level for leaders who manage multiple teams (typically 15-30+ engineers). Navina's Director of Engineering (Data Platform) role exemplifies the Israeli market expectation: end-to-end ownership of a critical platform domain, managing multiple teams, and serving as a key interface between engineering and the rest of the organization. Healthcare data and AI-driven products are growing sectors for this role. Experience managing managers is a hard requirement. AI-first mindset is increasingly expected \u2014 driving AI tool adoption across teams, not just personal use."
+      "market_notes_israel": "Companies like Navina and SeeTrue hire at this level for leaders who manage multiple teams (typically 15-30+ engineers). Navina's Director of Engineering (Data Platform) role exemplifies the Israeli market expectation: end-to-end ownership of a critical platform domain, managing multiple teams, and serving as a key interface between engineering and the rest of the organization. Healthcare data and AI-driven products are growing sectors for this role. Experience managing managers is a hard requirement. AI-first mindset is increasingly expected \u2014 driving AI tool adoption across teams, not just personal use.",
+      "role_family": "Engineering",
+      "seniority": "Director_Head"
     },
     {
       "role_id": "vp_engineering",
@@ -7056,7 +6739,9 @@
           "chief_of_staff"
         ]
       },
-      "market_notes_israel": "Executive-level role with strong market signal across Israeli companies of all sizes. CrowdStrike, QEDMA, Lemonade, and multiple Israeli startups and scale-ups hire VP/Head of Engineering. Requirements typically include 10-15+ years of engineering experience with significant leadership tenure. The role spans a wide range: at startups like QEDMA (quantum computing), it involves managing 10-20 engineers and staying close to the technology; at scale-ups like Lemonade, it means leading 100+ engineers across multiple product lines. AI strategy and adoption is a consistent theme \u2014 companies expect VP Engineering to drive AI-first engineering practices. Cloud-native architecture, distributed systems, and experience scaling engineering organizations are universal requirements. In Israeli ad-tech and e-commerce, hands-on technical credibility is expected even at the VP level."
+      "market_notes_israel": "Executive-level role with strong market signal across Israeli companies of all sizes. CrowdStrike, QEDMA, Lemonade, and multiple Israeli startups and scale-ups hire VP/Head of Engineering. Requirements typically include 10-15+ years of engineering experience with significant leadership tenure. The role spans a wide range: at startups like QEDMA (quantum computing), it involves managing 10-20 engineers and staying close to the technology; at scale-ups like Lemonade, it means leading 100+ engineers across multiple product lines. AI strategy and adoption is a consistent theme \u2014 companies expect VP Engineering to drive AI-first engineering practices. Cloud-native architecture, distributed systems, and experience scaling engineering organizations are universal requirements. In Israeli ad-tech and e-commerce, hands-on technical credibility is expected even at the VP level.",
+      "role_family": "Engineering",
+      "seniority": "VP_Executive"
     },
     {
       "role_id": "qa_engineer",
@@ -7111,7 +6796,9 @@
           "devops_engineer"
         ]
       },
-      "market_notes_israel": "Active hiring across the Israeli market at all seniority levels, from entry-level (DealHub, inManage \u2014 often requiring QA course completion) through mid-level (Silverfort, Zemingo, Loox) to senior (Lemonade). Playwright is rapidly becoming the dominant automation framework, replacing Selenium. Companies like Loox and Zemingo explicitly require Playwright experience. AI tool fluency in QA workflows is becoming a differentiator \u2014 Lemonade, Loox, and Zemingo all mention leveraging AI tools. ISTQB certification is noted as an advantage but not required. Cybersecurity companies (Silverfort) need QA engineers comfortable with Windows/Linux environments and Active Directory. Web + mobile testing is common for consumer-facing companies. The shift-left testing philosophy is increasingly adopted \u2014 QA engineers are expected to engage developers in testing and automation earlier in the development cycle."
+      "market_notes_israel": "Active hiring across the Israeli market at all seniority levels, from entry-level (DealHub, inManage \u2014 often requiring QA course completion) through mid-level (Silverfort, Zemingo, Loox) to senior (Lemonade). Playwright is rapidly becoming the dominant automation framework, replacing Selenium. Companies like Loox and Zemingo explicitly require Playwright experience. AI tool fluency in QA workflows is becoming a differentiator \u2014 Lemonade, Loox, and Zemingo all mention leveraging AI tools. ISTQB certification is noted as an advantage but not required. Cybersecurity companies (Silverfort) need QA engineers comfortable with Windows/Linux environments and Active Directory. Web + mobile testing is common for consumer-facing companies. The shift-left testing philosophy is increasingly adopted \u2014 QA engineers are expected to engage developers in testing and automation earlier in the development cycle.",
+      "role_family": "Engineering",
+      "seniority": "Mid"
     },
     {
       "role_id": "devops_engineer",
@@ -7166,7 +6853,9 @@
           "cloud_architect"
         ]
       },
-      "market_notes_israel": "Strong and consistent demand across the Israeli market. Companies like DualBird, Volumez, VI, CET, Infini-T, and ZeroPort actively hire DevOps engineers. AWS is the dominant cloud platform, followed by GCP and Azure. Terraform is the most common IaC tool. Kubernetes experience is increasingly expected even at mid-level. The Israeli market has a strong DevOps consulting sector (Infini-T) offering varied project exposure. AI-driven automation is emerging as a key differentiator \u2014 Volumez explicitly requires daily use of AI tools (Copilot, ChatGPT, Cursor). Junior DevOps positions exist (CET) with emphasis on code-first mindset and willingness to learn. On-prem and air-gapped deployment experience is valued in defense-adjacent companies (ZeroPort). GitOps workflows (ArgoCD) and Kubernetes-native tooling are the growth direction."
+      "market_notes_israel": "Strong and consistent demand across the Israeli market. Companies like DualBird, Volumez, VI, CET, Infini-T, and ZeroPort actively hire DevOps engineers. AWS is the dominant cloud platform, followed by GCP and Azure. Terraform is the most common IaC tool. Kubernetes experience is increasingly expected even at mid-level. The Israeli market has a strong DevOps consulting sector (Infini-T) offering varied project exposure. AI-driven automation is emerging as a key differentiator \u2014 Volumez explicitly requires daily use of AI tools (Copilot, ChatGPT, Cursor). Junior DevOps positions exist (CET) with emphasis on code-first mindset and willingness to learn. On-prem and air-gapped deployment experience is valued in defense-adjacent companies (ZeroPort). GitOps workflows (ArgoCD) and Kubernetes-native tooling are the growth direction.",
+      "role_family": "Engineering",
+      "seniority": "Mid"
     },
     {
       "role_id": "sre_engineer",
@@ -7223,7 +6912,9 @@
           "cloud_architect"
         ]
       },
-      "market_notes_israel": "Distinct and growing role in the Israeli market, separate from DevOps. Companies like Guardio, Optimove, AudioCodes, and Lemonade have dedicated SRE positions. The key differentiator from DevOps is the focus on production reliability, incident response, SLOs, and post-mortem culture rather than infrastructure provisioning. GCP is common for SRE roles alongside AWS. AI-native reliability tooling is a defining trend \u2014 Guardio explicitly seeks engineers who build AI-powered tools for alert correlation, root cause analysis, and automated incident mitigation using LLMs. On-call rotation is a standard requirement. Strong software engineering background is expected \u2014 SREs are builders, not just operators. The role requires 4+ years of experience in most Israeli companies. Cybersecurity (Guardio), marketing tech (Optimove), and insurance tech (Lemonade) are active hiring sectors for SRE in Israel."
+      "market_notes_israel": "Distinct and growing role in the Israeli market, separate from DevOps. Companies like Guardio, Optimove, AudioCodes, and Lemonade have dedicated SRE positions. The key differentiator from DevOps is the focus on production reliability, incident response, SLOs, and post-mortem culture rather than infrastructure provisioning. GCP is common for SRE roles alongside AWS. AI-native reliability tooling is a defining trend \u2014 Guardio explicitly seeks engineers who build AI-powered tools for alert correlation, root cause analysis, and automated incident mitigation using LLMs. On-call rotation is a standard requirement. Strong software engineering background is expected \u2014 SREs are builders, not just operators. The role requires 4+ years of experience in most Israeli companies. Cybersecurity (Guardio), marketing tech (Optimove), and insurance tech (Lemonade) are active hiring sectors for SRE in Israel.",
+      "role_family": "Engineering",
+      "seniority": "Mid"
     },
     {
       "role_id": "engineering_group_manager",
@@ -7274,7 +6965,9 @@
           "head_of_product"
         ]
       },
-      "market_notes_israel": "Distinct role in Israeli scale-ups and growth-stage companies. Hyro's Engineering Group Manager role is the clearest example: managing 15-20 engineers, leading team leads, and driving AI product development at scale. The role requires 7+ years of engineering experience with at least 2 years managing at scale. Deep technical rooting is expected \u2014 ability to lead architecture reviews and stay close to technology without daily coding. Experience designing and operating large, scalable systems is a core requirement. Conversational AI, healthcare tech, and SaaS are active hiring sectors. Python and Node.js are the dominant technologies. The role reports to CTO/CPTO and is a key pipeline to VP Engineering."
+      "market_notes_israel": "Distinct role in Israeli scale-ups and growth-stage companies. Hyro's Engineering Group Manager role is the clearest example: managing 15-20 engineers, leading team leads, and driving AI product development at scale. The role requires 7+ years of engineering experience with at least 2 years managing at scale. Deep technical rooting is expected \u2014 ability to lead architecture reviews and stay close to technology without daily coding. Experience designing and operating large, scalable systems is a core requirement. Conversational AI, healthcare tech, and SaaS are active hiring sectors. Python and Node.js are the dominant technologies. The role reports to CTO/CPTO and is a key pipeline to VP Engineering.",
+      "role_family": "Engineering",
+      "seniority": "Director_Head"
     },
     {
       "role_id": "junior_ai_ml_engineer",
@@ -7309,7 +7002,8 @@
         "REST APIs",
         "vector databases (Pinecone, Weaviate, Chroma)"
       ],
-      "market_notes_israel": "Direct Junior AI/ML Engineer roles at product companies are relatively rare in Israel. The most common entry paths are: (1) intensive bootcamp/training programs like Infinity Labs R&D (STEM graduates, 5-month hybrid programs with placement) or similar paid tracks that lead to junior placements at partner companies; (2) consulting firms like KPMG Associate GenAI Engineer which hire early-career engineers for client AI delivery; (3) conversion from Junior Software Engineer roles after self-study and internal project work. Candidates typically need a BSc in CS/STEM with strong GPA (80+) and psychometric scores above 680-700 for competitive programs. The market strongly prefers candidates who have built real AI projects (even side projects) over those with only coursework. Tel Aviv and Herzliya dominate; remote-first AI startups exist but rarely hire juniors remotely."
+      "market_notes_israel": "Direct Junior AI/ML Engineer roles at product companies are relatively rare in Israel. The most common entry paths are: (1) intensive bootcamp/training programs like Infinity Labs R&D (STEM graduates, 5-month hybrid programs with placement) or similar paid tracks that lead to junior placements at partner companies; (2) consulting firms like KPMG Associate GenAI Engineer which hire early-career engineers for client AI delivery; (3) conversion from Junior Software Engineer roles after self-study and internal project work. Candidates typically need a BSc in CS/STEM with strong GPA (80+) and psychometric scores above 680-700 for competitive programs. The market strongly prefers candidates who have built real AI projects (even side projects) over those with only coursework. Tel Aviv and Herzliya dominate; remote-first AI startups exist but rarely hire juniors remotely.",
+      "role_family": "AI_ML"
     },
     {
       "role_id": "ai_engineer_mid",
@@ -7352,7 +7046,8 @@
         "FastAPI",
         "Git"
       ],
-      "market_notes_israel": "This is the highest-volume AI role in the Israeli market right now. Strong demand across cybersecurity (Act Security, Jazz DLP, Winn.ai, Check Point), fintech (Papaya, FlexFactor, One Zero), enterprise SaaS (SysAid, Connecteam), and horizontal AI platforms (Unframe, Latent AI, Sett, WIDER). The title varies considerably \u2014 'AI Engineer', 'GenAI Engineer', 'Applied AI Engineer', 'ML Engineer', 'LLM Engineer' are often interchangeable. Most roles require 2-4 years of experience with strong Python and production system experience. LLM API experience (OpenAI, Anthropic, Bedrock) is now table stakes; RAG pipeline experience is expected; agent framework experience (LangChain, LangGraph) is a strong differentiator. Israel has a higher concentration of AI engineering roles requiring cybersecurity domain knowledge than most global markets."
+      "market_notes_israel": "This is the highest-volume AI role in the Israeli market right now. Strong demand across cybersecurity (Act Security, Jazz DLP, Winn.ai, Check Point), fintech (Papaya, FlexFactor, One Zero), enterprise SaaS (SysAid, Connecteam), and horizontal AI platforms (Unframe, Latent AI, Sett, WIDER). The title varies considerably \u2014 'AI Engineer', 'GenAI Engineer', 'Applied AI Engineer', 'ML Engineer', 'LLM Engineer' are often interchangeable. Most roles require 2-4 years of experience with strong Python and production system experience. LLM API experience (OpenAI, Anthropic, Bedrock) is now table stakes; RAG pipeline experience is expected; agent framework experience (LangChain, LangGraph) is a strong differentiator. Israel has a higher concentration of AI engineering roles requiring cybersecurity domain knowledge than most global markets.",
+      "role_family": "AI_ML"
     },
     {
       "role_id": "senior_ai_engineer",
@@ -7395,7 +7090,8 @@
         "CI/CD pipelines",
         "Prometheus/Grafana"
       ],
-      "market_notes_israel": "Strong demand for Senior AI Engineers across Israeli high-tech, particularly at Series B+ startups building AI-native products. Typical experience requirement is 4-6+ years, often with MSc or PhD preferred in technical or AI-adjacent fields. The role increasingly combines deep AI systems knowledge with strong backend engineering \u2014 companies like Winn.ai and Connecteam explicitly require 6-8+ years of full-stack or backend experience plus hands-on AI expertise. Cybersecurity-focused AI startups (Jazz, Act Security, Cymphony) particularly value candidates with security domain experience or 8200/military technical backgrounds. Compensation is among the highest in Israeli tech, with equity a significant component at early-stage companies."
+      "market_notes_israel": "Strong demand for Senior AI Engineers across Israeli high-tech, particularly at Series B+ startups building AI-native products. Typical experience requirement is 4-6+ years, often with MSc or PhD preferred in technical or AI-adjacent fields. The role increasingly combines deep AI systems knowledge with strong backend engineering \u2014 companies like Winn.ai and Connecteam explicitly require 6-8+ years of full-stack or backend experience plus hands-on AI expertise. Cybersecurity-focused AI startups (Jazz, Act Security, Cymphony) particularly value candidates with security domain experience or 8200/military technical backgrounds. Compensation is among the highest in Israeli tech, with equity a significant component at early-stage companies.",
+      "role_family": "AI_ML"
     },
     {
       "role_id": "mlops_engineer",
@@ -7441,7 +7137,8 @@
         "OpenTelemetry",
         "Terraform"
       ],
-      "market_notes_israel": "MLOps is emerging as a clearly distinct role from general AI/ML Engineering in Israel, with explicit titles at companies like Algolight, and embedded MLOps responsibilities at most AI-native startups. Typical experience is 3-5+ years with a mix of ML and infrastructure/DevOps backgrounds. Strong demand at companies dealing with large-scale data (satellite/geospatial like Algolight, financial modeling, healthcare AI), distributed training workloads, or real-time inference systems. Candidates with Kubernetes + Ray/Airflow experience plus strong Python and cloud platform knowledge are particularly sought after. GPU workload optimization and experience with feature stores are increasingly valued."
+      "market_notes_israel": "MLOps is emerging as a clearly distinct role from general AI/ML Engineering in Israel, with explicit titles at companies like Algolight, and embedded MLOps responsibilities at most AI-native startups. Typical experience is 3-5+ years with a mix of ML and infrastructure/DevOps backgrounds. Strong demand at companies dealing with large-scale data (satellite/geospatial like Algolight, financial modeling, healthcare AI), distributed training workloads, or real-time inference systems. Candidates with Kubernetes + Ray/Airflow experience plus strong Python and cloud platform knowledge are particularly sought after. GPU workload optimization and experience with feature stores are increasingly valued.",
+      "role_family": "AI_ML"
     },
     {
       "role_id": "cv_edge_ai_engineer",
@@ -7482,7 +7179,8 @@
         "Git",
         "Classical CV algorithms (SIFT, SURF, optical flow)"
       ],
-      "market_notes_israel": "Israel has a uniquely strong market for CV/Edge AI engineers driven by defense applications (multiple defense primes and startups), autonomous vehicles (Mobileye and its ecosystem), drone technology (Orca AI, defense drone startups), AR/VR (multiple startups), and industrial automation. Companies like Algolight explicitly seek full-stack CV engineers who can operate across sensors, algorithms, and deployment. 8200/military technical backgrounds (especially from image/signal intelligence units) are a significant advantage. The market values engineers who combine computer vision depth with systems-level thinking and ability to work with physics-based sensor data. CUDA/GPU programming experience is a strong differentiator. Companies increasingly demand experience with real-world degraded data rather than only clean benchmarks."
+      "market_notes_israel": "Israel has a uniquely strong market for CV/Edge AI engineers driven by defense applications (multiple defense primes and startups), autonomous vehicles (Mobileye and its ecosystem), drone technology (Orca AI, defense drone startups), AR/VR (multiple startups), and industrial automation. Companies like Algolight explicitly seek full-stack CV engineers who can operate across sensors, algorithms, and deployment. 8200/military technical backgrounds (especially from image/signal intelligence units) are a significant advantage. The market values engineers who combine computer vision depth with systems-level thinking and ability to work with physics-based sensor data. CUDA/GPU programming experience is a strong differentiator. Companies increasingly demand experience with real-world degraded data rather than only clean benchmarks.",
+      "role_family": "AI_ML"
     },
     {
       "role_id": "applied_ai_researcher",
@@ -7522,7 +7220,8 @@
         "LaTeX (for papers)",
         "vector databases"
       ],
-      "market_notes_israel": "Applied AI Researcher roles in Israel typically require an advanced degree (MSc preferred, PhD often preferred at larger companies) in Computer Science, AI, Statistics, or related quantitative fields. Strong demand at companies with unique data assets or complex domain problems \u2014 Motiv8AI (behavioral finance), Nanit (pediatric multimodal data), consumer engagement platforms, cybersecurity AI startups. Distinct from pure 'AI Engineer' roles in expected depth of ML methodology, comfort with ambiguity, and ability to read/apply academic research. Distinct from 'Research Scientist' (pure research) roles at labs like AI21, NVIDIA Israel, or Meta Israel in that applied researchers are expected to own end-to-end production deployment, not just publish papers. Compensation tends to be strong with meaningful equity at early-stage companies."
+      "market_notes_israel": "Applied AI Researcher roles in Israel typically require an advanced degree (MSc preferred, PhD often preferred at larger companies) in Computer Science, AI, Statistics, or related quantitative fields. Strong demand at companies with unique data assets or complex domain problems \u2014 Motiv8AI (behavioral finance), Nanit (pediatric multimodal data), consumer engagement platforms, cybersecurity AI startups. Distinct from pure 'AI Engineer' roles in expected depth of ML methodology, comfort with ambiguity, and ability to read/apply academic research. Distinct from 'Research Scientist' (pure research) roles at labs like AI21, NVIDIA Israel, or Meta Israel in that applied researchers are expected to own end-to-end production deployment, not just publish papers. Compensation tends to be strong with meaningful equity at early-stage companies.",
+      "role_family": "AI_ML"
     },
     {
       "role_id": "prompt_engineer",
@@ -7557,7 +7256,8 @@
         "evaluation frameworks",
         "conversation analytics tools"
       ],
-      "market_notes_israel": "Prompt Engineer is an emerging role in Israel, still relatively rare as a dedicated full-time position but growing. Found primarily at companies building conversational AI products (Sensi.AI, conversational agent startups, customer-service-focused AI companies) or at larger AI-native companies with dedicated AI UX teams. The role often attracts candidates with mixed backgrounds \u2014 linguistics, writing, UX, or junior AI engineering with strong communication skills. Some companies embed prompt engineering as part of AI Engineer roles rather than hiring a dedicated specialist. This role has one of the most accessible entry points for non-CS candidates in AI \u2014 strong writing, systematic thinking, and hands-on LLM experience can compensate for lighter engineering background. However, pure prompt engineering roles rarely survive seniority \u2014 career progression typically involves expanding into broader AI engineering or conversational design leadership."
+      "market_notes_israel": "Prompt Engineer is an emerging role in Israel, still relatively rare as a dedicated full-time position but growing. Found primarily at companies building conversational AI products (Sensi.AI, conversational agent startups, customer-service-focused AI companies) or at larger AI-native companies with dedicated AI UX teams. The role often attracts candidates with mixed backgrounds \u2014 linguistics, writing, UX, or junior AI engineering with strong communication skills. Some companies embed prompt engineering as part of AI Engineer roles rather than hiring a dedicated specialist. This role has one of the most accessible entry points for non-CS candidates in AI \u2014 strong writing, systematic thinking, and hands-on LLM experience can compensate for lighter engineering background. However, pure prompt engineering roles rarely survive seniority \u2014 career progression typically involves expanding into broader AI engineering or conversational design leadership.",
+      "role_family": "AI_ML"
     },
     {
       "role_id": "ai_transformation_lead",
@@ -7596,7 +7296,8 @@
         "documentation platforms",
         "AI governance/compliance tools"
       ],
-      "market_notes_israel": "AI Transformation Lead is a rapidly growing role category in Israel, particularly at (1) regulated industries (banking/fintech like One Zero, insurance, healthcare) where responsible AI adoption requires structured change management; (2) larger SaaS/enterprise companies with significant internal operations to automate (Beamup, Sapiens, inManage); (3) consulting/agency environments (Moburst) helping clients adopt AI. Distinct from Head of AI (who builds AI products) in that this role focuses on AI-as-tool-for-the-business, not AI-as-product. Typical background includes digital transformation, product operations, program management, or management consulting, combined with genuine hands-on AI passion and experience. 5+ years of cross-functional leadership experience is common. This is an excellent target role for business-school graduates with AI fluency and change management skills \u2014 one of the most accessible senior AI-adjacent roles for non-engineers."
+      "market_notes_israel": "AI Transformation Lead is a rapidly growing role category in Israel, particularly at (1) regulated industries (banking/fintech like One Zero, insurance, healthcare) where responsible AI adoption requires structured change management; (2) larger SaaS/enterprise companies with significant internal operations to automate (Beamup, Sapiens, inManage); (3) consulting/agency environments (Moburst) helping clients adopt AI. Distinct from Head of AI (who builds AI products) in that this role focuses on AI-as-tool-for-the-business, not AI-as-product. Typical background includes digital transformation, product operations, program management, or management consulting, combined with genuine hands-on AI passion and experience. 5+ years of cross-functional leadership experience is common. This is an excellent target role for business-school graduates with AI fluency and change management skills \u2014 one of the most accessible senior AI-adjacent roles for non-engineers.",
+      "role_family": "AI_ML"
     },
     {
       "role_id": "head_of_ai",
@@ -7633,7 +7334,8 @@
         "Jira/Linear",
         "strategic planning frameworks"
       ],
-      "market_notes_israel": "Head of AI is one of the fastest-growing senior roles in Israeli tech, with strong demand at early-to-mid-stage startups where it's often the first dedicated AI leadership hire. Typical scope: 3-10 AI engineers and researchers, direct reporting to CTO or CEO at smaller companies. Compensation includes substantial equity (often 0.5-2%+ at seed/Series A). Required experience typically 7-10+ years in ML/AI engineering or research with proven leadership of technical teams. Advanced degree (MSc or PhD) is expected at most companies. This role demands a balance of hands-on depth (still writing code, reviewing architecture) and strategic thinking (roadmap, hiring, build/buy). At Israeli startups, Head of AI is frequently the most senior AI title (VP AI is rare below 100 employees). Strong markets: cybersecurity AI, financial AI, healthcare AI, agentic platforms. 8200 and military technical leadership backgrounds are common and valued."
+      "market_notes_israel": "Head of AI is one of the fastest-growing senior roles in Israeli tech, with strong demand at early-to-mid-stage startups where it's often the first dedicated AI leadership hire. Typical scope: 3-10 AI engineers and researchers, direct reporting to CTO or CEO at smaller companies. Compensation includes substantial equity (often 0.5-2%+ at seed/Series A). Required experience typically 7-10+ years in ML/AI engineering or research with proven leadership of technical teams. Advanced degree (MSc or PhD) is expected at most companies. This role demands a balance of hands-on depth (still writing code, reviewing architecture) and strategic thinking (roadmap, hiring, build/buy). At Israeli startups, Head of AI is frequently the most senior AI title (VP AI is rare below 100 employees). Strong markets: cybersecurity AI, financial AI, healthcare AI, agentic platforms. 8200 and military technical leadership backgrounds are common and valued.",
+      "role_family": "AI_ML"
     },
     {
       "role_id": "vp_ai_chief_ai_officer",
@@ -7669,7 +7371,8 @@
         "organizational design frameworks",
         "external communication platforms"
       ],
-      "market_notes_israel": "VP AI and Chief AI Officer roles remain relatively rare in Israel compared to Head of AI \u2014 typically found at companies with 100+ employees, substantial AI investment, or AI as central to the product thesis. Examples of companies with this level: Nanit (Head of AI at VP-level scope), Moburst (VP of AI for agency services), Swimm (VP of Research for code AI), AI21, larger cybersecurity companies. Often the career progression is Senior AI Engineer \u2192 Head of AI \u2192 VP AI \u2192 Chief AI Officer, typically spanning 12-20+ years of AI/ML career. Required background: proven track record scaling AI teams (20+ engineers), multiple production AI systems deployed at scale, strategic business impact, ideally both IC excellence earlier in career and executive leadership experience later. Advanced degrees common (MSc/PhD). Compensation at the top of Israeli tech executive tier with significant equity. In non-product-AI companies undergoing AI transformation (banks, enterprises), the title is often 'Chief AI Officer' with stronger emphasis on transformation and governance over product development."
+      "market_notes_israel": "VP AI and Chief AI Officer roles remain relatively rare in Israel compared to Head of AI \u2014 typically found at companies with 100+ employees, substantial AI investment, or AI as central to the product thesis. Examples of companies with this level: Nanit (Head of AI at VP-level scope), Moburst (VP of AI for agency services), Swimm (VP of Research for code AI), AI21, larger cybersecurity companies. Often the career progression is Senior AI Engineer \u2192 Head of AI \u2192 VP AI \u2192 Chief AI Officer, typically spanning 12-20+ years of AI/ML career. Required background: proven track record scaling AI teams (20+ engineers), multiple production AI systems deployed at scale, strategic business impact, ideally both IC excellence earlier in career and executive leadership experience later. Advanced degrees common (MSc/PhD). Compensation at the top of Israeli tech executive tier with significant equity. In non-product-AI companies undergoing AI transformation (banks, enterprises), the title is often 'Chief AI Officer' with stronger emphasis on transformation and governance over product development.",
+      "role_family": "AI_ML"
     },
     {
       "role_id": "ai_solutions_engineering_manager",
@@ -7706,7 +7409,8 @@
         "documentation platforms (Notion, Confluence)",
         "technical delivery tools"
       ],
-      "market_notes_israel": "AI Solutions Engineering Manager is an emerging role category in Israel, found primarily at AI-native B2B startups that sell complex AI platforms to enterprise customers. The role is distinct from traditional Solutions Engineering Manager (pure pre-sales) in that AI Solutions Engineers often do significant post-sale implementation work as well \u2014 designing AI workflows, configuring agents, building customer-specific automations. Typical background: 5-8+ years in software engineering, solutions engineering, or technical delivery, with 2+ years leading teams. Strong candidates come from solutions engineering, technical account management, technical program management, or engineering management at SaaS companies. The role requires rare combination of hands-on technical ability (can still build when needed), customer-facing maturity, operational leadership, and interest in AI. Compensation strong with typically lower equity than pure engineering leadership but with performance/delivery bonuses. As the Israeli AI market matures and more AI platforms scale, this role is projected to grow significantly. Note: this role may eventually migrate to a dedicated Solutions Engineering sector when that is built."
+      "market_notes_israel": "AI Solutions Engineering Manager is an emerging role category in Israel, found primarily at AI-native B2B startups that sell complex AI platforms to enterprise customers. The role is distinct from traditional Solutions Engineering Manager (pure pre-sales) in that AI Solutions Engineers often do significant post-sale implementation work as well \u2014 designing AI workflows, configuring agents, building customer-specific automations. Typical background: 5-8+ years in software engineering, solutions engineering, or technical delivery, with 2+ years leading teams. Strong candidates come from solutions engineering, technical account management, technical program management, or engineering management at SaaS companies. The role requires rare combination of hands-on technical ability (can still build when needed), customer-facing maturity, operational leadership, and interest in AI. Compensation strong with typically lower equity than pure engineering leadership but with performance/delivery bonuses. As the Israeli AI market matures and more AI platforms scale, this role is projected to grow significantly. Note: this role may eventually migrate to a dedicated Solutions Engineering sector when that is built.",
+      "role_family": "AI_ML"
     },
     {
       "role_id": "junior_ux_ui_designer",
@@ -7744,7 +7448,9 @@
           "Brand / Marketing Designer"
         ]
       },
-      "market_notes_israel": "Many Israeli startups combine UX and UI into a single designer role from the junior level. Standalone 'UX-only' or 'UI-only' junior positions are rare \u2014 companies expect full-stack design capabilities even at entry level. Design agencies and studios (e.g., Zemingo) offer a strong entry path with exposure to multiple product domains."
+      "market_notes_israel": "Many Israeli startups combine UX and UI into a single designer role from the junior level. Standalone 'UX-only' or 'UI-only' junior positions are rare \u2014 companies expect full-stack design capabilities even at entry level. Design agencies and studios (e.g., Zemingo) offer a strong entry path with exposure to multiple product domains.",
+      "role_family": "Design_UX",
+      "seniority": "Entry"
     },
     {
       "role_id": "product_designer_ux_ui",
@@ -7784,7 +7490,9 @@
           "UX Researcher (specialization)"
         ]
       },
-      "market_notes_israel": "The most in-demand design role in the Israeli tech market. B2B SaaS and cybersecurity companies dominate hiring, creating strong demand for designers who can simplify complex, data-heavy systems. Proficiency in Figma is universally required. AI-assisted design workflows (Claude, Figma Make, Cursor) are increasingly listed as requirements, not just nice-to-haves. English fluency is expected, as most Israeli tech companies serve global markets."
+      "market_notes_israel": "The most in-demand design role in the Israeli tech market. B2B SaaS and cybersecurity companies dominate hiring, creating strong demand for designers who can simplify complex, data-heavy systems. Proficiency in Figma is universally required. AI-assisted design workflows (Claude, Figma Make, Cursor) are increasingly listed as requirements, not just nice-to-haves. English fluency is expected, as most Israeli tech companies serve global markets.",
+      "role_family": "Design_UX",
+      "seniority": "Mid"
     },
     {
       "role_id": "senior_product_designer",
@@ -7825,7 +7533,9 @@
           "Head of Design / VP Design (in smaller companies)"
         ]
       },
-      "market_notes_israel": "Senior Product Designers in Israel are expected to operate with high independence and full ownership of their design domain. The cybersecurity and enterprise SaaS sectors create particularly strong demand for designers experienced with data-heavy dashboards, complex workflows, and data visualization. Companies increasingly expect senior designers to leverage AI tools as part of their standard workflow."
+      "market_notes_israel": "Senior Product Designers in Israel are expected to operate with high independence and full ownership of their design domain. The cybersecurity and enterprise SaaS sectors create particularly strong demand for designers experienced with data-heavy dashboards, complex workflows, and data visualization. Companies increasingly expect senior designers to leverage AI tools as part of their standard workflow.",
+      "role_family": "Design_UX",
+      "seniority": "Senior"
     },
     {
       "role_id": "ux_researcher",
@@ -7868,7 +7578,9 @@
           "Product Manager (research-driven transition)"
         ]
       },
-      "market_notes_israel": "Standalone UX Researcher roles are relatively uncommon in the Israeli market. Most companies embed research responsibilities within the Product Designer role \u2014 designers are expected to conduct their own user research, usability testing, and data analysis. Dedicated UX Research positions tend to appear at larger companies (Wix, Monday.com, Fiverr) or in organizations with mature design teams. This creates an opportunity for research-minded designers to differentiate themselves, but candidates should expect to find fewer dedicated research openings than in the US market."
+      "market_notes_israel": "Standalone UX Researcher roles are relatively uncommon in the Israeli market. Most companies embed research responsibilities within the Product Designer role \u2014 designers are expected to conduct their own user research, usability testing, and data analysis. Dedicated UX Research positions tend to appear at larger companies (Wix, Monday.com, Fiverr) or in organizations with mature design teams. This creates an opportunity for research-minded designers to differentiate themselves, but candidates should expect to find fewer dedicated research openings than in the US market.",
+      "role_family": "Design_UX",
+      "seniority": "Mid"
     },
     {
       "role_id": "design_system_lead",
@@ -7910,7 +7622,9 @@
           "Principal Designer"
         ]
       },
-      "market_notes_israel": "Design System Lead is an emerging standalone role in the Israeli market, primarily found at mid-to-large companies with multiple product lines (BigID, Wix, Monday.com, Check Point). At smaller startups, design system responsibilities are typically distributed across senior designers. Companies scaling from 1-2 products to multi-product suites are the primary hiring market for this role."
+      "market_notes_israel": "Design System Lead is an emerging standalone role in the Israeli market, primarily found at mid-to-large companies with multiple product lines (BigID, Wix, Monday.com, Check Point). At smaller startups, design system responsibilities are typically distributed across senior designers. Companies scaling from 1-2 products to multi-product suites are the primary hiring market for this role.",
+      "role_family": "Design_UX",
+      "seniority": "Lead_Manager"
     },
     {
       "role_id": "design_lead_design_manager",
@@ -7952,7 +7666,9 @@
           "CPO / VP Product (design-to-product leadership transition)"
         ]
       },
-      "market_notes_israel": "Design Lead/Manager roles in Israel are almost universally hybrid IC-manager positions \u2014 companies expect leaders to remain deeply hands-on while managing their team. Pure people-management design roles are rare outside of the largest companies. Strong market demand from B2B SaaS companies scaling their design teams. AI-augmented design workflows are increasingly expected \u2014 leaders are expected to implement AI tools that streamline the design-to-development pipeline."
+      "market_notes_israel": "Design Lead/Manager roles in Israel are almost universally hybrid IC-manager positions \u2014 companies expect leaders to remain deeply hands-on while managing their team. Pure people-management design roles are rare outside of the largest companies. Strong market demand from B2B SaaS companies scaling their design teams. AI-augmented design workflows are increasingly expected \u2014 leaders are expected to implement AI tools that streamline the design-to-development pipeline.",
+      "role_family": "Design_UX",
+      "seniority": "Lead_Manager"
     },
     {
       "role_id": "head_of_design_vp_design",
@@ -7995,7 +7711,9 @@
           "Design executive at larger organization"
         ]
       },
-      "market_notes_israel": "Head of Design / VP Design roles in Israel typically require ownership of both product design and brand/marketing design functions. The role often reports to CPO or CEO. AI-first design vision is becoming a key requirement \u2014 leaders are expected to establish AI-forward design practices and workflows. Companies at Series B+ with 50-500 employees are the primary hiring market. The role is increasingly expected to own how the company communicates its story visually, not just how the product looks and works."
+      "market_notes_israel": "Head of Design / VP Design roles in Israel typically require ownership of both product design and brand/marketing design functions. The role often reports to CPO or CEO. AI-first design vision is becoming a key requirement \u2014 leaders are expected to establish AI-forward design practices and workflows. Companies at Series B+ with 50-500 employees are the primary hiring market. The role is increasingly expected to own how the company communicates its story visually, not just how the product looks and works.",
+      "role_family": "Design_UX",
+      "seniority": "Director_Head"
     },
     {
       "role_id": "brand_marketing_designer",
@@ -8038,7 +7756,9 @@
           "Head of Brand / Creative Director"
         ]
       },
-      "market_notes_israel": "Strong demand in the Israeli tech market, driven by B2B SaaS companies that need to communicate complex technical products through clear, compelling brand visuals. The role is distinct from Product Designer \u2014 it's marketing-facing rather than product-facing, with a focus on campaigns, sales materials, and brand consistency rather than product UX flows. Companies increasingly require proficiency in generative AI tools (Midjourney, Firefly) as a core competency, not just a nice-to-have. Motion design skills (After Effects) are a strong differentiator."
+      "market_notes_israel": "Strong demand in the Israeli tech market, driven by B2B SaaS companies that need to communicate complex technical products through clear, compelling brand visuals. The role is distinct from Product Designer \u2014 it's marketing-facing rather than product-facing, with a focus on campaigns, sales materials, and brand consistency rather than product UX flows. Companies increasingly require proficiency in generative AI tools (Midjourney, Firefly) as a core competency, not just a nice-to-have. Motion design skills (After Effects) are a strong differentiator.",
+      "role_family": "Design_UX",
+      "seniority": "Mid"
     },
     {
       "role_id": "bdr_bd_associate",
@@ -8078,7 +7798,9 @@
           "Partnerships Manager"
         ]
       },
-      "market_notes_israel": "BDR roles in Israel overwhelmingly serve US-market companies, requiring fluent English and willingness to work US hours. AI-powered outbound workflows (using Claude Code, LLM APIs for personalized sequencing) are increasingly listed as requirements, not just nice-to-haves. The role is a proven entry point into tech careers for Reichman business graduates, with clear progression paths into BD management, AE roles, or partnerships."
+      "market_notes_israel": "BDR roles in Israel overwhelmingly serve US-market companies, requiring fluent English and willingness to work US hours. AI-powered outbound workflows (using Claude Code, LLM APIs for personalized sequencing) are increasingly listed as requirements, not just nice-to-haves. The role is a proven entry point into tech careers for Reichman business graduates, with clear progression paths into BD management, AE roles, or partnerships.",
+      "role_family": "BD_Partnerships",
+      "seniority": "Entry"
     },
     {
       "role_id": "business_development_manager",
@@ -8119,7 +7841,9 @@
           "Head of BD / Head of Partnerships"
         ]
       },
-      "market_notes_israel": "BD Manager roles in Israel span multiple industries \u2014 ad-tech, performance marketing, SaaS, cybersecurity, and fintech are the most active hiring segments. Many roles require managing global portfolios (US, Europe) and working across time zones. Data-driven decision-making and analytical skills are consistently emphasized alongside relationship-building abilities. Performance marketing and ad-tech companies often blend BD with account management responsibilities."
+      "market_notes_israel": "BD Manager roles in Israel span multiple industries \u2014 ad-tech, performance marketing, SaaS, cybersecurity, and fintech are the most active hiring segments. Many roles require managing global portfolios (US, Europe) and working across time zones. Data-driven decision-making and analytical skills are consistently emphasized alongside relationship-building abilities. Performance marketing and ad-tech companies often blend BD with account management responsibilities.",
+      "role_family": "BD_Partnerships",
+      "seniority": "Mid"
     },
     {
       "role_id": "partnerships_manager",
@@ -8162,7 +7886,9 @@
           "Channel Sales Manager (Sales sector)"
         ]
       },
-      "market_notes_israel": "Partnerships Manager is a growing role in the Israeli market, especially in SaaS companies building channel and ecosystem strategies. The role is distinct from BD Manager \u2014 focused on managing existing partner relationships and maximizing mutual value rather than hunting net-new business. Companies in IT management (Atera), mobile gaming (Sett), affiliate marketing, and fintech are active hirers. Partner management increasingly requires technical fluency to coordinate integrations and co-selling motions."
+      "market_notes_israel": "Partnerships Manager is a growing role in the Israeli market, especially in SaaS companies building channel and ecosystem strategies. The role is distinct from BD Manager \u2014 focused on managing existing partner relationships and maximizing mutual value rather than hunting net-new business. Companies in IT management (Atera), mobile gaming (Sett), affiliate marketing, and fintech are active hirers. Partner management increasingly requires technical fluency to coordinate integrations and co-selling motions.",
+      "role_family": "BD_Partnerships",
+      "seniority": "Mid"
     },
     {
       "role_id": "senior_bd_manager_strategic_partnerships",
@@ -8205,7 +7931,9 @@
           "General Manager / Country Manager"
         ]
       },
-      "market_notes_israel": "Senior BD and Strategic Partnerships roles in Israel increasingly require experience building partner ecosystems from the ground up, not just managing existing relationships. Cloud, SaaS, and cybersecurity companies are the most active hirers. The role often involves significant international travel and managing relationships across US and European markets. Companies expect a blend of strategic thinking and hands-on execution \u2014 pure strategy roles without deal-closing responsibility are rare."
+      "market_notes_israel": "Senior BD and Strategic Partnerships roles in Israel increasingly require experience building partner ecosystems from the ground up, not just managing existing relationships. Cloud, SaaS, and cybersecurity companies are the most active hirers. The role often involves significant international travel and managing relationships across US and European markets. Companies expect a blend of strategic thinking and hands-on execution \u2014 pure strategy roles without deal-closing responsibility are rare.",
+      "role_family": "BD_Partnerships",
+      "seniority": "Senior"
     },
     {
       "role_id": "head_of_bd_head_of_partnerships",
@@ -8251,7 +7979,9 @@
           "CEO / Founder"
         ]
       },
-      "market_notes_israel": "Head of BD/Partnerships roles in Israel often combine two functions that larger US companies split: SDR/BDR team leadership and strategic partnership development. Companies expect leaders who can both build the outbound engine (hire, coach, set processes) and personally drive executive-level relationships. The role is a strong stepping stone to VP-level positions or general management. Ecosystem-building experience (VC relationships, accelerator partnerships, startup community engagement) is highly valued in the Israeli market."
+      "market_notes_israel": "Head of BD/Partnerships roles in Israel often combine two functions that larger US companies split: SDR/BDR team leadership and strategic partnership development. Companies expect leaders who can both build the outbound engine (hire, coach, set processes) and personally drive executive-level relationships. The role is a strong stepping stone to VP-level positions or general management. Ecosystem-building experience (VC relationships, accelerator partnerships, startup community engagement) is highly valued in the Israeli market.",
+      "role_family": "BD_Partnerships",
+      "seniority": "Director_Head"
     },
     {
       "role_id": "vp_business_development",
@@ -8296,7 +8026,9 @@
           "Board Advisor"
         ]
       },
-      "market_notes_israel": "VP BD roles in Israel are concentrated in growth-stage and late-stage companies (Series B+) with global ambitions. The role requires deep international experience \u2014 managing partnerships across US, European, and APAC markets. Cybersecurity, cloud infrastructure, SaaS, and defense technology companies are the primary hirers. Israeli companies increasingly expect VPs to have experience building channel programs and strategic alliances with major technology vendors (Cisco, AWS, Palo Alto Networks, etc.). Travel is typically 30-50% of the time."
+      "market_notes_israel": "VP BD roles in Israel are concentrated in growth-stage and late-stage companies (Series B+) with global ambitions. The role requires deep international experience \u2014 managing partnerships across US, European, and APAC markets. Cybersecurity, cloud infrastructure, SaaS, and defense technology companies are the primary hirers. Israeli companies increasingly expect VPs to have experience building channel programs and strategic alliances with major technology vendors (Cisco, AWS, Palo Alto Networks, etc.). Travel is typically 30-50% of the time.",
+      "role_family": "BD_Partnerships",
+      "seniority": "VP_Executive"
     },
     {
       "role_id": "junior_consultant_analyst",
@@ -8347,7 +8079,9 @@
         "risk analyst",
         "strategy analyst",
         "audit"
-      ]
+      ],
+      "role_family": "Consulting",
+      "seniority": "Entry"
     },
     {
       "role_id": "consultant",
@@ -8400,7 +8134,9 @@
         "due diligence",
         "financial consulting",
         "transformation"
-      ]
+      ],
+      "role_family": "Consulting",
+      "seniority": "Mid"
     },
     {
       "role_id": "senior_consultant",
@@ -8453,7 +8189,9 @@
         "risk assessment",
         "client leadership",
         "business development"
-      ]
+      ],
+      "role_family": "Consulting",
+      "seniority": "Senior"
     },
     {
       "role_id": "consulting_manager",
@@ -8506,7 +8244,9 @@
         "portfolio management",
         "client executive",
         "P&L management"
-      ]
+      ],
+      "role_family": "Consulting",
+      "seniority": "Lead_Manager"
     },
     {
       "role_id": "principal_director_consulting",
@@ -8555,7 +8295,9 @@
         "managing consultant",
         "thought leader",
         "P&L owner"
-      ]
+      ],
+      "role_family": "Consulting",
+      "seniority": "Director_Head"
     },
     {
       "role_id": "solutions_engineer_junior",
@@ -8618,7 +8360,9 @@
       },
       "typical_experience": "0-3 years in a technical customer-facing role or software development",
       "education": "Bachelor's degree in Computer Science, Information Systems, Industrial Engineering, or equivalent practical experience",
-      "market_notes_israel": "Many Israeli companies (EasySend, WalkMe, Riskified) hire junior SEs under titles like 'Support Solutions Engineer', 'Product Experience Engineer', or 'Customer Success Engineer'. The role often blends technical support with light pre-sales. JavaScript/web proficiency is commonly required given the SaaS-heavy market. Defense/intelligence sector has its own pre-sales track with different requirements (security clearance, military background)."
+      "market_notes_israel": "Many Israeli companies (EasySend, WalkMe, Riskified) hire junior SEs under titles like 'Support Solutions Engineer', 'Product Experience Engineer', or 'Customer Success Engineer'. The role often blends technical support with light pre-sales. JavaScript/web proficiency is commonly required given the SaaS-heavy market. Defense/intelligence sector has its own pre-sales track with different requirements (security clearance, military background).",
+      "role_family": "Solutions_Engineering",
+      "seniority": "Entry"
     },
     {
       "role_id": "solutions_engineer",
@@ -8689,7 +8433,9 @@
       },
       "typical_experience": "3-5 years in a customer-facing technical role (SE, pre-sales, sales engineering, TAM) or equivalent software engineering experience with customer exposure",
       "education": "Bachelor's degree in Computer Science, Engineering, Information Systems, or equivalent practical experience",
-      "market_notes_israel": "The most common SE title in the Israeli market. Companies like Lusha, Entro, Riskified, and Logz.io all hire for this profile. Israeli SEs frequently cover both pre-sale and post-sale technical engagement (unlike the US where these are often split). Hebrew + English fluency typically required. Many roles blend SE with integration engineering \u2014 hands-on API work and middleware (Zapier, Workato) are common expectations. B2B SaaS dominates, with data/observability, cybersecurity, and fintech being the most active verticals."
+      "market_notes_israel": "The most common SE title in the Israeli market. Companies like Lusha, Entro, Riskified, and Logz.io all hire for this profile. Israeli SEs frequently cover both pre-sale and post-sale technical engagement (unlike the US where these are often split). Hebrew + English fluency typically required. Many roles blend SE with integration engineering \u2014 hands-on API work and middleware (Zapier, Workato) are common expectations. B2B SaaS dominates, with data/observability, cybersecurity, and fintech being the most active verticals.",
+      "role_family": "Solutions_Engineering",
+      "seniority": "Mid"
     },
     {
       "role_id": "senior_solutions_engineer",
@@ -8760,7 +8506,9 @@
       },
       "typical_experience": "5-8+ years in solutions engineering, pre-sales, or technical customer-facing roles with domain specialization",
       "education": "Bachelor's degree in Computer Science, Engineering, or related field. Master's degree or relevant certifications (cloud, security, data) are advantageous.",
-      "market_notes_israel": "Senior SE roles in Israel often carry global or regional (EMEA) scope. Companies like Snowflake, Databricks, Akamai, and HPE hire senior SEs in Israel with deep domain expertise (data platforms, networking, cybersecurity, zero trust). Hebrew fluency is typically required for Israel-focused territories. Many senior SEs specialize: data/analytics, security, networking, or AI/ML. The 'trusted advisor' expectation is strong \u2014 Israeli enterprise buyers expect SEs who can go deep technically and also speak business. Travel requirements (15-30%) are common for enterprise accounts."
+      "market_notes_israel": "Senior SE roles in Israel often carry global or regional (EMEA) scope. Companies like Snowflake, Databricks, Akamai, and HPE hire senior SEs in Israel with deep domain expertise (data platforms, networking, cybersecurity, zero trust). Hebrew fluency is typically required for Israel-focused territories. Many senior SEs specialize: data/analytics, security, networking, or AI/ML. The 'trusted advisor' expectation is strong \u2014 Israeli enterprise buyers expect SEs who can go deep technically and also speak business. Travel requirements (15-30%) are common for enterprise accounts.",
+      "role_family": "Solutions_Engineering",
+      "seniority": "Senior"
     },
     {
       "role_id": "solutions_engineering_manager",
@@ -8827,7 +8575,9 @@
       },
       "typical_experience": "5-8+ years total, with 2+ years in a team lead or management role. Strong individual SE background required.",
       "education": "Bachelor's degree in Computer Science, Engineering, or related field. MBA or relevant leadership training is advantageous.",
-      "market_notes_israel": "SE manager roles in Israel often combine pre-sales and post-sale team leadership \u2014 the same manager may own both the POC team and the onboarding/implementation team. Companies like Nominal, Coralogix, and mid-stage startups commonly hire for this hybrid profile. The role frequently includes hands-on customer work alongside management responsibilities, especially at companies with <200 employees. Strong process-building skills are valued because many Israeli startups are formalizing their SE function for the first time as they scale."
+      "market_notes_israel": "SE manager roles in Israel often combine pre-sales and post-sale team leadership \u2014 the same manager may own both the POC team and the onboarding/implementation team. Companies like Nominal, Coralogix, and mid-stage startups commonly hire for this hybrid profile. The role frequently includes hands-on customer work alongside management responsibilities, especially at companies with <200 employees. Strong process-building skills are valued because many Israeli startups are formalizing their SE function for the first time as they scale.",
+      "role_family": "Solutions_Engineering",
+      "seniority": "Lead_Manager"
     },
     {
       "role_id": "head_of_solutions_engineering",
@@ -8898,137 +8648,9 @@
       },
       "typical_experience": "8-15+ years total, with 3-5+ years leading SE or technical delivery teams",
       "education": "Bachelor's degree in Computer Science, Engineering, or related field. MBA or executive education is common at this level.",
-      "market_notes_israel": "Head of SE / VP SE roles in Israel often carry EMEA or global scope, especially at companies like Databricks, NVIDIA, and enterprise SaaS vendors with Israel R&D centers. The role frequently includes building the SE function from scratch for the Israel/EMEA region. At startups (Insait, early-stage AI companies), this role may report directly to the CEO and own the full customer delivery lifecycle including professional services. Enterprise companies expect consumption-based business model experience. Hebrew native + English fluency is standard. The role is increasingly expected to incorporate AI into delivery processes and team operations."
-    },
-    {
-      "role_id": "growth_marketing_manager",
-      "title": "Growth Marketing Manager",
-      "sector": "marketing",
-      "seniority_level": "mid-senior",
-      "description": "Owns experimentation, conversion rate optimization (CRO), and funnel optimization across digital properties. Designs and runs structured A/B tests, manages personalization and engagement tools, and drives measurable improvements in lead generation, activation, and conversion. Works cross-functionally with SEO, lifecycle, product, and regional marketing teams to scale winning experiments across markets.",
-      "responsibilities": [
-        "Own A/B testing strategy, execution, and analysis across websites, landing pages, and in-product experiences",
-        "Drive conversion rate optimization (CRO) across the full funnel \u2014 from acquisition through activation and retention",
-        "Manage and optimize engagement tools such as chatbots, pop-ups, overlays, personalization platforms, and interactive product tours",
-        "Design and run structured experimentation programs with hypothesis development, statistical rigor, and clear success criteria",
-        "Analyze funnel performance, user behavior, and cohort data to identify growth opportunities and prioritize initiatives",
-        "Collaborate cross-functionally with SEO, lifecycle, product marketing, regional marketing, and creative teams",
-        "Build and maintain experimentation roadmaps, balancing speed, quality, and impact",
-        "Scale successful experiments across markets, segments, and channels",
-        "Set, monitor, and report on growth KPIs including conversion rates, lead quality, activation rates, and funnel progression",
-        "Leverage AI and generative AI tools to accelerate experimentation and funnel optimization"
-      ],
-      "required_skills": [
-        "A/B testing and experimentation methodology",
-        "Conversion rate optimization (CRO)",
-        "Funnel analysis and optimization",
-        "Data analysis and interpretation",
-        "Marketing analytics tools (GA4, Mixpanel, Amplitude, Hotjar)",
-        "CRO and engagement tools (Drift, TrenDemon, Navattic, Optimizely, or similar)",
-        "Cross-functional collaboration",
-        "Stakeholder management"
-      ],
-      "tools_commonly_used": [
-        "Google Analytics 4 (GA4)",
-        "Optimizely / VWO / Google Optimize",
-        "Drift / Intercom / chatbot platforms",
-        "TrenDemon / Navattic / interactive demo tools",
-        "Mixpanel / Amplitude",
-        "Hotjar / FullStory / session recording tools",
-        "HubSpot / Marketo / marketing automation",
-        "Looker / Tableau / BI tools",
-        "Figma (for landing page wireframes)",
-        "AI/generative AI tools for content and experimentation"
-      ],
-      "career_paths": {
-        "previous_roles": [
-          "Marketing Coordinator",
-          "Digital Marketing Manager",
-          "Marketing Analyst",
-          "Product Marketing Manager"
-        ],
-        "next_roles": [
-          "Senior Growth Marketing Manager",
-          "Head of Growth",
-          "VP Marketing",
-          "VP Growth",
-          "Director of Marketing"
-        ],
-        "lateral_moves": [
-          "Product Marketing Manager",
-          "Lifecycle Marketing Manager",
-          "Performance Marketing Manager",
-          "Revenue Operations Manager"
-        ]
-      },
-      "market_notes_israel": "Growing demand in Israeli B2B SaaS companies (HiBob, Artlist, Monday.com). Many Israeli companies combine growth marketing with product marketing under a single role. CRO-specific roles are emerging but still relatively rare as standalone positions \u2014 more common in companies with 200+ employees. Strong experimentation culture in Israeli tech aligns well with this role. AI tool fluency increasingly expected."
-    },
-    {
-      "role_id": "performance_marketing_manager",
-      "title": "Performance Marketing Manager",
-      "sector": "marketing",
-      "seniority_level": "mid",
-      "description": "Owns paid acquisition campaigns across major platforms (Meta, Google, TikTok, programmatic) with full responsibility for budgets, ROAS, CPA, and ROI targets. Plans, launches, optimizes, and scales performance campaigns to drive user acquisition or lead generation. Combines deep platform expertise with strong analytical skills to maximize return on ad spend while managing creative collaboration and partner relationships.",
-      "responsibilities": [
-        "Plan, launch, and optimize paid acquisition campaigns across Meta (Facebook/Instagram), Google Ads (Search, UAC, Display), TikTok, and other platforms",
-        "Own campaign budgets and performance metrics including ROAS, CPA, CAC, LTV, and ROI",
-        "Analyze campaign data, user behavior, and attribution to optimize spend allocation and performance",
-        "Design and execute structured A/B tests on creatives, audiences, bidding strategies, and landing pages",
-        "Develop and execute monthly/quarterly media plans aligned with business goals",
-        "Collaborate with creative teams to brief, test, and iterate on ad creatives and marketing assets",
-        "Build and maintain relationships with acquisition partners, ad networks, DSPs, and SDK networks",
-        "Monitor competitive landscape and industry trends to identify new channels and opportunities",
-        "Build performance dashboards and deliver regular reporting on campaign metrics and insights",
-        "Scale successful campaigns while maintaining efficiency targets",
-        "Leverage AI tools for creative generation, bid optimization, and campaign management"
-      ],
-      "required_skills": [
-        "Meta Ads (Facebook/Instagram) campaign management",
-        "Google Ads (Search, UAC, Display, YouTube)",
-        "Campaign optimization and bid strategy",
-        "Data analysis and performance reporting",
-        "A/B testing and experimentation",
-        "Media planning and budget management",
-        "Attribution and tracking (MMPs, pixels, UTMs)",
-        "Creative briefing and collaboration",
-        "Excel / Google Sheets (advanced)"
-      ],
-      "tools_commonly_used": [
-        "Meta Ads Manager",
-        "Google Ads",
-        "TikTok Ads Manager",
-        "Google Analytics 4 (GA4)",
-        "AppsFlyer / Adjust / Branch (MMPs)",
-        "Looker / Tableau / Looker Studio",
-        "Excel / Google Sheets",
-        "Voluum / tracking platforms",
-        "DSP platforms (DV360, The Trade Desk)",
-        "AI creative tools (Midjourney, DALL-E, Runway)",
-        "Amplitude / Mixpanel"
-      ],
-      "career_paths": {
-        "previous_roles": [
-          "Digital Marketing Coordinator",
-          "PPC Specialist",
-          "Campaign Manager",
-          "Junior Performance Marketer",
-          "Marketing Analyst"
-        ],
-        "next_roles": [
-          "Senior Performance Marketing Manager",
-          "Head of Performance",
-          "Head of User Acquisition",
-          "Director of Growth",
-          "VP Marketing"
-        ],
-        "lateral_moves": [
-          "Growth Marketing Manager",
-          "User Acquisition Manager",
-          "Demand Generation Manager",
-          "Marketing Analytics Manager"
-        ]
-      },
-      "market_notes_israel": "Very high demand in Israeli market, particularly in mobile gaming (SuperPlay, Play Perfect, Moon Active), B2C apps (Guardio, Tango), and ad-tech (Amobeez, ZyG). Israeli gaming companies are among the largest global UA spenders. Most roles require Meta + Google expertise; TikTok and programmatic (DSPs, SDK networks) increasingly expected. B2B SaaS performance roles also growing (LinkedIn Ads, Reddit). AI tool fluency for creative generation becoming a standard requirement. Typical budgets range from $500K to multi-million monthly spend."
+      "market_notes_israel": "Head of SE / VP SE roles in Israel often carry EMEA or global scope, especially at companies like Databricks, NVIDIA, and enterprise SaaS vendors with Israel R&D centers. The role frequently includes building the SE function from scratch for the Israel/EMEA region. At startups (Insait, early-stage AI companies), this role may report directly to the CEO and own the full customer delivery lifecycle including professional services. Enterprise companies expect consumption-based business model experience. Hebrew native + English fluency is standard. The role is increasingly expected to incorporate AI into delivery processes and team operations.",
+      "role_family": "Solutions_Engineering",
+      "seniority": "Director_Head"
     },
     {
       "role_id": "it_support_specialist",
@@ -9073,7 +8695,9 @@
           "Head of IT"
         ]
       },
-      "market_notes_israel": "Very high demand across Israeli tech. Most startups (50-300 employees) have 1-2 helpdesk roles. Military IT experience (signal corps, tech units) is commonly accepted in lieu of civilian experience. Hebrew and English fluency typically required. Many listings are hybrid or on-site 2-3 days. Companies like K Health, At-Bay, Paragon, VAST Data, and WINN.AI all actively hiring. Entry point is often 0-2 years experience, making it accessible for recent graduates and post-military candidates."
+      "market_notes_israel": "Very high demand across Israeli tech. Most startups (50-300 employees) have 1-2 helpdesk roles. Military IT experience (signal corps, tech units) is commonly accepted in lieu of civilian experience. Hebrew and English fluency typically required. Many listings are hybrid or on-site 2-3 days. Companies like K Health, At-Bay, Paragon, VAST Data, and WINN.AI all actively hiring. Entry point is often 0-2 years experience, making it accessible for recent graduates and post-military candidates.",
+      "role_family": "IT_Security",
+      "seniority": "Entry"
     },
     {
       "role_id": "it_administrator_sysadmin",
@@ -9122,7 +8746,9 @@
           "CISO / Head of Security"
         ]
       },
-      "market_notes_israel": "Core role in Israeli startups and scale-ups. Companies like Candex, Vetric, Dream, and Papaya Global hire for this profile. Typically requires 3-5 years experience. Many Israeli companies expect the SysAdmin to also handle basic security compliance (ISO 27001, SOC 2) since dedicated GRC hires come later. Scripting skills (PowerShell, Bash) increasingly expected. Zero Trust concepts appearing in requirements. Hebrew and English fluency standard. Cloud platform familiarity (especially Azure and AWS) is becoming a baseline expectation rather than a nice-to-have."
+      "market_notes_israel": "Core role in Israeli startups and scale-ups. Companies like Candex, Vetric, Dream, and Papaya Global hire for this profile. Typically requires 3-5 years experience. Many Israeli companies expect the SysAdmin to also handle basic security compliance (ISO 27001, SOC 2) since dedicated GRC hires come later. Scripting skills (PowerShell, Bash) increasingly expected. Zero Trust concepts appearing in requirements. Hebrew and English fluency standard. Cloud platform familiarity (especially Azure and AWS) is becoming a baseline expectation rather than a nice-to-have.",
+      "role_family": "IT_Security",
+      "seniority": "Mid"
     },
     {
       "role_id": "it_manager",
@@ -9172,7 +8798,9 @@
           "CISO"
         ]
       },
-      "market_notes_israel": "High demand in Israeli startups at the 50-200 employee stage where IT complexity outgrows the SysAdmin model. Companies like Bluewhite, Cye, Beamup, and eyesAtop hire for this profile. Typically requires 5-6+ years experience with strong hands-on capabilities. In Israel, the IT Manager often owns security compliance too (ISO 27001 especially common in defense-adjacent companies). BSc in Computer Science or Engineering frequently required. Budget management and vendor negotiation skills increasingly valued. AI tool evaluation and rollout emerging as a new responsibility \u2014 Beamup explicitly makes this a core part of the role."
+      "market_notes_israel": "High demand in Israeli startups at the 50-200 employee stage where IT complexity outgrows the SysAdmin model. Companies like Bluewhite, Cye, Beamup, and eyesAtop hire for this profile. Typically requires 5-6+ years experience with strong hands-on capabilities. In Israel, the IT Manager often owns security compliance too (ISO 27001 especially common in defense-adjacent companies). BSc in Computer Science or Engineering frequently required. Budget management and vendor negotiation skills increasingly valued. AI tool evaluation and rollout emerging as a new responsibility \u2014 Beamup explicitly makes this a core part of the role.",
+      "role_family": "IT_Security",
+      "seniority": "Lead_Manager"
     },
     {
       "role_id": "security_analyst_soc",
@@ -9221,7 +8849,9 @@
           "CISO / Head of Security"
         ]
       },
-      "market_notes_israel": "Very strong demand in the Israeli cybersecurity ecosystem. Companies like Guardio, Fireblocks, Check Point, Fortinet, Zero Networks, and GeoEdge actively hire. Unit 8200 and intelligence unit alumni are highly sought after \u2014 several listings explicitly mention this as a significant advantage. SQL proficiency is increasingly treated as a must-have, not a nice-to-have. AI/LLM tools for security analysis emerging as an expectation. Many SOC roles in Israel blend traditional monitoring with threat research and data analysis, reflecting the startup culture of wearing multiple hats. Python scripting skills expected for automation."
+      "market_notes_israel": "Very strong demand in the Israeli cybersecurity ecosystem. Companies like Guardio, Fireblocks, Check Point, Fortinet, Zero Networks, and GeoEdge actively hire. Unit 8200 and intelligence unit alumni are highly sought after \u2014 several listings explicitly mention this as a significant advantage. SQL proficiency is increasingly treated as a must-have, not a nice-to-have. AI/LLM tools for security analysis emerging as an expectation. Many SOC roles in Israel blend traditional monitoring with threat research and data analysis, reflecting the startup culture of wearing multiple hats. Python scripting skills expected for automation.",
+      "role_family": "IT_Security",
+      "seniority": "Mid"
     },
     {
       "role_id": "grc_analyst",
@@ -9270,7 +8900,9 @@
           "VP Security"
         ]
       },
-      "market_notes_israel": "Growing rapidly in the Israeli market as startups mature and pursue enterprise customers who require SOC 2 and ISO 27001 certification. Companies like Payoneer, Upwind, Zafran, Port.io, Wix, and Cye actively hiring. Entry-level GRC roles (1-2 years) exist \u2014 Cye and Akita hire junior cybersecurity architects/GRC specialists. The role often combines compliance management with hands-on security engineering in Israeli companies. AI governance (EU AI Act, NIST AI RMF, ISO/IEC 42001) emerging as a new domain \u2014 Payoneer explicitly requires this. FedRAMP experience becoming valuable for companies targeting US federal customers. CISSP, CISM, CISA certifications valued but not always required."
+      "market_notes_israel": "Growing rapidly in the Israeli market as startups mature and pursue enterprise customers who require SOC 2 and ISO 27001 certification. Companies like Payoneer, Upwind, Zafran, Port.io, Wix, and Cye actively hiring. Entry-level GRC roles (1-2 years) exist \u2014 Cye and Akita hire junior cybersecurity architects/GRC specialists. The role often combines compliance management with hands-on security engineering in Israeli companies. AI governance (EU AI Act, NIST AI RMF, ISO/IEC 42001) emerging as a new domain \u2014 Payoneer explicitly requires this. FedRAMP experience becoming valuable for companies targeting US federal customers. CISSP, CISM, CISA certifications valued but not always required.",
+      "role_family": "IT_Security",
+      "seniority": "Mid"
     },
     {
       "role_id": "head_of_it",
@@ -9318,7 +8950,9 @@
           "CISO"
         ]
       },
-      "market_notes_israel": "Common in Israeli companies at the 100-500 employee stage. Guardio and Bringg both hire for this profile. In many Israeli companies this is a 'one-person army' role \u2014 strategic ownership combined with hands-on execution. The role increasingly includes internal security ownership, not just IT operations. AI adoption and security governance emerging as new responsibilities. Companies expect this person to manage external IT service providers while remaining deeply hands-on. Strong communication skills and cross-functional partnership ability are critical. Experience with SOC 2 and ISO 27001 typically required."
+      "market_notes_israel": "Common in Israeli companies at the 100-500 employee stage. Guardio and Bringg both hire for this profile. In many Israeli companies this is a 'one-person army' role \u2014 strategic ownership combined with hands-on execution. The role increasingly includes internal security ownership, not just IT operations. AI adoption and security governance emerging as new responsibilities. Companies expect this person to manage external IT service providers while remaining deeply hands-on. Strong communication skills and cross-functional partnership ability are critical. Experience with SOC 2 and ISO 27001 typically required.",
+      "role_family": "IT_Security",
+      "seniority": "Director_Head"
     },
     {
       "role_id": "ciso_head_of_security",
@@ -9368,7 +9002,9 @@
           "Board Advisory"
         ]
       },
-      "market_notes_israel": "Increasingly critical role in the Israeli ecosystem as companies scale internationally and face enterprise customer security requirements. Guardio and Guardz both actively hiring CISOs. In Israeli startups, the CISO often owns IT as well as security \u2014 the role combines strategic leadership with hands-on execution. IPO preparation experience valued as more Israeli companies go public. AI security governance emerging as a new domain. The role typically requires 5-7+ years of security experience with proven leadership. CISSP, CISM certifications valued. Strong demand for candidates who can serve as the external face of security for customer trust and sales enablement."
+      "market_notes_israel": "Increasingly critical role in the Israeli ecosystem as companies scale internationally and face enterprise customer security requirements. Guardio and Guardz both actively hiring CISOs. In Israeli startups, the CISO often owns IT as well as security \u2014 the role combines strategic leadership with hands-on execution. IPO preparation experience valued as more Israeli companies go public. AI security governance emerging as a new domain. The role typically requires 5-7+ years of security experience with proven leadership. CISSP, CISM certifications valued. Strong demand for candidates who can serve as the external face of security for customer trust and sales enablement.",
+      "role_family": "IT_Security",
+      "seniority": "VP_Executive"
     },
     {
       "role_id": "executive_assistant",
@@ -9415,7 +9051,9 @@
           "Head of People Operations"
         ]
       },
-      "market_notes_israel": "Very common role in Israeli tech companies, often combined with Office Manager responsibilities in startups under 100 employees. Companies like Alison.ai, McKinsey/Iguazio, Keshet International, and Voyantis actively hiring. Military HQ/operations experience (e.g., IDF adjutancy, unit-level operations roles) is frequently cited as an advantage and widely accepted as relevant experience. The role is often a career accelerator \u2014 several listings explicitly frame it as a path to Chief of Staff or operations leadership. Hebrew and English fluency standard. AI tool proficiency (ChatGPT, Gemini, Claude) emerging as an expectation in recent listings."
+      "market_notes_israel": "Very common role in Israeli tech companies, often combined with Office Manager responsibilities in startups under 100 employees. Companies like Alison.ai, McKinsey/Iguazio, Keshet International, and Voyantis actively hiring. Military HQ/operations experience (e.g., IDF adjutancy, unit-level operations roles) is frequently cited as an advantage and widely accepted as relevant experience. The role is often a career accelerator \u2014 several listings explicitly frame it as a path to Chief of Staff or operations leadership. Hebrew and English fluency standard. AI tool proficiency (ChatGPT, Gemini, Claude) emerging as an expectation in recent listings.",
+      "role_family": "Admin_GA",
+      "seniority": "Mid"
     },
     {
       "role_id": "office_manager",
@@ -9462,7 +9100,9 @@
           "Head of People Operations"
         ]
       },
-      "market_notes_israel": "Extremely high demand across Israeli tech \u2014 virtually every company with a physical office hires for this role. Companies like Rubrik, Nexxen, Voyantis, Airis Labs, and Alison.ai actively hiring. The Israeli market strongly values the 'people-person' and culture-building aspects of the role, not just logistics. Part-time (60%) positions common in smaller startups. Often combined with Executive Assistant duties in companies under 80 employees. Entry point is typically 1-2 years of experience, making it accessible post-military. In-office presence 5 days/week is standard. Hebrew and English fluency required."
+      "market_notes_israel": "Extremely high demand across Israeli tech \u2014 virtually every company with a physical office hires for this role. Companies like Rubrik, Nexxen, Voyantis, Airis Labs, and Alison.ai actively hiring. The Israeli market strongly values the 'people-person' and culture-building aspects of the role, not just logistics. Part-time (60%) positions common in smaller startups. Often combined with Executive Assistant duties in companies under 80 employees. Entry point is typically 1-2 years of experience, making it accessible post-military. In-office presence 5 days/week is standard. Hebrew and English fluency required.",
+      "role_family": "Admin_GA",
+      "seniority": "Mid"
     },
     {
       "role_id": "operations_coordinator",
@@ -9508,7 +9148,9 @@
           "Head of Admin / G&A Operations Manager"
         ]
       },
-      "market_notes_israel": "Common entry-level role in Israeli companies, frequently found at larger organizations like JFrog, KPMG, and Bynet. IDF administrative and national service experience widely accepted as relevant background. The role often serves as a launching pad into office management, HR, or business operations. Typically requires 1+ years of experience. Hebrew fluency required, English reading and writing expected. Strong overlap with receptionist duties in smaller companies. ERP system familiarity (especially Priority, which is prevalent in Israel) is an advantage."
+      "market_notes_israel": "Common entry-level role in Israeli companies, frequently found at larger organizations like JFrog, KPMG, and Bynet. IDF administrative and national service experience widely accepted as relevant background. The role often serves as a launching pad into office management, HR, or business operations. Typically requires 1+ years of experience. Hebrew fluency required, English reading and writing expected. Strong overlap with receptionist duties in smaller companies. ERP system familiarity (especially Priority, which is prevalent in Israel) is an advantage.",
+      "role_family": "Admin_GA",
+      "seniority": "Entry"
     },
     {
       "role_id": "procurement_specialist",
@@ -9555,7 +9197,9 @@
           "Head of Admin / G&A Operations Manager"
         ]
       },
-      "market_notes_israel": "Growing demand in Israeli tech as companies scale and formalize purchasing. Silverfort, ThetaRay, Kaltura, Infinidat, KPMG, and XTEND all actively hiring. Typically requires 2-4 years of experience. The Israeli market distinguishes between indirect procurement (SaaS, services, facilities \u2014 common in tech companies) and direct/technical procurement (electronic components, mechanical parts \u2014 common in hardware/defense companies like XTEND). Zip/ZipHQ emerging as the dominant procurement platform in Israeli tech. Hebrew and English fluency required for global vendor management. SAP experience valued at larger organizations. AI tools for sourcing and vendor evaluation appearing in recent listings."
+      "market_notes_israel": "Growing demand in Israeli tech as companies scale and formalize purchasing. Silverfort, ThetaRay, Kaltura, Infinidat, KPMG, and XTEND all actively hiring. Typically requires 2-4 years of experience. The Israeli market distinguishes between indirect procurement (SaaS, services, facilities \u2014 common in tech companies) and direct/technical procurement (electronic components, mechanical parts \u2014 common in hardware/defense companies like XTEND). Zip/ZipHQ emerging as the dominant procurement platform in Israeli tech. Hebrew and English fluency required for global vendor management. SAP experience valued at larger organizations. AI tools for sourcing and vendor evaluation appearing in recent listings.",
+      "role_family": "Admin_GA",
+      "seniority": "Mid"
     },
     {
       "role_id": "facilities_manager",
@@ -9601,7 +9245,9 @@
           "COO"
         ]
       },
-      "market_notes_israel": "Distinct role in larger Israeli organizations (500+ employees) and building management companies. Cal, CBRE, and MAX actively hiring. Licensed electrician certification (\u05d7\u05e9\u05de\u05dc\u05d0\u05d9 \u05de\u05d5\u05e1\u05de\u05da/\u05e8\u05d0\u05e9\u05d9) is often mandatory \u2014 this is a regulated requirement in Israel. Experience managing buildings of 13,000+ sqm is a common baseline. Data Center infrastructure management increasingly relevant as Israeli tech companies grow their physical footprint. 24/7 availability for emergencies is standard. Hebrew fluency required; English less critical than in other tech roles. The role sits at the intersection of technical infrastructure management and HR/employee experience in some organizations (e.g., Cal positions it within the HR leadership team)."
+      "market_notes_israel": "Distinct role in larger Israeli organizations (500+ employees) and building management companies. Cal, CBRE, and MAX actively hiring. Licensed electrician certification (\u05d7\u05e9\u05de\u05dc\u05d0\u05d9 \u05de\u05d5\u05e1\u05de\u05da/\u05e8\u05d0\u05e9\u05d9) is often mandatory \u2014 this is a regulated requirement in Israel. Experience managing buildings of 13,000+ sqm is a common baseline. Data Center infrastructure management increasingly relevant as Israeli tech companies grow their physical footprint. 24/7 availability for emergencies is standard. Hebrew fluency required; English less critical than in other tech roles. The role sits at the intersection of technical infrastructure management and HR/employee experience in some organizations (e.g., Cal positions it within the HR leadership team).",
+      "role_family": "Admin_GA",
+      "seniority": "Mid"
     },
     {
       "role_id": "head_of_admin_ga",
@@ -9650,7 +9296,9 @@
           "Chief of Staff"
         ]
       },
-      "market_notes_israel": "Growing role as Israeli tech companies scale past 100 employees and need consolidated G&A leadership. XTEND, Mesh Security, and Airis Labs represent the archetype. In the Israeli market, this role frequently combines office management, employee experience, procurement, and operational HR under one leader \u2014 reflecting the startup ethos of consolidated ownership. Global operations experience (managing US payroll, EOR structures, multi-country employment) increasingly valued as Israeli companies expand internationally. Experience with Deel and Remote (EOR platforms) is a strong differentiator. Typically requires 4-5+ years of experience. The role often reports to the COO, CEO, or VP HR. Hebrew and English fluency required."
+      "market_notes_israel": "Growing role as Israeli tech companies scale past 100 employees and need consolidated G&A leadership. XTEND, Mesh Security, and Airis Labs represent the archetype. In the Israeli market, this role frequently combines office management, employee experience, procurement, and operational HR under one leader \u2014 reflecting the startup ethos of consolidated ownership. Global operations experience (managing US payroll, EOR structures, multi-country employment) increasingly valued as Israeli companies expand internationally. Experience with Deel and Remote (EOR platforms) is a strong differentiator. Typically requires 4-5+ years of experience. The role often reports to the COO, CEO, or VP HR. Hebrew and English fluency required.",
+      "role_family": "Admin_GA",
+      "seniority": "Director_Head"
     }
   ],
   "classification_logic": {
