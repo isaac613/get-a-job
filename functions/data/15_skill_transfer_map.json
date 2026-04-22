@@ -5,7 +5,7 @@
   "description": "Compact version of the skill transfer map optimized for edge function deployment. Removes redundant fields (titles, sectors, function layers, coverage breakdowns, role_transfer_index) that can be looked up from other library files at runtime. Keeps shared skill lists and core gap skills for direct use in recommendations.",
   "methodology": {
     "scoring": {
-      "description": "For each source→target pair, compute what percentage of the target role's core/secondary/differentiator skills the source role already provides. Apply same weights as fit_scoring_logic (core: 0.6, secondary: 0.3, differentiator: 0.1).",
+      "description": "For each source\u2192target pair, compute what percentage of the target role's core/secondary/differentiator skills the source role already provides. Apply same weights as fit_scoring_logic (core: 0.6, secondary: 0.3, differentiator: 0.1).",
       "weights": {
         "core": 0.6,
         "secondary": 0.3,
@@ -18,7 +18,7 @@
       "pivot": "Score 0.35-0.49. Low overlap, significant reskilling required. Major career change."
     },
     "adjustments": [
-      "Cross-layer transfers (e.g., Analyzer→Influencer) are downgraded from natural to stretch unless score >= 0.80",
+      "Cross-layer transfers (e.g., Analyzer\u2192Influencer) are downgraded from natural to stretch unless score >= 0.80",
       "Seniority jumps of 2+ levels downgrade transfer type by one step",
       "Minimum 2 shared skills required for inclusion",
       "Curated career transfers can boost transfer type based on known real-world transition patterns"
@@ -4872,7 +4872,7 @@
       ],
       "gap_n": 5,
       "curated": true,
-      "curated_note": "Classic consulting exit — structured thinking, executive communication, and cross-functional delivery map directly to CoS."
+      "curated_note": "Classic consulting exit \u2014 structured thinking, executive communication, and cross-functional delivery map directly to CoS."
     },
     {
       "s": "junior_consultant_analyst",
@@ -22500,7 +22500,7 @@
       "s": "customer_success_manager",
       "t": "account_manager",
       "score": 0.425,
-      "type": "pivot",
+      "type": "stretch",
       "gap_d": "medium",
       "sen_gap": 0,
       "shared": [
@@ -22515,7 +22515,9 @@
         "negotiation",
         "upselling_cross_selling"
       ],
-      "gap_n": 5
+      "gap_n": 5,
+      "curated": true,
+      "curated_note": "CSM and AM are adjacent relationship management roles \u2014 customer-facing, retention/growth focused, high skill overlap in practice"
     },
     {
       "s": "cv_edge_ai_engineer",
@@ -23500,7 +23502,7 @@
       "s": "business_analyst",
       "t": "business_ops_manager",
       "score": 0.42,
-      "type": "pivot",
+      "type": "stretch",
       "gap_d": "high",
       "sen_gap": 1,
       "shared": [
@@ -23519,7 +23521,9 @@
         "project_management",
         "stakeholder_management"
       ],
-      "gap_n": 6
+      "gap_n": 6,
+      "curated": true,
+      "curated_note": "Common ops career path \u2014 BAs bring analytical skills and process understanding, need people/operational ownership."
     },
     {
       "s": "business_analyst",
@@ -26487,7 +26491,7 @@
       ],
       "gap_n": 9,
       "curated": true,
-      "curated_note": "BA→PM is a common stepping stone path, especially with analytical and stakeholder management skills."
+      "curated_note": "BA\u2192PM is a common stepping stone path, especially with analytical and stakeholder management skills."
     },
     {
       "s": "business_development_manager",
@@ -32288,7 +32292,7 @@
       ],
       "gap_n": 9,
       "curated": true,
-      "curated_note": "Customer success experience translates to product ops — understanding customer needs, process management, cross-team coordination."
+      "curated_note": "Customer success experience translates to product ops \u2014 understanding customer needs, process management, cross-team coordination."
     },
     {
       "s": "customer_support_representative",
@@ -36733,7 +36737,7 @@
       ],
       "gap_n": 7,
       "curated": true,
-      "curated_note": "SDR→AE is the standard sales career progression."
+      "curated_note": "SDR\u2192AE is the standard sales career progression."
     },
     {
       "s": "marketing_coordinator",
@@ -36774,7 +36778,7 @@
       ],
       "gap_n": 11,
       "curated": true,
-      "curated_note": "CSM→PM is a known path when strong product-adjacent signals exist (customer insight, cross-functional work, ownership)."
+      "curated_note": "CSM\u2192PM is a known path when strong product-adjacent signals exist (customer insight, cross-functional work, ownership)."
     },
     {
       "s": "implementation_specialist",
@@ -36858,6 +36862,1331 @@
       "gap_n": 7,
       "curated": true,
       "curated_note": "HR generalists with organizational and process skills can move into general operations."
+    },
+    {
+      "s": "customer_success_manager",
+      "t": "product_manager",
+      "score": 0.55,
+      "type": "stretch",
+      "gap_d": "large",
+      "sen_gap": 0,
+      "shared": [
+        "data_analysis"
+      ],
+      "gaps": [
+        "agile_scrum",
+        "ai_product_management",
+        "b2b_product_management",
+        "competitive_analysis_product",
+        "cross_functional_collaboration",
+        "customer_discovery_interviews",
+        "go_to_market_product",
+        "prd_writing",
+        "product_discovery",
+        "product_lifecycle_management",
+        "product_metrics",
+        "roadmap_prioritization",
+        "ux_product_design_sense"
+      ],
+      "gap_n": 13,
+      "curated": true,
+      "curated_note": "One of the most common career pivots in tech. CSMs bring customer empathy, product knowledge, and stakeholder management. Gap: technical product skills, roadmapping, prioritization frameworks."
+    },
+    {
+      "s": "sales_development_representative",
+      "t": "account_manager",
+      "score": 0.65,
+      "type": "natural",
+      "gap_d": "large",
+      "sen_gap": 2,
+      "shared": [
+        "crm_management",
+        "customer_communication"
+      ],
+      "gaps": [
+        "account_management",
+        "commercial_mindset",
+        "customer_relationship_management",
+        "data_analysis",
+        "negotiation",
+        "renewal_management",
+        "stakeholder_management",
+        "upselling_cross_selling"
+      ],
+      "gap_n": 8,
+      "curated": true,
+      "curated_note": "Standard sales career progression. SDRs already have prospecting, pipeline, CRM, and customer communication skills."
+    },
+    {
+      "s": "marketing_coordinator",
+      "t": "growth_marketing_manager",
+      "score": 0.6,
+      "type": "natural",
+      "gap_d": "large",
+      "sen_gap": 2,
+      "shared": [],
+      "gaps": [
+        "ai_tool_fluency",
+        "analytical_thinking",
+        "campaign_analytics_attribution",
+        "communication",
+        "conversion_rate_optimization",
+        "creative_strategy_performance",
+        "cross_team_collaboration",
+        "engagement_personalization_tools",
+        "funnel_optimization",
+        "marketing_experimentation",
+        "stakeholder_management",
+        "strategic_thinking"
+      ],
+      "gap_n": 12,
+      "curated": true,
+      "curated_note": "Standard marketing progression. Coordinators already execute campaigns; growth managers own strategy and metrics."
+    },
+    {
+      "s": "sales_development_representative",
+      "t": "customer_success_manager",
+      "score": 0.5,
+      "type": "stretch",
+      "gap_d": "large",
+      "sen_gap": 2,
+      "shared": [
+        "customer_communication"
+      ],
+      "gaps": [
+        "customer_advocacy",
+        "customer_health_monitoring",
+        "customer_relationship_management",
+        "customer_retention",
+        "data_analysis",
+        "onboarding_strategy",
+        "product_adoption",
+        "renewal_management",
+        "sales_collaboration",
+        "stakeholder_management",
+        "value_realization"
+      ],
+      "gap_n": 11,
+      "curated": true,
+      "curated_note": "Very common pivot from sales to CS. SDRs bring communication, CRM, and customer-facing skills. Gap: relationship management depth, retention strategy, product knowledge."
+    },
+    {
+      "s": "customer_success_specialist",
+      "t": "customer_success_manager",
+      "score": 0.8,
+      "type": "natural",
+      "gap_d": "medium",
+      "sen_gap": 1,
+      "shared": [
+        "customer_communication",
+        "customer_relationship_management",
+        "customer_retention",
+        "data_analysis",
+        "onboarding_strategy",
+        "product_adoption",
+        "stakeholder_management"
+      ],
+      "gaps": [
+        "customer_advocacy",
+        "customer_health_monitoring",
+        "renewal_management",
+        "sales_collaboration",
+        "value_realization"
+      ],
+      "gap_n": 5,
+      "curated": true,
+      "curated_note": "Direct career progression \u2014 same track, next seniority level."
+    },
+    {
+      "s": "marketing_assistant",
+      "t": "marketing_coordinator",
+      "score": 0.8,
+      "type": "natural",
+      "gap_d": "medium",
+      "sen_gap": 0,
+      "shared": [
+        "ai_tools_marketing",
+        "canva_design_tools",
+        "content_strategy",
+        "copywriting",
+        "event_marketing",
+        "marketing_analytics",
+        "organization",
+        "social_media_management"
+      ],
+      "gaps": [
+        "b2b_marketing",
+        "community_management",
+        "customer_communication",
+        "influencer_marketing"
+      ],
+      "gap_n": 4,
+      "curated": true,
+      "curated_note": "Direct progression."
+    },
+    {
+      "s": "marketing_intern",
+      "t": "marketing_assistant",
+      "score": 0.8,
+      "type": "natural",
+      "gap_d": "small",
+      "sen_gap": 0,
+      "shared": [
+        "canva_design_tools",
+        "content_strategy",
+        "copywriting",
+        "marketing_analytics",
+        "organization",
+        "social_media_management"
+      ],
+      "gaps": [
+        "ai_tools_marketing",
+        "event_marketing"
+      ],
+      "gap_n": 2,
+      "curated": true,
+      "curated_note": "Direct progression from intern."
+    },
+    {
+      "s": "hr_assistant",
+      "t": "hr_coordinator",
+      "score": 0.8,
+      "type": "natural",
+      "gap_d": "medium",
+      "sen_gap": 0,
+      "shared": [
+        "attention_to_detail",
+        "cross_functional_collaboration",
+        "customer_communication",
+        "employee_lifecycle_management",
+        "hris_management",
+        "organization"
+      ],
+      "gaps": [
+        "employee_experience",
+        "hr_data_analytics",
+        "problem_solving",
+        "talent_acquisition_recruiting"
+      ],
+      "gap_n": 4,
+      "curated": true,
+      "curated_note": "Direct progression."
+    },
+    {
+      "s": "hr_coordinator",
+      "t": "hr_generalist",
+      "score": 0.7,
+      "type": "natural",
+      "gap_d": "medium",
+      "sen_gap": 1,
+      "shared": [
+        "cross_functional_collaboration",
+        "employee_experience",
+        "employee_lifecycle_management",
+        "hr_data_analytics",
+        "hris_management",
+        "organization",
+        "talent_acquisition_recruiting"
+      ],
+      "gaps": [
+        "analytical_thinking",
+        "employer_branding",
+        "israeli_labor_law",
+        "learning_development",
+        "performance_management"
+      ],
+      "gap_n": 5,
+      "curated": true,
+      "curated_note": "Common HR career path."
+    },
+    {
+      "s": "hr_coordinator",
+      "t": "talent_acquisition_specialist",
+      "score": 0.65,
+      "type": "natural",
+      "gap_d": "medium",
+      "sen_gap": 2,
+      "shared": [
+        "cross_functional_collaboration",
+        "customer_communication",
+        "hr_data_analytics",
+        "organization",
+        "talent_acquisition_recruiting"
+      ],
+      "gaps": [
+        "ai_tools_marketing",
+        "analytical_thinking",
+        "employer_branding",
+        "process_improvement",
+        "stakeholder_management"
+      ],
+      "gap_n": 5,
+      "curated": true,
+      "curated_note": "Lateral into recruiting track."
+    },
+    {
+      "s": "recruitment_coordinator",
+      "t": "talent_acquisition_specialist",
+      "score": 0.75,
+      "type": "natural",
+      "gap_d": "medium",
+      "sen_gap": 2,
+      "shared": [
+        "analytical_thinking",
+        "cross_functional_collaboration",
+        "customer_communication",
+        "hr_data_analytics",
+        "organization",
+        "talent_acquisition_recruiting"
+      ],
+      "gaps": [
+        "ai_tools_marketing",
+        "employer_branding",
+        "process_improvement",
+        "stakeholder_management"
+      ],
+      "gap_n": 4,
+      "curated": true,
+      "curated_note": "Direct progression in recruiting."
+    },
+    {
+      "s": "sales_associate",
+      "t": "sales_representative",
+      "score": 0.75,
+      "type": "natural",
+      "gap_d": "medium",
+      "sen_gap": 1,
+      "shared": [
+        "analytical_thinking",
+        "crm_management",
+        "customer_communication",
+        "outbound_prospecting",
+        "sales_tools_proficiency"
+      ],
+      "gaps": [
+        "consultative_selling",
+        "deal_closing",
+        "discovery_calls",
+        "objection_handling",
+        "pipeline_management",
+        "product_knowledge"
+      ],
+      "gap_n": 6,
+      "curated": true,
+      "curated_note": "Direct sales progression."
+    },
+    {
+      "s": "sales_representative",
+      "t": "account_executive",
+      "score": 0.75,
+      "type": "natural",
+      "gap_d": "small",
+      "sen_gap": 1,
+      "shared": [
+        "consultative_selling",
+        "crm_management",
+        "customer_communication",
+        "deal_closing",
+        "discovery_calls",
+        "objection_handling",
+        "outbound_prospecting",
+        "pipeline_management",
+        "product_knowledge",
+        "sales_tools_proficiency"
+      ],
+      "gaps": [
+        "negotiation",
+        "quota_attainment",
+        "saas_sales"
+      ],
+      "gap_n": 3,
+      "curated": true,
+      "curated_note": "Standard sales progression."
+    },
+    {
+      "s": "operations_associate",
+      "t": "operations_analyst",
+      "score": 0.75,
+      "type": "natural",
+      "gap_d": "large",
+      "sen_gap": 1,
+      "shared": [
+        "attention_to_detail",
+        "data_analysis",
+        "problem_solving",
+        "process_improvement"
+      ],
+      "gaps": [
+        "analytical_thinking",
+        "bizops_process_automation",
+        "dashboarding",
+        "excel_advanced_finance",
+        "requirements_gathering",
+        "revops_crm_administration",
+        "sql"
+      ],
+      "gap_n": 7,
+      "curated": true,
+      "curated_note": "Direct progression."
+    },
+    {
+      "s": "operations_analyst",
+      "t": "business_ops_analyst",
+      "score": 0.7,
+      "type": "natural",
+      "gap_d": "medium",
+      "sen_gap": 1,
+      "shared": [
+        "attention_to_detail",
+        "bizops_process_automation",
+        "data_analysis",
+        "excel_advanced_finance",
+        "problem_solving",
+        "process_improvement",
+        "revops_crm_administration"
+      ],
+      "gaps": [
+        "bizops_enablement_training",
+        "erp_systems_finance",
+        "project_management",
+        "revops_commercial_analytics",
+        "saas_finance_metrics",
+        "technical_communication"
+      ],
+      "gap_n": 6,
+      "curated": true,
+      "curated_note": "Closely related operations track."
+    },
+    {
+      "s": "junior_business_analyst",
+      "t": "business_analyst",
+      "score": 0.8,
+      "type": "natural",
+      "gap_d": "medium",
+      "sen_gap": 2,
+      "shared": [
+        "bi_tools",
+        "dashboarding",
+        "data_analysis",
+        "excel_advanced_finance",
+        "problem_solving",
+        "requirements_gathering",
+        "sql",
+        "technical_communication"
+      ],
+      "gaps": [
+        "bizops_process_automation",
+        "python_data",
+        "revops_commercial_analytics",
+        "revops_crm_administration",
+        "revops_gtm_process_design"
+      ],
+      "gap_n": 5,
+      "curated": true,
+      "curated_note": "Direct seniority progression."
+    },
+    {
+      "s": "business_operations_associate",
+      "t": "business_ops_analyst",
+      "score": 0.75,
+      "type": "natural",
+      "gap_d": "large",
+      "sen_gap": 2,
+      "shared": [
+        "attention_to_detail",
+        "bizops_process_automation",
+        "data_analysis",
+        "excel_advanced_finance",
+        "problem_solving",
+        "process_improvement"
+      ],
+      "gaps": [
+        "bizops_enablement_training",
+        "erp_systems_finance",
+        "project_management",
+        "revops_commercial_analytics",
+        "revops_crm_administration",
+        "saas_finance_metrics",
+        "technical_communication"
+      ],
+      "gap_n": 7,
+      "curated": true,
+      "curated_note": "Direct progression."
+    },
+    {
+      "s": "junior_consultant",
+      "t": "management_consultant",
+      "score": 0.8,
+      "type": "natural",
+      "gap_d": "medium",
+      "sen_gap": 2,
+      "shared": [
+        "analytical_thinking",
+        "consulting_methodology",
+        "data_analysis",
+        "presentation_skills",
+        "strategic_thinking"
+      ],
+      "gaps": [
+        "coaching",
+        "cross_functional_collaboration",
+        "domain_expertise",
+        "financial_modeling",
+        "problem_solving",
+        "stakeholder_management"
+      ],
+      "gap_n": 6,
+      "curated": true,
+      "curated_note": "Direct consulting progression."
+    },
+    {
+      "s": "strategy_analyst",
+      "t": "management_consultant",
+      "score": 0.7,
+      "type": "natural",
+      "gap_d": "small",
+      "sen_gap": 1,
+      "shared": [
+        "analytical_thinking",
+        "consulting_methodology",
+        "cross_functional_collaboration",
+        "data_analysis",
+        "domain_expertise",
+        "financial_modeling",
+        "presentation_skills",
+        "problem_solving",
+        "strategic_thinking"
+      ],
+      "gaps": [
+        "coaching",
+        "stakeholder_management"
+      ],
+      "gap_n": 2,
+      "curated": true,
+      "curated_note": "Common strategy-to-consulting path."
+    },
+    {
+      "s": "partnerships_associate",
+      "t": "channel_partner_manager",
+      "score": 0.65,
+      "type": "natural",
+      "gap_d": "large",
+      "sen_gap": 2,
+      "shared": [
+        "analytical_thinking",
+        "commercial_mindset",
+        "crm_management",
+        "customer_communication",
+        "pipeline_management",
+        "relationship_building"
+      ],
+      "gaps": [
+        "channel_partner_management",
+        "cross_functional_collaboration",
+        "go_to_market_strategy",
+        "negotiation",
+        "saas_sales",
+        "sales_enablement",
+        "stakeholder_management"
+      ],
+      "gap_n": 7,
+      "curated": true,
+      "curated_note": "Common BD progression."
+    },
+    {
+      "s": "social_media_coordinator",
+      "t": "social_media_manager",
+      "score": 0.8,
+      "type": "natural",
+      "gap_d": "medium",
+      "sen_gap": 0,
+      "shared": [
+        "ai_tools_marketing",
+        "canva_design_tools",
+        "community_management",
+        "content_strategy",
+        "copywriting",
+        "marketing_analytics",
+        "organization",
+        "social_media_management"
+      ],
+      "gaps": [
+        "ab_testing_marketing",
+        "customer_communication",
+        "influencer_marketing",
+        "performance_marketing"
+      ],
+      "gap_n": 4,
+      "curated": true,
+      "curated_note": "Direct progression."
+    },
+    {
+      "s": "event_coordinator",
+      "t": "event_manager",
+      "score": 0.8,
+      "type": "natural",
+      "gap_d": "medium",
+      "sen_gap": 1,
+      "shared": [
+        "content_strategy",
+        "cross_functional_collaboration",
+        "event_marketing",
+        "marketing_analytics",
+        "project_management"
+      ],
+      "gaps": [
+        "analytical_thinking",
+        "demand_generation",
+        "performance_marketing",
+        "stakeholder_management"
+      ],
+      "gap_n": 4,
+      "curated": true,
+      "curated_note": "Direct progression."
+    },
+    {
+      "s": "financial_analyst",
+      "t": "fpa_analyst",
+      "score": 0.75,
+      "type": "natural",
+      "gap_d": "medium",
+      "sen_gap": 1,
+      "shared": [
+        "analytical_thinking",
+        "budget_forecasting",
+        "bva_analysis",
+        "dashboarding",
+        "data_analysis",
+        "excel_advanced_finance",
+        "financial_modeling",
+        "presentation_skills",
+        "saas_finance_metrics"
+      ],
+      "gaps": [
+        "epm_planning_tools",
+        "erp_systems_finance",
+        "finance_business_partnering",
+        "sql_advanced"
+      ],
+      "gap_n": 4,
+      "curated": true,
+      "curated_note": "Common finance track."
+    },
+    {
+      "s": "financial_analyst",
+      "t": "senior_fpa_analyst",
+      "score": 0.55,
+      "type": "stretch",
+      "gap_d": "large",
+      "sen_gap": 2,
+      "shared": [
+        "budget_forecasting",
+        "bva_analysis",
+        "data_analysis",
+        "excel_advanced_finance",
+        "financial_modeling",
+        "presentation_skills",
+        "saas_finance_metrics"
+      ],
+      "gaps": [
+        "cash_flow_management",
+        "coaching",
+        "epm_planning_tools",
+        "erp_systems_finance",
+        "finance_business_partnering",
+        "investor_relations_finance",
+        "stakeholder_management"
+      ],
+      "gap_n": 7,
+      "curated": true,
+      "curated_note": "Stretch to senior within same track."
+    },
+    {
+      "s": "growth_analyst",
+      "t": "growth_marketing_manager",
+      "score": 0.65,
+      "type": "natural",
+      "gap_d": "large",
+      "sen_gap": 1,
+      "shared": [
+        "analytical_thinking",
+        "conversion_rate_optimization",
+        "funnel_optimization",
+        "marketing_experimentation"
+      ],
+      "gaps": [
+        "ai_tool_fluency",
+        "campaign_analytics_attribution",
+        "communication",
+        "creative_strategy_performance",
+        "cross_team_collaboration",
+        "engagement_personalization_tools",
+        "stakeholder_management",
+        "strategic_thinking"
+      ],
+      "gap_n": 8,
+      "curated": true,
+      "curated_note": "Standard growth career path."
+    },
+    {
+      "s": "revenue_analyst",
+      "t": "sales_operations_manager",
+      "score": 0.65,
+      "type": "natural",
+      "gap_d": "large",
+      "sen_gap": 1,
+      "shared": [
+        "analytical_thinking",
+        "dashboarding",
+        "data_analysis",
+        "sql"
+      ],
+      "gaps": [
+        "crm_management",
+        "cross_functional_collaboration",
+        "marketing_analytics",
+        "process_design",
+        "process_improvement",
+        "revenue_operations",
+        "salesforce",
+        "systems_thinking",
+        "workflow_automation"
+      ],
+      "gap_n": 9,
+      "curated": true,
+      "curated_note": "Revenue analytics to ops management."
+    },
+    {
+      "s": "demand_generation_manager",
+      "t": "head_of_marketing",
+      "score": 0.55,
+      "type": "stretch",
+      "gap_d": "large",
+      "sen_gap": 3,
+      "shared": [
+        "ai_tools_marketing",
+        "b2b_marketing",
+        "demand_generation",
+        "marketing_analytics",
+        "performance_marketing",
+        "product_positioning"
+      ],
+      "gaps": [
+        "account_based_marketing",
+        "brand_management",
+        "commercial_mindset",
+        "cross_functional_alignment",
+        "go_to_market_strategy",
+        "organizational_design",
+        "people_management"
+      ],
+      "gap_n": 7,
+      "curated": true,
+      "curated_note": "Mid to senior marketing leadership."
+    },
+    {
+      "s": "technical_support_specialist",
+      "t": "technical_support_engineer",
+      "score": 0.75,
+      "type": "natural",
+      "gap_d": "small",
+      "sen_gap": 1,
+      "shared": [
+        "analytical_thinking",
+        "api_integrations",
+        "customer_communication",
+        "debugging",
+        "problem_solving",
+        "technical_communication",
+        "technical_documentation",
+        "technical_troubleshooting"
+      ],
+      "gaps": [
+        "cloud_tools",
+        "cross_functional_collaboration"
+      ],
+      "gap_n": 2,
+      "curated": true,
+      "curated_note": "Direct progression."
+    },
+    {
+      "s": "solutions_consultant",
+      "t": "head_of_solutions_engineering",
+      "score": 0.45,
+      "type": "stretch",
+      "gap_d": "large",
+      "sen_gap": 3,
+      "shared": [
+        "ai_tool_fluency",
+        "cross_team_collaboration",
+        "customer_technical_relationship",
+        "solution_design_architecture",
+        "technical_sales_acumen"
+      ],
+      "gaps": [
+        "ai_strategy",
+        "change_management",
+        "competitive_positioning",
+        "delivery_methodology",
+        "domain_expertise",
+        "executive_leadership",
+        "executive_presentation",
+        "gtm_strategy",
+        "hiring_talent_acquisition",
+        "people_management",
+        "relationship_building",
+        "se_team_leadership",
+        "stakeholder_management",
+        "strategic_thinking",
+        "technical_content_creation"
+      ],
+      "gap_n": 15,
+      "curated": true,
+      "curated_note": "Large seniority gap but adjacent skills."
+    },
+    {
+      "s": "pre_sales_engineer",
+      "t": "solutions_consultant",
+      "score": 0.75,
+      "type": "natural",
+      "gap_d": "medium",
+      "sen_gap": 0,
+      "shared": [
+        "ai_tool_fluency",
+        "poc_management",
+        "product_demonstration",
+        "solution_design_architecture",
+        "sql",
+        "technical_discovery",
+        "technical_sales_acumen"
+      ],
+      "gaps": [
+        "communication",
+        "crm_management",
+        "cross_team_collaboration",
+        "customer_technical_relationship"
+      ],
+      "gap_n": 4,
+      "curated": true,
+      "curated_note": "Lateral within solutions engineering."
+    },
+    {
+      "s": "customer_success_specialist",
+      "t": "account_manager",
+      "score": 0.55,
+      "type": "stretch",
+      "gap_d": "medium",
+      "sen_gap": 1,
+      "shared": [
+        "crm_management",
+        "customer_communication",
+        "customer_relationship_management",
+        "data_analysis",
+        "stakeholder_management",
+        "upselling_cross_selling"
+      ],
+      "gaps": [
+        "account_management",
+        "commercial_mindset",
+        "negotiation",
+        "renewal_management"
+      ],
+      "gap_n": 4,
+      "curated": true,
+      "curated_note": "Both are customer-facing relationship roles with CRM and communication overlap."
+    },
+    {
+      "s": "sales_representative",
+      "t": "customer_success_manager",
+      "score": 0.5,
+      "type": "stretch",
+      "gap_d": "large",
+      "sen_gap": 1,
+      "shared": [
+        "customer_communication"
+      ],
+      "gaps": [
+        "customer_advocacy",
+        "customer_health_monitoring",
+        "customer_relationship_management",
+        "customer_retention",
+        "data_analysis",
+        "onboarding_strategy",
+        "product_adoption",
+        "renewal_management",
+        "sales_collaboration",
+        "stakeholder_management",
+        "value_realization"
+      ],
+      "gap_n": 11,
+      "curated": true,
+      "curated_note": "Common pivot \u2014 sales reps bring communication and CRM but need retention depth."
+    },
+    {
+      "s": "operations_analyst",
+      "t": "project_manager",
+      "score": 0.5,
+      "type": "stretch",
+      "gap_d": "large",
+      "sen_gap": 1,
+      "shared": [
+        "analytical_thinking",
+        "attention_to_detail",
+        "problem_solving",
+        "process_improvement"
+      ],
+      "gaps": [
+        "agile_methodology",
+        "ai_tool_fluency",
+        "communication",
+        "cross_functional_collaboration",
+        "customer_communication",
+        "delivery_execution",
+        "project_management",
+        "risk_management",
+        "stakeholder_management"
+      ],
+      "gap_n": 9,
+      "curated": true,
+      "curated_note": "Both involve process and cross-functional coordination; PM adds execution ownership."
+    },
+    {
+      "s": "financial_analyst",
+      "t": "business_ops_analyst",
+      "score": 0.6,
+      "type": "natural",
+      "gap_d": "large",
+      "sen_gap": 1,
+      "shared": [
+        "data_analysis",
+        "excel_advanced_finance",
+        "saas_finance_metrics"
+      ],
+      "gaps": [
+        "attention_to_detail",
+        "bizops_enablement_training",
+        "bizops_process_automation",
+        "erp_systems_finance",
+        "problem_solving",
+        "process_improvement",
+        "project_management",
+        "revops_commercial_analytics",
+        "revops_crm_administration",
+        "technical_communication"
+      ],
+      "gap_n": 10,
+      "curated": true,
+      "curated_note": "Close track \u2014 both finance-adjacent analytical roles."
+    },
+    {
+      "s": "strategy_analyst",
+      "t": "business_ops_analyst",
+      "score": 0.55,
+      "type": "stretch",
+      "gap_d": "large",
+      "sen_gap": 1,
+      "shared": [
+        "data_analysis",
+        "excel_advanced_finance",
+        "problem_solving"
+      ],
+      "gaps": [
+        "attention_to_detail",
+        "bizops_enablement_training",
+        "bizops_process_automation",
+        "erp_systems_finance",
+        "process_improvement",
+        "project_management",
+        "revops_commercial_analytics",
+        "revops_crm_administration",
+        "saas_finance_metrics",
+        "technical_communication"
+      ],
+      "gap_n": 10,
+      "curated": true,
+      "curated_note": "Strategy analysts bring analytical skills; BizOps adds operational execution."
+    },
+    {
+      "s": "marketing_assistant",
+      "t": "social_media_coordinator",
+      "score": 0.65,
+      "type": "natural",
+      "gap_d": "small",
+      "sen_gap": 0,
+      "shared": [
+        "ai_tools_marketing",
+        "canva_design_tools",
+        "content_strategy",
+        "copywriting",
+        "marketing_analytics",
+        "organization",
+        "social_media_management"
+      ],
+      "gaps": [
+        "community_management"
+      ],
+      "gap_n": 1,
+      "curated": true,
+      "curated_note": "Natural lateral in early marketing career."
+    },
+    {
+      "s": "brand_manager",
+      "t": "product_marketing_manager",
+      "score": 0.6,
+      "type": "stretch",
+      "gap_d": "large",
+      "sen_gap": 0,
+      "shared": [
+        "ai_tools_marketing",
+        "b2b_marketing",
+        "content_strategy",
+        "copywriting",
+        "cross_functional_collaboration",
+        "product_positioning"
+      ],
+      "gaps": [
+        "analytical_thinking",
+        "customer_discovery",
+        "go_to_market_strategy",
+        "market_research",
+        "presentation_skills",
+        "product_knowledge",
+        "sales_enablement"
+      ],
+      "gap_n": 7,
+      "curated": true,
+      "curated_note": "Adjacent marketing disciplines \u2014 brand to product marketing."
+    },
+    {
+      "s": "event_coordinator",
+      "t": "marketing_coordinator",
+      "score": 0.6,
+      "type": "natural",
+      "gap_d": "medium",
+      "sen_gap": -1,
+      "shared": [
+        "content_strategy",
+        "copywriting",
+        "customer_communication",
+        "event_marketing",
+        "marketing_analytics",
+        "organization",
+        "social_media_management"
+      ],
+      "gaps": [
+        "ai_tools_marketing",
+        "b2b_marketing",
+        "canva_design_tools",
+        "community_management",
+        "influencer_marketing"
+      ],
+      "gap_n": 5,
+      "curated": true,
+      "curated_note": "Close marketing roles with overlapping skill set."
+    },
+    {
+      "s": "management_consultant",
+      "t": "strategy_ops_manager",
+      "score": 0.6,
+      "type": "natural",
+      "gap_d": "large",
+      "sen_gap": 1,
+      "shared": [
+        "consulting_methodology",
+        "data_analysis",
+        "stakeholder_management",
+        "strategic_thinking"
+      ],
+      "gaps": [
+        "bizops_business_case_development",
+        "bizops_cross_functional_execution",
+        "bizops_executive_communication",
+        "bizops_executive_operating_rhythm",
+        "bizops_okr_framework",
+        "bizops_operational_scaling",
+        "excel_advanced_finance",
+        "project_management",
+        "revops_commercial_analytics",
+        "saas_finance_metrics",
+        "sql"
+      ],
+      "gap_n": 11,
+      "curated": true,
+      "curated_note": "Classic consulting exit path into strategy/operations."
+    },
+    {
+      "s": "growth_analyst",
+      "t": "data_analyst",
+      "score": 0.55,
+      "type": "stretch",
+      "gap_d": "large",
+      "sen_gap": 1,
+      "shared": [
+        "ab_testing",
+        "analytical_thinking",
+        "dashboarding",
+        "data_analysis",
+        "statistical_analysis"
+      ],
+      "gaps": [
+        "bi_tools",
+        "cloud_data_platforms",
+        "data_storytelling",
+        "experimentation_framework",
+        "product_analytics_expertise",
+        "python_data",
+        "requirements_gathering",
+        "sql_advanced"
+      ],
+      "gap_n": 8,
+      "curated": true,
+      "curated_note": "Growth analysts have analytical skills; data analyst is a pure analytics track."
+    },
+    {
+      "s": "revenue_analyst",
+      "t": "business_ops_analyst",
+      "score": 0.7,
+      "type": "natural",
+      "gap_d": "large",
+      "sen_gap": 1,
+      "shared": [
+        "bizops_process_automation",
+        "data_analysis",
+        "excel_advanced_finance",
+        "revops_commercial_analytics",
+        "revops_crm_administration",
+        "saas_finance_metrics"
+      ],
+      "gaps": [
+        "attention_to_detail",
+        "bizops_enablement_training",
+        "erp_systems_finance",
+        "problem_solving",
+        "process_improvement",
+        "project_management",
+        "technical_communication"
+      ],
+      "gap_n": 7,
+      "curated": true,
+      "curated_note": "Overlapping analytical/operations skill sets."
+    },
+    {
+      "s": "demand_generation_manager",
+      "t": "growth_marketing_manager",
+      "score": 0.7,
+      "type": "natural",
+      "gap_d": "large",
+      "sen_gap": 0,
+      "shared": [
+        "analytical_thinking",
+        "campaign_analytics_attribution"
+      ],
+      "gaps": [
+        "ai_tool_fluency",
+        "communication",
+        "conversion_rate_optimization",
+        "creative_strategy_performance",
+        "cross_team_collaboration",
+        "engagement_personalization_tools",
+        "funnel_optimization",
+        "marketing_experimentation",
+        "stakeholder_management",
+        "strategic_thinking"
+      ],
+      "gap_n": 10,
+      "curated": true,
+      "curated_note": "Close marketing disciplines \u2014 demand gen and growth share core methods."
+    },
+    {
+      "s": "solutions_consultant",
+      "t": "customer_success_manager",
+      "score": 0.5,
+      "type": "stretch",
+      "gap_d": "large",
+      "sen_gap": 0,
+      "shared": [],
+      "gaps": [
+        "customer_advocacy",
+        "customer_communication",
+        "customer_health_monitoring",
+        "customer_relationship_management",
+        "customer_retention",
+        "data_analysis",
+        "onboarding_strategy",
+        "product_adoption",
+        "renewal_management",
+        "sales_collaboration",
+        "stakeholder_management",
+        "value_realization"
+      ],
+      "gap_n": 12,
+      "curated": true,
+      "curated_note": "Technical consulting and CS both involve customer relationship and adoption work."
+    },
+    {
+      "s": "talent_acquisition_specialist",
+      "t": "talent_acquisition_manager",
+      "score": 0.7,
+      "type": "natural",
+      "gap_d": "medium",
+      "sen_gap": 1,
+      "shared": [
+        "ai_tools_marketing",
+        "analytical_thinking",
+        "cross_functional_collaboration",
+        "employer_branding",
+        "hr_data_analytics",
+        "process_improvement",
+        "stakeholder_management",
+        "talent_acquisition_recruiting"
+      ],
+      "gaps": [
+        "coaching",
+        "data_analysis",
+        "organizational_development",
+        "people_management"
+      ],
+      "gap_n": 4,
+      "curated": true,
+      "curated_note": "Direct progression within TA track \u2014 IC to manager."
+    },
+    {
+      "s": "talent_acquisition_specialist",
+      "t": "hr_generalist",
+      "score": 0.55,
+      "type": "stretch",
+      "gap_d": "medium",
+      "sen_gap": 2,
+      "shared": [
+        "analytical_thinking",
+        "cross_functional_collaboration",
+        "employer_branding",
+        "hr_data_analytics",
+        "organization",
+        "talent_acquisition_recruiting"
+      ],
+      "gaps": [
+        "employee_experience",
+        "employee_lifecycle_management",
+        "hris_management",
+        "israeli_labor_law",
+        "learning_development",
+        "performance_management"
+      ],
+      "gap_n": 6,
+      "curated": true,
+      "curated_note": "Lateral across HR disciplines with overlapping skill set."
+    },
+    {
+      "s": "talent_acquisition_specialist",
+      "t": "hr_manager",
+      "score": 0.45,
+      "type": "stretch",
+      "gap_d": "large",
+      "sen_gap": 2,
+      "shared": [
+        "analytical_thinking",
+        "employer_branding",
+        "hr_data_analytics",
+        "talent_acquisition_recruiting"
+      ],
+      "gaps": [
+        "compensation_benefits",
+        "employee_lifecycle_management",
+        "hr_business_partnering",
+        "hris_management",
+        "israeli_labor_law",
+        "learning_development",
+        "organizational_development",
+        "people_management",
+        "systems_thinking"
+      ],
+      "gap_n": 9,
+      "curated": true,
+      "curated_note": "Senior move across HR disciplines \u2014 needs broader HR leadership."
+    },
+    {
+      "s": "event_manager",
+      "t": "marketing_manager",
+      "score": 0.6,
+      "type": "natural",
+      "gap_d": "medium",
+      "sen_gap": 1,
+      "shared": [
+        "content_strategy",
+        "cross_functional_collaboration",
+        "demand_generation",
+        "event_marketing",
+        "marketing_analytics",
+        "performance_marketing",
+        "project_management"
+      ],
+      "gaps": [
+        "ai_tools_marketing",
+        "b2b_marketing",
+        "brand_management",
+        "marketing_automation",
+        "product_positioning",
+        "social_media_management"
+      ],
+      "gap_n": 6,
+      "curated": true,
+      "curated_note": "Event management sits within marketing org; natural progression into broader marketing leadership."
+    },
+    {
+      "s": "event_manager",
+      "t": "head_of_marketing",
+      "score": 0.4,
+      "type": "stretch",
+      "gap_d": "large",
+      "sen_gap": 2,
+      "shared": [
+        "demand_generation",
+        "marketing_analytics",
+        "performance_marketing"
+      ],
+      "gaps": [
+        "account_based_marketing",
+        "ai_tools_marketing",
+        "b2b_marketing",
+        "brand_management",
+        "commercial_mindset",
+        "cross_functional_alignment",
+        "go_to_market_strategy",
+        "organizational_design",
+        "people_management",
+        "product_positioning"
+      ],
+      "gap_n": 10,
+      "curated": true,
+      "curated_note": "Senior stretch within marketing track."
+    },
+    {
+      "s": "event_manager",
+      "t": "content_marketing_manager",
+      "score": 0.55,
+      "type": "stretch",
+      "gap_d": "large",
+      "sen_gap": 2,
+      "shared": [
+        "analytical_thinking",
+        "content_strategy",
+        "demand_generation",
+        "marketing_analytics",
+        "project_management"
+      ],
+      "gaps": [
+        "ai_tools_marketing",
+        "b2b_marketing",
+        "copywriting",
+        "product_positioning",
+        "seo_management",
+        "social_media_management",
+        "technical_communication"
+      ],
+      "gap_n": 7,
+      "curated": true,
+      "curated_note": "Adjacent marketing role."
     }
   ]
 }

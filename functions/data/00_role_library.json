@@ -9299,6 +9299,1393 @@
       "market_notes_israel": "Growing role as Israeli tech companies scale past 100 employees and need consolidated G&A leadership. XTEND, Mesh Security, and Airis Labs represent the archetype. In the Israeli market, this role frequently combines office management, employee experience, procurement, and operational HR under one leader \u2014 reflecting the startup ethos of consolidated ownership. Global operations experience (managing US payroll, EOR structures, multi-country employment) increasingly valued as Israeli companies expand internationally. Experience with Deel and Remote (EOR platforms) is a strong differentiator. Typically requires 4-5+ years of experience. The role often reports to the COO, CEO, or VP HR. Hebrew and English fluency required.",
       "role_family": "Admin_GA",
       "seniority": "Director_Head"
+    },
+    {
+      "id": "customer_success_specialist",
+      "standardized_title": "Customer Success Specialist",
+      "alternate_titles": [
+        "CS Specialist",
+        "Customer Experience Specialist",
+        "Client Success Specialist"
+      ],
+      "role_family": "Relationship_Growth",
+      "seniority": "Entry_Mid",
+      "core_purpose": "Manage a portfolio of customer accounts, drive adoption and satisfaction, handle renewals and basic expansion.",
+      "core_responsibilities": [
+        "Manage day-to-day relationships with assigned customer accounts",
+        "Drive product adoption and monitor customer health",
+        "Handle basic renewals and identify upsell opportunities",
+        "Coordinate with support and product teams to resolve issues",
+        "Deliver QBRs and success plans for customer accounts"
+      ],
+      "required_skills": [
+        "customer_communication",
+        "customer_relationship_management",
+        "product_adoption",
+        "onboarding_strategy",
+        "customer_retention"
+      ],
+      "preferred_skills": [
+        "crm_management",
+        "data_analysis",
+        "stakeholder_management"
+      ],
+      "tools": [
+        "CRM",
+        "Gainsight",
+        "email"
+      ],
+      "technical_depth": "Low",
+      "customer_facing_level": "High",
+      "revenue_ownership": "None",
+      "strategic_level": "Execution",
+      "lifecycle_stage": [
+        "Onboarding",
+        "Adoption",
+        "Renewal"
+      ],
+      "next_roles": [
+        "customer_success_manager"
+      ],
+      "similar_roles": [
+        "Customer Success Manager",
+        "Account Manager"
+      ],
+      "keywords": [
+        "customer success",
+        "retention",
+        "adoption",
+        "renewal",
+        "QBR"
+      ],
+      "sector": "Post-sale / CS / Operations"
+    },
+    {
+      "id": "financial_analyst",
+      "standardized_title": "Financial Analyst",
+      "alternate_titles": [
+        "Junior Financial Analyst",
+        "Corporate Finance Analyst",
+        "Business Finance Analyst"
+      ],
+      "role_family": "Finance",
+      "seniority": "Entry_Mid",
+      "core_purpose": "Build financial models, analyze business performance, support budgeting and forecasting.",
+      "core_responsibilities": [
+        "Build and maintain financial models",
+        "Analyze business performance and identify drivers",
+        "Support budgeting, forecasting, and variance analysis",
+        "Prepare financial reports and dashboards",
+        "Partner with business units on financial planning"
+      ],
+      "required_skills": [
+        "financial_modeling",
+        "excel_advanced_finance",
+        "data_analysis",
+        "budget_forecasting",
+        "analytical_thinking"
+      ],
+      "preferred_skills": [
+        "bva_analysis",
+        "bi_tools"
+      ],
+      "tools": [
+        "Excel",
+        "ERP",
+        "BI platforms"
+      ],
+      "technical_depth": "Low",
+      "customer_facing_level": "Low",
+      "revenue_ownership": "None",
+      "strategic_level": "Analysis",
+      "lifecycle_stage": [],
+      "next_roles": [
+        "fpa_analyst",
+        "senior_fpa_analyst"
+      ],
+      "similar_roles": [],
+      "keywords": [
+        "financial analysis",
+        "modeling",
+        "FP&A",
+        "budget",
+        "forecast",
+        "variance"
+      ],
+      "sector": "Finance"
+    },
+    {
+      "id": "operations_analyst",
+      "standardized_title": "Operations Analyst",
+      "alternate_titles": [
+        "Business Operations Analyst",
+        "Ops Analyst"
+      ],
+      "role_family": "Operations",
+      "seniority": "Entry_Mid",
+      "core_purpose": "Analyze operational data, identify process improvements, support cross-functional operations.",
+      "core_responsibilities": [
+        "Analyze operational metrics and surface insights",
+        "Build reports and dashboards for ops leadership",
+        "Identify and document process improvement opportunities",
+        "Support cross-functional operational initiatives",
+        "Maintain operational tooling and workflows"
+      ],
+      "required_skills": [
+        "data_analysis",
+        "excel_advanced_finance",
+        "process_improvement",
+        "analytical_thinking",
+        "attention_to_detail"
+      ],
+      "preferred_skills": [
+        "sql",
+        "dashboarding"
+      ],
+      "tools": [
+        "Excel",
+        "BI tools",
+        "SQL"
+      ],
+      "technical_depth": "Low",
+      "customer_facing_level": "Low",
+      "revenue_ownership": "None",
+      "strategic_level": "Execution",
+      "lifecycle_stage": [],
+      "next_roles": [
+        "business_ops_analyst",
+        "business_ops_manager"
+      ],
+      "similar_roles": [],
+      "keywords": [
+        "operations",
+        "analytics",
+        "process",
+        "dashboards",
+        "reporting"
+      ],
+      "sector": "RevOps / Business Ops"
+    },
+    {
+      "id": "hr_coordinator",
+      "standardized_title": "HR Coordinator",
+      "alternate_titles": [
+        "People Operations Coordinator",
+        "HR Associate"
+      ],
+      "role_family": "HR_People",
+      "seniority": "Entry",
+      "core_purpose": "Coordinate HR processes, manage employee records, support recruiting and onboarding logistics.",
+      "core_responsibilities": [
+        "Coordinate employee onboarding and offboarding logistics",
+        "Maintain employee records in HRIS systems",
+        "Support recruiting pipeline with candidate coordination",
+        "Handle HR administrative tasks and inquiries",
+        "Assist with benefits administration and employee documentation"
+      ],
+      "required_skills": [
+        "employee_lifecycle_management",
+        "organization",
+        "cross_functional_collaboration",
+        "attention_to_detail"
+      ],
+      "preferred_skills": [
+        "hris_management",
+        "talent_acquisition_recruiting"
+      ],
+      "tools": [
+        "HRIS",
+        "ATS"
+      ],
+      "technical_depth": "Low",
+      "customer_facing_level": "Medium",
+      "revenue_ownership": "None",
+      "strategic_level": "Execution",
+      "lifecycle_stage": [],
+      "next_roles": [
+        "hr_generalist",
+        "talent_acquisition_specialist"
+      ],
+      "similar_roles": [],
+      "keywords": [
+        "HR coordinator",
+        "people operations",
+        "onboarding",
+        "HRIS"
+      ],
+      "sector": "HR / People"
+    },
+    {
+      "id": "talent_acquisition_specialist",
+      "standardized_title": "Talent Acquisition Specialist",
+      "alternate_titles": [
+        "Recruiter",
+        "Technical Recruiter",
+        "Senior Recruiter"
+      ],
+      "role_family": "HR_People",
+      "seniority": "Mid",
+      "core_purpose": "Source candidates, manage recruiting pipeline, conduct screenings, coordinate interviews.",
+      "core_responsibilities": [
+        "Source passive and active candidates via multiple channels",
+        "Manage end-to-end recruiting pipeline",
+        "Conduct candidate screening and initial interviews",
+        "Partner with hiring managers on role requirements",
+        "Maintain candidate data in ATS and report on funnel metrics"
+      ],
+      "required_skills": [
+        "talent_acquisition_recruiting",
+        "stakeholder_management",
+        "customer_communication",
+        "analytical_thinking"
+      ],
+      "preferred_skills": [
+        "employer_branding",
+        "hr_data_analytics"
+      ],
+      "tools": [
+        "LinkedIn Recruiter",
+        "ATS",
+        "Boolean search"
+      ],
+      "technical_depth": "Low",
+      "customer_facing_level": "High",
+      "revenue_ownership": "None",
+      "strategic_level": "Execution",
+      "lifecycle_stage": [],
+      "next_roles": [
+        "talent_acquisition_manager"
+      ],
+      "similar_roles": [],
+      "keywords": [
+        "recruiting",
+        "talent acquisition",
+        "sourcing",
+        "ATS",
+        "pipeline"
+      ],
+      "sector": "HR / People"
+    },
+    {
+      "id": "marketing_assistant",
+      "standardized_title": "Marketing Assistant",
+      "alternate_titles": [
+        "Junior Marketing Associate",
+        "Marketing Admin"
+      ],
+      "role_family": "Marketing",
+      "seniority": "Entry",
+      "core_purpose": "Support marketing campaigns, manage social media calendars, assist with content creation.",
+      "core_responsibilities": [
+        "Support execution of marketing campaigns across channels",
+        "Maintain social media content calendars and schedules",
+        "Assist with content creation and editing",
+        "Track campaign metrics and prepare reports",
+        "Coordinate marketing events and logistics"
+      ],
+      "required_skills": [
+        "social_media_management",
+        "content_strategy",
+        "copywriting",
+        "organization"
+      ],
+      "preferred_skills": [
+        "canva_design_tools",
+        "marketing_analytics"
+      ],
+      "tools": [
+        "Canva",
+        "Hootsuite",
+        "Excel"
+      ],
+      "technical_depth": "Low",
+      "customer_facing_level": "Medium",
+      "revenue_ownership": "None",
+      "strategic_level": "Execution",
+      "lifecycle_stage": [],
+      "next_roles": [
+        "marketing_coordinator",
+        "social_media_coordinator"
+      ],
+      "similar_roles": [],
+      "keywords": [
+        "marketing",
+        "social media",
+        "content",
+        "campaigns"
+      ],
+      "sector": "Marketing"
+    },
+    {
+      "id": "sales_representative",
+      "standardized_title": "Sales Representative",
+      "alternate_titles": [
+        "SMB Sales Rep",
+        "Inside Sales Rep"
+      ],
+      "role_family": "Sales",
+      "seniority": "Entry_Mid",
+      "core_purpose": "Manage full sales cycle from prospecting to closing for SMB accounts.",
+      "core_responsibilities": [
+        "Prospect and qualify new leads",
+        "Run discovery calls and product demos",
+        "Manage sales pipeline and opportunities",
+        "Close SMB deals and hit quota",
+        "Maintain CRM data and reporting"
+      ],
+      "required_skills": [
+        "outbound_prospecting",
+        "consultative_selling",
+        "customer_communication",
+        "pipeline_management",
+        "crm_management"
+      ],
+      "preferred_skills": [
+        "objection_handling",
+        "discovery_calls"
+      ],
+      "tools": [
+        "Salesforce",
+        "HubSpot",
+        "Outreach"
+      ],
+      "technical_depth": "Low",
+      "customer_facing_level": "High",
+      "revenue_ownership": "Quota",
+      "strategic_level": "Execution",
+      "lifecycle_stage": [],
+      "next_roles": [
+        "account_executive",
+        "senior_account_executive"
+      ],
+      "similar_roles": [],
+      "keywords": [
+        "sales",
+        "quota",
+        "pipeline",
+        "closing",
+        "prospecting"
+      ],
+      "sector": "Sales"
+    },
+    {
+      "id": "brand_manager",
+      "standardized_title": "Brand Manager",
+      "alternate_titles": [
+        "Brand Strategy Manager",
+        "Brand Marketing Manager"
+      ],
+      "role_family": "Marketing",
+      "seniority": "Mid",
+      "core_purpose": "Own brand strategy, positioning, and messaging. Manage brand campaigns and ensure consistency.",
+      "core_responsibilities": [
+        "Develop and own brand strategy and positioning",
+        "Manage brand campaigns across channels",
+        "Ensure brand consistency in all marketing materials",
+        "Partner with product and creative teams on messaging",
+        "Lead rebranding or brand refresh initiatives"
+      ],
+      "required_skills": [
+        "content_strategy",
+        "marketing_analytics",
+        "cross_functional_collaboration",
+        "project_management"
+      ],
+      "preferred_skills": [
+        "product_positioning",
+        "copywriting"
+      ],
+      "tools": [
+        "Brand platforms",
+        "Adobe CC"
+      ],
+      "technical_depth": "Low",
+      "customer_facing_level": "Medium",
+      "revenue_ownership": "None",
+      "strategic_level": "Strategy",
+      "lifecycle_stage": [],
+      "next_roles": [
+        "head_of_marketing"
+      ],
+      "similar_roles": [],
+      "keywords": [
+        "brand",
+        "positioning",
+        "messaging",
+        "brand strategy"
+      ],
+      "sector": "Marketing"
+    },
+    {
+      "id": "event_coordinator",
+      "standardized_title": "Event Coordinator",
+      "alternate_titles": [
+        "Events Associate",
+        "Marketing Events Coordinator"
+      ],
+      "role_family": "Marketing",
+      "seniority": "Entry_Mid",
+      "core_purpose": "Plan and execute corporate events, conferences, webinars. Manage vendors, budgets, logistics.",
+      "core_responsibilities": [
+        "Plan and execute company events, conferences, and webinars",
+        "Manage vendor relationships and event budgets",
+        "Coordinate event logistics including venue, catering, A/V",
+        "Promote events through marketing channels",
+        "Measure event ROI and attendee engagement"
+      ],
+      "required_skills": [
+        "event_marketing",
+        "organization",
+        "project_management",
+        "customer_communication"
+      ],
+      "preferred_skills": [
+        "marketing_analytics",
+        "cross_functional_collaboration"
+      ],
+      "tools": [
+        "Event platforms",
+        "Eventbrite",
+        "Zoom"
+      ],
+      "technical_depth": "Low",
+      "customer_facing_level": "High",
+      "revenue_ownership": "None",
+      "strategic_level": "Execution",
+      "lifecycle_stage": [],
+      "next_roles": [
+        "event_manager",
+        "marketing_coordinator"
+      ],
+      "similar_roles": [],
+      "keywords": [
+        "events",
+        "webinars",
+        "conferences",
+        "event marketing"
+      ],
+      "sector": "Marketing"
+    },
+    {
+      "id": "partnerships_associate",
+      "standardized_title": "Partnerships Associate",
+      "alternate_titles": [
+        "Partner Operations Associate",
+        "Partnership Development Associate"
+      ],
+      "role_family": "BD_Partnerships",
+      "seniority": "Entry",
+      "core_purpose": "Support partnership development, manage partner communications, track partnership metrics.",
+      "core_responsibilities": [
+        "Support partner outreach and qualification",
+        "Manage partner communications and follow-ups",
+        "Track partnership pipeline and metrics",
+        "Coordinate partner onboarding and enablement",
+        "Maintain partner CRM data"
+      ],
+      "required_skills": [
+        "relationship_building",
+        "customer_communication",
+        "organization",
+        "pipeline_management"
+      ],
+      "preferred_skills": [
+        "crm_management",
+        "cross_team_collaboration"
+      ],
+      "tools": [
+        "CRM",
+        "Salesforce"
+      ],
+      "technical_depth": "Low",
+      "customer_facing_level": "High",
+      "revenue_ownership": "None",
+      "strategic_level": "Execution",
+      "lifecycle_stage": [],
+      "next_roles": [
+        "partnerships_manager",
+        "channel_partner_manager"
+      ],
+      "similar_roles": [],
+      "keywords": [
+        "partnerships",
+        "partner management",
+        "BD"
+      ],
+      "sector": "Business Development / Partnerships"
+    },
+    {
+      "id": "junior_business_analyst",
+      "standardized_title": "Junior Business Analyst",
+      "alternate_titles": [
+        "Business Analyst I",
+        "Business Analytics Associate"
+      ],
+      "role_family": "RevOps_BizOps",
+      "seniority": "Entry",
+      "core_purpose": "Support business analysis, gather requirements, assist with reporting and process documentation.",
+      "core_responsibilities": [
+        "Gather and document business requirements",
+        "Support data analysis and reporting",
+        "Assist with process documentation and mapping",
+        "Build and maintain dashboards",
+        "Partner with senior BAs on projects"
+      ],
+      "required_skills": [
+        "data_analysis",
+        "excel_advanced_finance",
+        "requirements_gathering",
+        "attention_to_detail"
+      ],
+      "preferred_skills": [
+        "sql",
+        "dashboarding"
+      ],
+      "tools": [
+        "Excel",
+        "SQL",
+        "BI"
+      ],
+      "technical_depth": "Low",
+      "customer_facing_level": "Low",
+      "revenue_ownership": "None",
+      "strategic_level": "Execution",
+      "lifecycle_stage": [],
+      "next_roles": [
+        "business_analyst"
+      ],
+      "similar_roles": [],
+      "keywords": [
+        "business analysis",
+        "reporting",
+        "requirements"
+      ],
+      "sector": "RevOps / Business Ops"
+    },
+    {
+      "id": "marketing_intern",
+      "standardized_title": "Marketing Intern",
+      "alternate_titles": [
+        "Marketing Trainee"
+      ],
+      "role_family": "Marketing",
+      "seniority": "Entry",
+      "core_purpose": "Support marketing team with campaign execution, content drafting, social media posting, research tasks.",
+      "core_responsibilities": [
+        "Draft content for social media and blog posts",
+        "Support campaign execution across channels",
+        "Conduct market and competitor research",
+        "Assist with administrative marketing tasks"
+      ],
+      "required_skills": [
+        "copywriting",
+        "social_media_management",
+        "organization"
+      ],
+      "preferred_skills": [],
+      "tools": [
+        "Canva",
+        "Google Docs"
+      ],
+      "technical_depth": "Low",
+      "customer_facing_level": "Medium",
+      "revenue_ownership": "None",
+      "strategic_level": "Execution",
+      "lifecycle_stage": [],
+      "next_roles": [
+        "marketing_assistant",
+        "marketing_coordinator"
+      ],
+      "similar_roles": [],
+      "keywords": [
+        "marketing intern",
+        "social media",
+        "content"
+      ],
+      "sector": "Marketing"
+    },
+    {
+      "id": "hr_assistant",
+      "standardized_title": "HR Assistant",
+      "alternate_titles": [
+        "People Ops Assistant",
+        "HR Admin"
+      ],
+      "role_family": "HR_People",
+      "seniority": "Entry",
+      "core_purpose": "Provide administrative support to HR team, manage employee files, schedule interviews, handle HR inquiries.",
+      "core_responsibilities": [
+        "Maintain employee records and HR documentation",
+        "Schedule interviews and manage candidate logistics",
+        "Handle first-line HR inquiries from employees",
+        "Support benefits administration and onboarding"
+      ],
+      "required_skills": [
+        "organization",
+        "attention_to_detail",
+        "customer_communication"
+      ],
+      "preferred_skills": [
+        "hris_management"
+      ],
+      "tools": [
+        "HRIS",
+        "ATS",
+        "Calendar tools"
+      ],
+      "technical_depth": "Low",
+      "customer_facing_level": "Medium",
+      "revenue_ownership": "None",
+      "strategic_level": "Execution",
+      "lifecycle_stage": [],
+      "next_roles": [
+        "hr_coordinator",
+        "hr_generalist"
+      ],
+      "similar_roles": [],
+      "keywords": [
+        "HR",
+        "administration",
+        "employee support"
+      ],
+      "sector": "HR / People"
+    },
+    {
+      "id": "sales_associate",
+      "standardized_title": "Sales Associate",
+      "alternate_titles": [
+        "Inside Sales Associate",
+        "Junior Sales Rep"
+      ],
+      "role_family": "Sales",
+      "seniority": "Entry",
+      "core_purpose": "Support sales team, handle inbound inquiries, assist with demos, manage CRM data entry.",
+      "core_responsibilities": [
+        "Handle inbound sales inquiries",
+        "Support sales reps with demos and follow-ups",
+        "Maintain CRM data hygiene",
+        "Qualify inbound leads"
+      ],
+      "required_skills": [
+        "customer_communication",
+        "crm_management",
+        "organization"
+      ],
+      "preferred_skills": [
+        "lead_qualification",
+        "sales_tools_proficiency"
+      ],
+      "tools": [
+        "Salesforce",
+        "HubSpot"
+      ],
+      "technical_depth": "Low",
+      "customer_facing_level": "High",
+      "revenue_ownership": "None",
+      "strategic_level": "Execution",
+      "lifecycle_stage": [],
+      "next_roles": [
+        "sales_representative",
+        "sales_development_representative"
+      ],
+      "similar_roles": [],
+      "keywords": [
+        "sales",
+        "inbound",
+        "CRM",
+        "lead qualification"
+      ],
+      "sector": "Sales"
+    },
+    {
+      "id": "social_media_coordinator",
+      "standardized_title": "Social Media Coordinator",
+      "alternate_titles": [
+        "Social Media Specialist",
+        "Community Coordinator"
+      ],
+      "role_family": "Marketing",
+      "seniority": "Entry",
+      "core_purpose": "Execute social media calendar, create and schedule posts, monitor engagement, report on metrics.",
+      "core_responsibilities": [
+        "Create and schedule posts across social platforms",
+        "Monitor engagement and respond to comments",
+        "Track performance metrics and build reports",
+        "Support community management efforts",
+        "Partner with content team on creative assets"
+      ],
+      "required_skills": [
+        "social_media_management",
+        "content_strategy",
+        "copywriting",
+        "organization"
+      ],
+      "preferred_skills": [
+        "canva_design_tools",
+        "community_management"
+      ],
+      "tools": [
+        "Hootsuite",
+        "Canva",
+        "Social analytics"
+      ],
+      "technical_depth": "Low",
+      "customer_facing_level": "High",
+      "revenue_ownership": "None",
+      "strategic_level": "Execution",
+      "lifecycle_stage": [],
+      "next_roles": [
+        "social_media_manager"
+      ],
+      "similar_roles": [],
+      "keywords": [
+        "social media",
+        "community",
+        "posts",
+        "engagement"
+      ],
+      "sector": "Marketing"
+    },
+    {
+      "id": "recruitment_coordinator",
+      "standardized_title": "Recruitment Coordinator",
+      "alternate_titles": [
+        "Recruiting Coordinator",
+        "TA Coordinator"
+      ],
+      "role_family": "HR_People",
+      "seniority": "Entry",
+      "core_purpose": "Coordinate interview scheduling, manage candidate communication, maintain ATS, support recruiters.",
+      "core_responsibilities": [
+        "Schedule candidate interviews across multiple calendars",
+        "Manage candidate communication throughout recruiting process",
+        "Maintain ATS data and pipeline hygiene",
+        "Support recruiters with admin and logistics",
+        "Report on recruiting funnel metrics"
+      ],
+      "required_skills": [
+        "organization",
+        "customer_communication",
+        "attention_to_detail"
+      ],
+      "preferred_skills": [
+        "talent_acquisition_recruiting",
+        "cross_functional_collaboration"
+      ],
+      "tools": [
+        "ATS",
+        "Calendar tools"
+      ],
+      "technical_depth": "Low",
+      "customer_facing_level": "High",
+      "revenue_ownership": "None",
+      "strategic_level": "Execution",
+      "lifecycle_stage": [],
+      "next_roles": [
+        "talent_acquisition_specialist",
+        "talent_acquisition_manager"
+      ],
+      "similar_roles": [],
+      "keywords": [
+        "recruiting",
+        "scheduling",
+        "ATS",
+        "candidate coordination"
+      ],
+      "sector": "HR / People"
+    },
+    {
+      "id": "business_operations_associate",
+      "standardized_title": "Business Operations Associate",
+      "alternate_titles": [
+        "BizOps Associate",
+        "Ops Associate"
+      ],
+      "role_family": "RevOps_BizOps",
+      "seniority": "Entry",
+      "core_purpose": "Support day-to-day business operations, maintain internal tools and processes, assist with reporting.",
+      "core_responsibilities": [
+        "Support operational workflows and tooling",
+        "Maintain internal documentation and processes",
+        "Assist with operational reporting and analytics",
+        "Coordinate cross-team operational requests"
+      ],
+      "required_skills": [
+        "organization",
+        "attention_to_detail",
+        "process_improvement",
+        "data_analysis"
+      ],
+      "preferred_skills": [
+        "excel_advanced_finance",
+        "cross_functional_collaboration"
+      ],
+      "tools": [
+        "Excel",
+        "Notion",
+        "Google Workspace"
+      ],
+      "technical_depth": "Low",
+      "customer_facing_level": "Low",
+      "revenue_ownership": "None",
+      "strategic_level": "Execution",
+      "lifecycle_stage": [],
+      "next_roles": [
+        "business_ops_analyst",
+        "operations_analyst"
+      ],
+      "similar_roles": [],
+      "keywords": [
+        "business operations",
+        "process",
+        "operations"
+      ],
+      "sector": "RevOps / Business Ops"
+    },
+    {
+      "id": "strategy_analyst",
+      "standardized_title": "Strategy Analyst",
+      "alternate_titles": [
+        "Corporate Strategy Analyst",
+        "Business Strategy Analyst"
+      ],
+      "role_family": "Consulting",
+      "seniority": "Entry_Mid",
+      "core_purpose": "Conduct market research, build strategic analyses, support strategy development for leadership.",
+      "core_responsibilities": [
+        "Conduct market and competitive research",
+        "Build strategic analyses and business cases",
+        "Develop frameworks and recommendations",
+        "Prepare executive presentations",
+        "Partner with leadership on strategic initiatives"
+      ],
+      "required_skills": [
+        "analytical_thinking",
+        "data_analysis",
+        "excel_advanced_finance",
+        "presentation_skills",
+        "strategic_thinking"
+      ],
+      "preferred_skills": [
+        "consulting_methodology",
+        "financial_modeling"
+      ],
+      "tools": [
+        "Excel",
+        "PowerPoint",
+        "BI tools"
+      ],
+      "technical_depth": "Low",
+      "customer_facing_level": "Medium",
+      "revenue_ownership": "None",
+      "strategic_level": "Strategy",
+      "lifecycle_stage": [],
+      "next_roles": [
+        "management_consultant",
+        "consulting_manager"
+      ],
+      "similar_roles": [],
+      "keywords": [
+        "strategy",
+        "research",
+        "analysis",
+        "consulting"
+      ],
+      "sector": "Consulting"
+    },
+    {
+      "id": "management_consultant",
+      "standardized_title": "Management Consultant",
+      "alternate_titles": [
+        "Strategy Consultant",
+        "Senior Consultant"
+      ],
+      "role_family": "Consulting",
+      "seniority": "Mid",
+      "core_purpose": "Lead client engagements, conduct analyses, develop recommendations, present findings to stakeholders.",
+      "core_responsibilities": [
+        "Lead workstreams within client engagements",
+        "Conduct rigorous analyses and build recommendations",
+        "Develop and deliver executive presentations",
+        "Manage client relationships and day-to-day project delivery",
+        "Mentor junior consultants"
+      ],
+      "required_skills": [
+        "consulting_methodology",
+        "analytical_thinking",
+        "presentation_skills",
+        "stakeholder_management",
+        "strategic_thinking"
+      ],
+      "preferred_skills": [
+        "data_analysis",
+        "financial_modeling"
+      ],
+      "tools": [
+        "Excel",
+        "PowerPoint"
+      ],
+      "technical_depth": "Low",
+      "customer_facing_level": "High",
+      "revenue_ownership": "None",
+      "strategic_level": "Strategy",
+      "lifecycle_stage": [],
+      "next_roles": [
+        "consulting_manager",
+        "principal_director_consulting"
+      ],
+      "similar_roles": [],
+      "keywords": [
+        "consulting",
+        "strategy",
+        "client",
+        "engagement"
+      ],
+      "sector": "Consulting"
+    },
+    {
+      "id": "junior_consultant",
+      "standardized_title": "Junior Consultant",
+      "alternate_titles": [
+        "Consulting Analyst",
+        "Associate Consultant"
+      ],
+      "role_family": "Consulting",
+      "seniority": "Entry",
+      "core_purpose": "Support consulting engagements, conduct research, build slide decks, gather and analyze data.",
+      "core_responsibilities": [
+        "Conduct research and gather data for engagements",
+        "Build models, analyses, and slide decks",
+        "Support engagement workstreams under senior consultants",
+        "Prepare client materials and meeting inputs"
+      ],
+      "required_skills": [
+        "analytical_thinking",
+        "excel_advanced_finance",
+        "presentation_skills",
+        "attention_to_detail"
+      ],
+      "preferred_skills": [
+        "consulting_methodology",
+        "data_analysis"
+      ],
+      "tools": [
+        "Excel",
+        "PowerPoint"
+      ],
+      "technical_depth": "Low",
+      "customer_facing_level": "Medium",
+      "revenue_ownership": "None",
+      "strategic_level": "Execution",
+      "lifecycle_stage": [],
+      "next_roles": [
+        "management_consultant",
+        "strategy_analyst"
+      ],
+      "similar_roles": [],
+      "keywords": [
+        "junior consulting",
+        "analyst",
+        "consulting"
+      ],
+      "sector": "Consulting"
+    },
+    {
+      "id": "operations_associate",
+      "standardized_title": "Operations Associate",
+      "alternate_titles": [
+        "Ops Associate",
+        "Business Ops Associate"
+      ],
+      "role_family": "Operations",
+      "seniority": "Entry",
+      "core_purpose": "Support operational workflows, maintain documentation, coordinate cross-team logistics.",
+      "core_responsibilities": [
+        "Support daily operational workflows",
+        "Maintain process documentation",
+        "Coordinate cross-team requests and logistics",
+        "Assist with operational reporting"
+      ],
+      "required_skills": [
+        "organization",
+        "attention_to_detail",
+        "cross_functional_collaboration"
+      ],
+      "preferred_skills": [
+        "process_improvement",
+        "data_analysis"
+      ],
+      "tools": [
+        "Notion",
+        "Excel"
+      ],
+      "technical_depth": "Low",
+      "customer_facing_level": "Low",
+      "revenue_ownership": "None",
+      "strategic_level": "Execution",
+      "lifecycle_stage": [],
+      "next_roles": [
+        "operations_analyst",
+        "business_operations_associate"
+      ],
+      "similar_roles": [],
+      "keywords": [
+        "operations",
+        "admin",
+        "coordination"
+      ],
+      "sector": "RevOps / Business Ops"
+    },
+    {
+      "id": "event_manager",
+      "standardized_title": "Event Manager",
+      "alternate_titles": [
+        "Senior Events Manager",
+        "Head of Events"
+      ],
+      "role_family": "Marketing",
+      "seniority": "Mid",
+      "core_purpose": "Own end-to-end event strategy and execution, manage event budgets, lead event teams, measure ROI.",
+      "core_responsibilities": [
+        "Own event strategy and execution across the portfolio",
+        "Manage event budgets and vendor negotiations",
+        "Lead event teams and coordinate cross-functional partners",
+        "Measure and report event ROI",
+        "Scale event playbooks and operational processes"
+      ],
+      "required_skills": [
+        "event_marketing",
+        "project_management",
+        "cross_functional_collaboration",
+        "analytical_thinking"
+      ],
+      "preferred_skills": [
+        "marketing_analytics",
+        "stakeholder_management"
+      ],
+      "tools": [
+        "Event platforms",
+        "Project management tools"
+      ],
+      "technical_depth": "Low",
+      "customer_facing_level": "High",
+      "revenue_ownership": "None",
+      "strategic_level": "Strategy",
+      "lifecycle_stage": [],
+      "next_roles": [
+        "head_of_marketing"
+      ],
+      "similar_roles": [],
+      "keywords": [
+        "event",
+        "events",
+        "conference",
+        "event manager"
+      ],
+      "sector": "Marketing"
+    },
+    {
+      "id": "technical_support_specialist",
+      "standardized_title": "Technical Support Specialist",
+      "alternate_titles": [
+        "Tier 2 Support",
+        "Application Support Specialist"
+      ],
+      "role_family": "Support",
+      "seniority": "Entry_Mid",
+      "core_purpose": "Provide technical troubleshooting and support, resolve customer technical issues, document solutions.",
+      "core_responsibilities": [
+        "Troubleshoot technical customer issues",
+        "Diagnose and resolve complex application problems",
+        "Document known issues and solutions",
+        "Escalate bugs and feature requests",
+        "Partner with engineering on complex issues"
+      ],
+      "required_skills": [
+        "technical_troubleshooting",
+        "customer_communication",
+        "problem_solving",
+        "technical_communication"
+      ],
+      "preferred_skills": [
+        "debugging",
+        "api_integrations"
+      ],
+      "tools": [
+        "Ticketing",
+        "Logging",
+        "CRM"
+      ],
+      "technical_depth": "Medium",
+      "customer_facing_level": "High",
+      "revenue_ownership": "None",
+      "strategic_level": "Execution",
+      "lifecycle_stage": [],
+      "next_roles": [
+        "technical_support_engineer"
+      ],
+      "similar_roles": [],
+      "keywords": [
+        "technical support",
+        "troubleshooting",
+        "T2",
+        "application support"
+      ],
+      "sector": "Post-sale / CS / Operations"
+    },
+    {
+      "id": "solutions_consultant",
+      "standardized_title": "Solutions Consultant",
+      "alternate_titles": [
+        "Solutions Advisor",
+        "Implementation Consultant"
+      ],
+      "role_family": "Solutions_Engineering",
+      "seniority": "Mid",
+      "core_purpose": "Understand client needs, design solution proposals, support pre-sales with technical demos and POCs.",
+      "core_responsibilities": [
+        "Run technical discovery with prospects",
+        "Design solution architectures tailored to customer needs",
+        "Build and deliver product demonstrations",
+        "Support sales with POCs and RFP responses",
+        "Partner with engineering and product on customer requirements"
+      ],
+      "required_skills": [
+        "technical_discovery",
+        "solution_design_architecture",
+        "product_demonstration",
+        "customer_technical_relationship",
+        "communication"
+      ],
+      "preferred_skills": [
+        "poc_management",
+        "technical_sales_acumen"
+      ],
+      "tools": [
+        "CRM",
+        "Demo environments"
+      ],
+      "technical_depth": "High",
+      "customer_facing_level": "High",
+      "revenue_ownership": "Influence",
+      "strategic_level": "Execution",
+      "lifecycle_stage": [],
+      "next_roles": [
+        "senior_solutions_engineer",
+        "solutions_engineering_manager"
+      ],
+      "similar_roles": [],
+      "keywords": [
+        "solutions consulting",
+        "pre-sales",
+        "technical demo",
+        "POC"
+      ],
+      "sector": "Solutions Engineering"
+    },
+    {
+      "id": "pre_sales_engineer",
+      "standardized_title": "Pre-Sales Engineer",
+      "alternate_titles": [
+        "Sales Engineer",
+        "Presales Engineer"
+      ],
+      "role_family": "Solutions_Engineering",
+      "seniority": "Mid",
+      "core_purpose": "Support sales with technical expertise, run product demos, build POCs, answer technical RFPs.",
+      "core_responsibilities": [
+        "Run deep technical discovery with prospects",
+        "Design and demo complex technical solutions",
+        "Build POCs and technical proof artifacts",
+        "Respond to technical RFPs and security questionnaires",
+        "Partner with AEs on technical deal strategy"
+      ],
+      "required_skills": [
+        "technical_discovery",
+        "product_demonstration",
+        "poc_management",
+        "technical_sales_acumen",
+        "api_design"
+      ],
+      "preferred_skills": [
+        "solution_design_architecture",
+        "rfp_response"
+      ],
+      "tools": [
+        "Demo environments",
+        "API tools"
+      ],
+      "technical_depth": "High",
+      "customer_facing_level": "High",
+      "revenue_ownership": "Influence",
+      "strategic_level": "Execution",
+      "lifecycle_stage": [],
+      "next_roles": [
+        "senior_solutions_engineer",
+        "solutions_engineering_manager"
+      ],
+      "similar_roles": [],
+      "keywords": [
+        "pre-sales",
+        "sales engineering",
+        "technical demo",
+        "POC",
+        "RFP"
+      ],
+      "sector": "Solutions Engineering"
+    },
+    {
+      "id": "growth_analyst",
+      "standardized_title": "Growth Analyst",
+      "alternate_titles": [
+        "Growth Data Analyst",
+        "Growth Marketing Analyst"
+      ],
+      "role_family": "Marketing",
+      "seniority": "Entry_Mid",
+      "core_purpose": "Analyze growth metrics, run experiments, identify acquisition and retention opportunities, support growth strategy.",
+      "core_responsibilities": [
+        "Analyze funnel metrics and identify growth opportunities",
+        "Design and run growth experiments",
+        "Track acquisition, activation, and retention metrics",
+        "Build growth dashboards and insights",
+        "Partner with growth team on strategic initiatives"
+      ],
+      "required_skills": [
+        "data_analysis",
+        "analytical_thinking",
+        "marketing_experimentation",
+        "funnel_optimization",
+        "marketing_analytics"
+      ],
+      "preferred_skills": [
+        "sql",
+        "dashboarding"
+      ],
+      "tools": [
+        "Amplitude",
+        "Mixpanel",
+        "GA4"
+      ],
+      "technical_depth": "Low",
+      "customer_facing_level": "Low",
+      "revenue_ownership": "None",
+      "strategic_level": "Execution",
+      "lifecycle_stage": [],
+      "next_roles": [
+        "growth_marketing_manager",
+        "data_analyst"
+      ],
+      "similar_roles": [],
+      "keywords": [
+        "growth",
+        "analytics",
+        "experiments",
+        "funnel"
+      ],
+      "sector": "Marketing / Data"
+    },
+    {
+      "id": "revenue_analyst",
+      "standardized_title": "Revenue Analyst",
+      "alternate_titles": [
+        "Revenue Operations Analyst",
+        "RevOps Analyst"
+      ],
+      "role_family": "RevOps_BizOps",
+      "seniority": "Entry_Mid",
+      "core_purpose": "Analyze revenue data, track pipeline metrics, support revenue forecasting, build revenue reports.",
+      "core_responsibilities": [
+        "Analyze revenue and pipeline metrics",
+        "Support revenue forecasting and modeling",
+        "Build revenue dashboards and reports",
+        "Partner with sales and finance teams",
+        "Identify revenue operations improvements"
+      ],
+      "required_skills": [
+        "data_analysis",
+        "excel_advanced_finance",
+        "analytical_thinking",
+        "saas_finance_metrics",
+        "revops_commercial_analytics"
+      ],
+      "preferred_skills": [
+        "sql",
+        "dashboarding"
+      ],
+      "tools": [
+        "Salesforce",
+        "Excel",
+        "BI"
+      ],
+      "technical_depth": "Low",
+      "customer_facing_level": "Low",
+      "revenue_ownership": "None",
+      "strategic_level": "Execution",
+      "lifecycle_stage": [],
+      "next_roles": [
+        "business_ops_analyst",
+        "sales_operations_manager"
+      ],
+      "similar_roles": [],
+      "keywords": [
+        "revenue",
+        "RevOps",
+        "pipeline analytics",
+        "forecasting"
+      ],
+      "sector": "RevOps / Business Ops"
+    },
+    {
+      "id": "demand_generation_manager",
+      "standardized_title": "Demand Generation Manager",
+      "alternate_titles": [
+        "Demand Gen Manager",
+        "Lead Gen Manager"
+      ],
+      "role_family": "Marketing",
+      "seniority": "Mid",
+      "core_purpose": "Own demand generation strategy, manage lead gen campaigns, optimize marketing funnel, track MQL/SQL metrics.",
+      "core_responsibilities": [
+        "Own demand generation strategy and campaign execution",
+        "Manage lead gen campaigns across channels",
+        "Optimize top-of-funnel conversion",
+        "Track and report on MQL/SQL funnel metrics",
+        "Partner with sales on pipeline and conversion"
+      ],
+      "required_skills": [
+        "demand_generation",
+        "marketing_analytics",
+        "performance_marketing",
+        "cross_functional_collaboration",
+        "analytical_thinking"
+      ],
+      "preferred_skills": [
+        "marketing_automation",
+        "b2b_marketing"
+      ],
+      "tools": [
+        "Marketo",
+        "HubSpot",
+        "Salesforce"
+      ],
+      "technical_depth": "Low",
+      "customer_facing_level": "Low",
+      "revenue_ownership": "Influence",
+      "strategic_level": "Execution",
+      "lifecycle_stage": [],
+      "next_roles": [
+        "head_of_marketing",
+        "growth_marketing_manager"
+      ],
+      "similar_roles": [],
+      "keywords": [
+        "demand gen",
+        "lead generation",
+        "MQL",
+        "pipeline marketing"
+      ],
+      "sector": "Marketing"
     }
   ],
   "classification_logic": {

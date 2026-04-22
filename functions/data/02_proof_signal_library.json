@@ -1599,7 +1599,7 @@
       "signal_type": "experience",
       "maps_to_skills": [
         "revops_commercial_analytics",
-        "dashboard_reporting"
+        "dashboarding"
       ],
       "strength": "strong",
       "context": "Dashboard creation for commercial metrics shows analytical and communication ability"
@@ -6960,6 +6960,372 @@
       ],
       "strength": "moderate",
       "context": "Military operations and command experience is commonly accepted as relevant PM background in Israel"
+    },
+    {
+      "id": "ps_negotiation_1",
+      "description": "Negotiated contracts or deals with vendors, partners, or clients",
+      "tags": [
+        "negotiation",
+        "contracts",
+        "vendors",
+        "commercial"
+      ],
+      "maps_to_skills": [
+        "negotiation"
+      ],
+      "strength_level": "medium"
+    },
+    {
+      "id": "ps_negotiation_2",
+      "description": "Led pricing or commercial terms discussions resulting in a closed deal",
+      "tags": [
+        "negotiation",
+        "pricing",
+        "deals",
+        "closing"
+      ],
+      "maps_to_skills": [
+        "negotiation"
+      ],
+      "strength_level": "strong"
+    },
+    {
+      "id": "ps_negotiation_3",
+      "description": "Resolved disputes or conflicting interests between parties through structured negotiation",
+      "tags": [
+        "negotiation",
+        "conflict resolution",
+        "stakeholders"
+      ],
+      "maps_to_skills": [
+        "negotiation"
+      ],
+      "strength_level": "medium"
+    },
+    {
+      "id": "ps_salesforce_1",
+      "description": "Managed leads, accounts, and opportunities in Salesforce CRM",
+      "tags": [
+        "salesforce",
+        "crm",
+        "pipeline"
+      ],
+      "maps_to_skills": [
+        "salesforce",
+        "crm_management"
+      ],
+      "strength_level": "medium"
+    },
+    {
+      "id": "ps_salesforce_2",
+      "description": "Built Salesforce reports, dashboards, and custom views for revenue teams",
+      "tags": [
+        "salesforce",
+        "reports",
+        "dashboards"
+      ],
+      "maps_to_skills": [
+        "salesforce",
+        "dashboarding"
+      ],
+      "strength_level": "strong"
+    },
+    {
+      "id": "ps_salesforce_3",
+      "description": "Administered Salesforce configuration, workflows, or custom objects",
+      "tags": [
+        "salesforce admin",
+        "configuration",
+        "workflows"
+      ],
+      "maps_to_skills": [
+        "salesforce"
+      ],
+      "strength_level": "strong"
+    },
+    {
+      "id": "ps_empathy_1",
+      "description": "Provided empathetic support to customers during escalations or high-stress issues",
+      "tags": [
+        "empathy",
+        "support",
+        "customer care",
+        "de-escalation"
+      ],
+      "maps_to_skills": [
+        "empathy",
+        "customer_communication"
+      ],
+      "strength_level": "medium"
+    },
+    {
+      "id": "ps_empathy_2",
+      "description": "Adapted communication style to diverse audiences and emotional contexts",
+      "tags": [
+        "empathy",
+        "communication",
+        "adaptability"
+      ],
+      "maps_to_skills": [
+        "empathy"
+      ],
+      "strength_level": "medium"
+    },
+    {
+      "id": "ps_presentation_1",
+      "description": "Delivered presentations to executives, clients, or large audiences",
+      "tags": [
+        "presentation",
+        "public speaking",
+        "executive"
+      ],
+      "maps_to_skills": [
+        "presentation_skills"
+      ],
+      "strength_level": "strong"
+    },
+    {
+      "id": "ps_presentation_2",
+      "description": "Created and presented pitch decks, project proposals, or business cases",
+      "tags": [
+        "pitch deck",
+        "proposal",
+        "presentation"
+      ],
+      "maps_to_skills": [
+        "presentation_skills"
+      ],
+      "strength_level": "medium"
+    },
+    {
+      "id": "ps_presentation_3",
+      "description": "Led training sessions, workshops, or educational sessions for teams",
+      "tags": [
+        "training",
+        "workshops",
+        "presenting"
+      ],
+      "maps_to_skills": [
+        "presentation_skills",
+        "learning_development"
+      ],
+      "strength_level": "medium"
+    },
+    {
+      "id": "ps_brand_1",
+      "description": "Developed or maintained brand guidelines, messaging, or positioning",
+      "tags": [
+        "brand",
+        "brand guidelines",
+        "positioning"
+      ],
+      "maps_to_skills": [
+        "brand_management",
+        "product_positioning"
+      ],
+      "strength_level": "strong"
+    },
+    {
+      "id": "ps_brand_2",
+      "description": "Managed brand consistency across marketing channels and customer touchpoints",
+      "tags": [
+        "brand consistency",
+        "marketing",
+        "messaging"
+      ],
+      "maps_to_skills": [
+        "brand_management"
+      ],
+      "strength_level": "medium"
+    },
+    {
+      "id": "ps_eq_1",
+      "description": "Managed team conflicts and mediated between stakeholders with different agendas",
+      "tags": [
+        "conflict resolution",
+        "mediation",
+        "interpersonal"
+      ],
+      "maps_to_skills": [
+        "emotional_intelligence"
+      ],
+      "strength_level": "strong"
+    },
+    {
+      "id": "ps_eq_2",
+      "description": "Adapted leadership style based on team member needs and team dynamics",
+      "tags": [
+        "leadership",
+        "emotional intelligence",
+        "adaptive"
+      ],
+      "maps_to_skills": [
+        "emotional_intelligence",
+        "people_management"
+      ],
+      "strength_level": "medium"
+    },
+    {
+      "id": "ps_canva_1",
+      "description": "Created marketing materials or social media graphics using Canva or similar design tools",
+      "tags": [
+        "canva",
+        "design",
+        "graphics",
+        "marketing"
+      ],
+      "maps_to_skills": [
+        "canva_design_tools"
+      ],
+      "strength_level": "medium"
+    },
+    {
+      "id": "ps_canva_2",
+      "description": "Designed presentation decks and visual content with custom design work",
+      "tags": [
+        "design",
+        "presentation design",
+        "visual"
+      ],
+      "maps_to_skills": [
+        "canva_design_tools",
+        "presentation_skills"
+      ],
+      "strength_level": "medium"
+    },
+    {
+      "id": "ps_discovery_1",
+      "description": "Conducted customer interviews to validate product hypotheses or gather requirements",
+      "tags": [
+        "user research",
+        "customer discovery",
+        "interviews"
+      ],
+      "maps_to_skills": [
+        "customer_discovery",
+        "user_research"
+      ],
+      "strength_level": "strong"
+    },
+    {
+      "id": "ps_discovery_2",
+      "description": "Led discovery sessions to uncover customer pain points and needs",
+      "tags": [
+        "discovery",
+        "research",
+        "customer needs"
+      ],
+      "maps_to_skills": [
+        "customer_discovery"
+      ],
+      "strength_level": "medium"
+    },
+    {
+      "id": "ps_objection_1",
+      "description": "Addressed customer concerns and objections to close deals or retain accounts",
+      "tags": [
+        "objection handling",
+        "sales",
+        "closing"
+      ],
+      "maps_to_skills": [
+        "objection_handling"
+      ],
+      "strength_level": "medium"
+    },
+    {
+      "id": "ps_objection_2",
+      "description": "Turned customer complaints or concerns into renewal or upsell opportunities",
+      "tags": [
+        "objection handling",
+        "retention",
+        "upsell"
+      ],
+      "maps_to_skills": [
+        "objection_handling",
+        "customer_retention"
+      ],
+      "strength_level": "strong"
+    },
+    {
+      "id": "ps_organization_1",
+      "description": "Managed complex schedules and coordinated multi-team logistics under tight deadlines",
+      "tags": [
+        "organization",
+        "scheduling",
+        "coordination"
+      ],
+      "maps_to_skills": [
+        "organization"
+      ],
+      "strength_level": "medium"
+    },
+    {
+      "id": "ps_organization_2",
+      "description": "Coordinated simultaneous projects with competing priorities and deadlines",
+      "tags": [
+        "organization",
+        "multi-tasking",
+        "project coordination"
+      ],
+      "maps_to_skills": [
+        "organization",
+        "project_management"
+      ],
+      "strength_level": "medium"
+    },
+    {
+      "id": "ps_commercial_1",
+      "description": "Identified revenue opportunities and recommended commercial strategies to leadership",
+      "tags": [
+        "revenue",
+        "commercial",
+        "business"
+      ],
+      "maps_to_skills": [
+        "commercial_mindset"
+      ],
+      "strength_level": "strong"
+    },
+    {
+      "id": "ps_commercial_2",
+      "description": "Contributed to pricing, packaging, or go-to-market decisions",
+      "tags": [
+        "pricing",
+        "go-to-market",
+        "commercial"
+      ],
+      "maps_to_skills": [
+        "commercial_mindset"
+      ],
+      "strength_level": "medium"
+    },
+    {
+      "id": "ps_partner_1",
+      "description": "Managed relationships with external partners, vendors, or channel resellers",
+      "tags": [
+        "partner management",
+        "vendors",
+        "relationships"
+      ],
+      "maps_to_skills": [
+        "partner_management",
+        "relationship_building"
+      ],
+      "strength_level": "medium"
+    },
+    {
+      "id": "ps_partner_2",
+      "description": "Coordinated joint initiatives with partner organizations and tracked partnership ROI",
+      "tags": [
+        "partnerships",
+        "joint initiatives",
+        "partner ROI"
+      ],
+      "maps_to_skills": [
+        "partner_management"
+      ],
+      "strength_level": "strong"
     }
   ]
 }

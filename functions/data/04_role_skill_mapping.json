@@ -660,13 +660,13 @@
         "social_media_management",
         "copywriting",
         "organization",
-        "customer_communication"
+        "marketing_analytics"
       ],
       "secondary_skills": [
         "canva_design_tools",
         "ai_tools_marketing",
         "event_marketing",
-        "marketing_analytics"
+        "customer_communication"
       ],
       "differentiator_skills": [
         "b2b_marketing",
@@ -1041,7 +1041,7 @@
         "ai_tools_marketing"
       ],
       "differentiator_skills": [
-        "python",
+        "python_data",
         "product_led_growth",
         "competitive_analysis_product"
       ]
@@ -1061,7 +1061,7 @@
         "statistical_analysis",
         "experimentation_framework",
         "product_analytics_expertise",
-        "cross_functional_collaboration"
+        "data_modeling"
       ],
       "differentiator_skills": [
         "cloud_data_platforms",
@@ -4644,6 +4644,548 @@
         "domain_expertise",
         "process_improvement",
         "ai_tool_fluency"
+      ]
+    },
+    {
+      "role_id": "customer_success_specialist",
+      "research_status": "mapped_v1_confident",
+      "core_skills": [
+        "customer_communication",
+        "customer_relationship_management",
+        "product_adoption",
+        "onboarding_strategy",
+        "customer_retention"
+      ],
+      "secondary_skills": [
+        "crm_management",
+        "stakeholder_management",
+        "data_analysis",
+        "problem_solving"
+      ],
+      "differentiator_skills": [
+        "upselling_cross_selling",
+        "customer_health_management"
+      ]
+    },
+    {
+      "role_id": "financial_analyst",
+      "research_status": "mapped_v1_confident",
+      "core_skills": [
+        "financial_modeling",
+        "excel_advanced_finance",
+        "data_analysis",
+        "budget_forecasting",
+        "analytical_thinking"
+      ],
+      "secondary_skills": [
+        "bva_analysis",
+        "bi_tools",
+        "financial_reporting",
+        "presentation_skills"
+      ],
+      "differentiator_skills": [
+        "dashboarding",
+        "sql",
+        "saas_finance_metrics"
+      ]
+    },
+    {
+      "role_id": "operations_analyst",
+      "research_status": "mapped_v1_confident",
+      "core_skills": [
+        "data_analysis",
+        "excel_advanced_finance",
+        "process_improvement",
+        "analytical_thinking",
+        "attention_to_detail"
+      ],
+      "secondary_skills": [
+        "sql",
+        "dashboarding",
+        "requirements_gathering",
+        "problem_solving"
+      ],
+      "differentiator_skills": [
+        "bizops_process_automation",
+        "revops_crm_administration"
+      ]
+    },
+    {
+      "role_id": "hr_coordinator",
+      "research_status": "mapped_v1_confident",
+      "core_skills": [
+        "employee_lifecycle_management",
+        "organization",
+        "cross_functional_collaboration",
+        "attention_to_detail"
+      ],
+      "secondary_skills": [
+        "hris_management",
+        "talent_acquisition_recruiting",
+        "customer_communication",
+        "problem_solving"
+      ],
+      "differentiator_skills": [
+        "employee_experience",
+        "hr_data_analytics"
+      ]
+    },
+    {
+      "role_id": "talent_acquisition_specialist",
+      "research_status": "mapped_v1_confident",
+      "core_skills": [
+        "talent_acquisition_recruiting",
+        "stakeholder_management",
+        "customer_communication",
+        "analytical_thinking"
+      ],
+      "secondary_skills": [
+        "employer_branding",
+        "hr_data_analytics",
+        "organization",
+        "cross_functional_collaboration"
+      ],
+      "differentiator_skills": [
+        "process_improvement",
+        "ai_tools_marketing"
+      ]
+    },
+    {
+      "role_id": "marketing_assistant",
+      "research_status": "mapped_v1_confident",
+      "core_skills": [
+        "social_media_management",
+        "content_strategy",
+        "copywriting",
+        "organization"
+      ],
+      "secondary_skills": [
+        "canva_design_tools",
+        "marketing_analytics",
+        "ai_tools_marketing"
+      ],
+      "differentiator_skills": [
+        "event_marketing"
+      ]
+    },
+    {
+      "role_id": "sales_representative",
+      "research_status": "mapped_v1_confident",
+      "core_skills": [
+        "outbound_prospecting",
+        "consultative_selling",
+        "customer_communication",
+        "pipeline_management",
+        "crm_management"
+      ],
+      "secondary_skills": [
+        "objection_handling",
+        "discovery_calls",
+        "sales_tools_proficiency",
+        "analytical_thinking"
+      ],
+      "differentiator_skills": [
+        "deal_closing",
+        "product_knowledge"
+      ]
+    },
+    {
+      "role_id": "brand_manager",
+      "research_status": "mapped_v1_confident",
+      "core_skills": [
+        "content_strategy",
+        "marketing_analytics",
+        "cross_functional_collaboration",
+        "project_management"
+      ],
+      "secondary_skills": [
+        "copywriting",
+        "b2b_marketing",
+        "ai_tools_marketing"
+      ],
+      "differentiator_skills": [
+        "product_positioning",
+        "performance_marketing"
+      ]
+    },
+    {
+      "role_id": "event_coordinator",
+      "research_status": "mapped_v1_confident",
+      "core_skills": [
+        "event_marketing",
+        "organization",
+        "project_management",
+        "customer_communication"
+      ],
+      "secondary_skills": [
+        "marketing_analytics",
+        "cross_functional_collaboration",
+        "copywriting"
+      ],
+      "differentiator_skills": [
+        "content_strategy",
+        "social_media_management"
+      ]
+    },
+    {
+      "role_id": "partnerships_associate",
+      "research_status": "mapped_v1_confident",
+      "core_skills": [
+        "relationship_building",
+        "customer_communication",
+        "organization",
+        "pipeline_management"
+      ],
+      "secondary_skills": [
+        "crm_management",
+        "cross_team_collaboration",
+        "analytical_thinking"
+      ],
+      "differentiator_skills": [
+        "commercial_mindset",
+        "market_research_bd"
+      ]
+    },
+    {
+      "role_id": "junior_business_analyst",
+      "research_status": "mapped_v1_confident",
+      "core_skills": [
+        "data_analysis",
+        "excel_advanced_finance",
+        "requirements_gathering",
+        "attention_to_detail"
+      ],
+      "secondary_skills": [
+        "sql",
+        "dashboarding",
+        "technical_communication",
+        "problem_solving"
+      ],
+      "differentiator_skills": [
+        "bi_tools"
+      ]
+    },
+    {
+      "role_id": "marketing_intern",
+      "research_status": "mapped_v1_confident",
+      "core_skills": [
+        "copywriting",
+        "social_media_management",
+        "organization"
+      ],
+      "secondary_skills": [
+        "canva_design_tools",
+        "content_strategy"
+      ],
+      "differentiator_skills": [
+        "marketing_analytics"
+      ]
+    },
+    {
+      "role_id": "hr_assistant",
+      "research_status": "mapped_v1_confident",
+      "core_skills": [
+        "organization",
+        "attention_to_detail",
+        "customer_communication"
+      ],
+      "secondary_skills": [
+        "hris_management",
+        "employee_lifecycle_management"
+      ],
+      "differentiator_skills": [
+        "cross_functional_collaboration"
+      ]
+    },
+    {
+      "role_id": "sales_associate",
+      "research_status": "mapped_v1_confident",
+      "core_skills": [
+        "customer_communication",
+        "crm_management",
+        "organization"
+      ],
+      "secondary_skills": [
+        "lead_qualification",
+        "sales_tools_proficiency",
+        "analytical_thinking"
+      ],
+      "differentiator_skills": [
+        "outbound_prospecting"
+      ]
+    },
+    {
+      "role_id": "social_media_coordinator",
+      "research_status": "mapped_v1_confident",
+      "core_skills": [
+        "social_media_management",
+        "content_strategy",
+        "copywriting",
+        "organization"
+      ],
+      "secondary_skills": [
+        "canva_design_tools",
+        "community_management",
+        "marketing_analytics"
+      ],
+      "differentiator_skills": [
+        "ai_tools_marketing"
+      ]
+    },
+    {
+      "role_id": "recruitment_coordinator",
+      "research_status": "mapped_v1_confident",
+      "core_skills": [
+        "organization",
+        "customer_communication",
+        "attention_to_detail"
+      ],
+      "secondary_skills": [
+        "talent_acquisition_recruiting",
+        "cross_functional_collaboration",
+        "employee_lifecycle_management"
+      ],
+      "differentiator_skills": [
+        "hr_data_analytics",
+        "analytical_thinking"
+      ]
+    },
+    {
+      "role_id": "business_operations_associate",
+      "research_status": "mapped_v1_confident",
+      "core_skills": [
+        "organization",
+        "attention_to_detail",
+        "process_improvement",
+        "data_analysis"
+      ],
+      "secondary_skills": [
+        "excel_advanced_finance",
+        "cross_functional_collaboration",
+        "problem_solving"
+      ],
+      "differentiator_skills": [
+        "bizops_process_automation"
+      ]
+    },
+    {
+      "role_id": "strategy_analyst",
+      "research_status": "mapped_v1_confident",
+      "core_skills": [
+        "analytical_thinking",
+        "data_analysis",
+        "excel_advanced_finance",
+        "presentation_skills",
+        "strategic_thinking"
+      ],
+      "secondary_skills": [
+        "consulting_methodology",
+        "financial_modeling",
+        "requirements_gathering",
+        "cross_functional_collaboration"
+      ],
+      "differentiator_skills": [
+        "problem_solving",
+        "domain_expertise"
+      ]
+    },
+    {
+      "role_id": "management_consultant",
+      "research_status": "mapped_v1_confident",
+      "core_skills": [
+        "consulting_methodology",
+        "analytical_thinking",
+        "presentation_skills",
+        "stakeholder_management",
+        "strategic_thinking"
+      ],
+      "secondary_skills": [
+        "data_analysis",
+        "financial_modeling",
+        "cross_functional_collaboration",
+        "problem_solving"
+      ],
+      "differentiator_skills": [
+        "domain_expertise",
+        "coaching"
+      ]
+    },
+    {
+      "role_id": "junior_consultant",
+      "research_status": "mapped_v1_confident",
+      "core_skills": [
+        "analytical_thinking",
+        "excel_advanced_finance",
+        "presentation_skills",
+        "attention_to_detail"
+      ],
+      "secondary_skills": [
+        "consulting_methodology",
+        "data_analysis",
+        "requirements_gathering"
+      ],
+      "differentiator_skills": [
+        "strategic_thinking"
+      ]
+    },
+    {
+      "role_id": "operations_associate",
+      "research_status": "mapped_v1_confident",
+      "core_skills": [
+        "organization",
+        "attention_to_detail",
+        "cross_functional_collaboration"
+      ],
+      "secondary_skills": [
+        "process_improvement",
+        "data_analysis",
+        "customer_communication"
+      ],
+      "differentiator_skills": [
+        "problem_solving"
+      ]
+    },
+    {
+      "role_id": "event_manager",
+      "research_status": "mapped_v1_confident",
+      "core_skills": [
+        "event_marketing",
+        "project_management",
+        "cross_functional_collaboration",
+        "analytical_thinking"
+      ],
+      "secondary_skills": [
+        "marketing_analytics",
+        "stakeholder_management",
+        "content_strategy"
+      ],
+      "differentiator_skills": [
+        "demand_generation",
+        "performance_marketing"
+      ]
+    },
+    {
+      "role_id": "technical_support_specialist",
+      "research_status": "mapped_v1_confident",
+      "core_skills": [
+        "technical_troubleshooting",
+        "customer_communication",
+        "problem_solving",
+        "technical_communication"
+      ],
+      "secondary_skills": [
+        "debugging",
+        "api_integrations",
+        "technical_documentation",
+        "analytical_thinking"
+      ],
+      "differentiator_skills": [
+        "customer_support_operations"
+      ]
+    },
+    {
+      "role_id": "solutions_consultant",
+      "research_status": "mapped_v1_confident",
+      "core_skills": [
+        "technical_discovery",
+        "solution_design_architecture",
+        "product_demonstration",
+        "customer_technical_relationship",
+        "communication"
+      ],
+      "secondary_skills": [
+        "poc_management",
+        "technical_sales_acumen",
+        "cross_team_collaboration",
+        "sql"
+      ],
+      "differentiator_skills": [
+        "ai_tool_fluency",
+        "crm_management"
+      ]
+    },
+    {
+      "role_id": "pre_sales_engineer",
+      "research_status": "mapped_v1_confident",
+      "core_skills": [
+        "technical_discovery",
+        "product_demonstration",
+        "poc_management",
+        "technical_sales_acumen",
+        "api_design"
+      ],
+      "secondary_skills": [
+        "solution_design_architecture",
+        "rfp_response",
+        "sql",
+        "debugging"
+      ],
+      "differentiator_skills": [
+        "cloud_platforms",
+        "ai_tool_fluency"
+      ]
+    },
+    {
+      "role_id": "growth_analyst",
+      "research_status": "mapped_v1_confident",
+      "core_skills": [
+        "data_analysis",
+        "analytical_thinking",
+        "marketing_experimentation",
+        "funnel_optimization",
+        "marketing_analytics"
+      ],
+      "secondary_skills": [
+        "sql",
+        "dashboarding",
+        "conversion_rate_optimization"
+      ],
+      "differentiator_skills": [
+        "ab_testing",
+        "statistical_analysis"
+      ]
+    },
+    {
+      "role_id": "revenue_analyst",
+      "research_status": "mapped_v1_confident",
+      "core_skills": [
+        "data_analysis",
+        "excel_advanced_finance",
+        "analytical_thinking",
+        "saas_finance_metrics",
+        "revops_commercial_analytics"
+      ],
+      "secondary_skills": [
+        "sql",
+        "dashboarding",
+        "budget_forecasting",
+        "revops_crm_administration"
+      ],
+      "differentiator_skills": [
+        "financial_modeling",
+        "bizops_process_automation"
+      ]
+    },
+    {
+      "role_id": "demand_generation_manager",
+      "research_status": "mapped_v1_confident",
+      "core_skills": [
+        "demand_generation",
+        "marketing_analytics",
+        "performance_marketing",
+        "cross_functional_collaboration",
+        "analytical_thinking"
+      ],
+      "secondary_skills": [
+        "marketing_automation",
+        "b2b_marketing",
+        "content_strategy",
+        "project_management"
+      ],
+      "differentiator_skills": [
+        "ai_tools_marketing",
+        "product_positioning",
+        "campaign_analytics_attribution"
       ]
     }
   ]
