@@ -84,11 +84,26 @@ export default function CareerRoadmap() {
     if (!profile) return;
     setGenerating(true);
     try {
-      const { data, error } = await supabase.functions.invoke("generate-career-analysis", {
-        body: { dream_roles: profile?.five_year_role ? [profile.five_year_role] : [] },
+      // Direct fetch to bypass supabase.functions.invoke client-side errors
+      // Use refreshSession to ensure we have a fresh, non-expired token
+      const { data: sessionData, error: sessionError } = await supabase.auth.refreshSession();
+      const accessToken = sessionData?.session?.access_token;
+      if (sessionError || !accessToken) throw new Error("Session expired. Please log out and log back in.");
+
+      const fnUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-career-analysis`;
+      const response = await fetch(fnUrl, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+          "apikey": import.meta.env.VITE_SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({ dream_roles: profile?.five_year_role ? [profile.five_year_role] : [] }),
       });
 
-      if (error) throw error;
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error || data?.msg || `HTTP ${response.status}`);
+      if (data?.error) throw new Error(data.error);
 
       // Atomically replace career roles using a DB transaction via RPC
       if (data?.roles?.length > 0) {
@@ -116,7 +131,7 @@ export default function CareerRoadmap() {
       toast.success("Career roadmap generated!");
     } catch (err) {
       console.error("Roadmap generation error:", err);
-      toast.error("Failed to generate roadmap. Please try again.");
+      toast.error(`Failed to generate roadmap: ${err.message || 'Please try again.'}`);
     } finally {
       setGenerating(false);
     }

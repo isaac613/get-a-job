@@ -2,15 +2,22 @@ import React, { useState } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { useNavigate } from "react-router-dom";
 
+// mode: "signin" | "signup" | "forgot"
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [mode, setMode] = useState("signin");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
   const navigate = useNavigate();
+
+  const switchMode = (next) => {
+    setMode(next);
+    setError(null);
+    setMessage(null);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -19,21 +26,22 @@ export default function Login() {
     setMessage(null);
 
     try {
-      if (isSignUp) {
+      if (mode === "signup") {
         const { error } = await supabase.auth.signUp({
           email,
           password,
-          options: {
-            data: { full_name: fullName },
-          },
+          options: { data: { full_name: fullName } },
         });
         if (error) throw error;
         setMessage("Check your email for a confirmation link!");
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
+      } else if (mode === "forgot") {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/reset-password`,
         });
+        if (error) throw error;
+        setMessage("Password reset email sent — check your inbox.");
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         navigate("/");
       }
@@ -57,7 +65,7 @@ export default function Login() {
         </div>
 
         <h2 className="text-xl font-semibold text-[#0A0A0A] mb-6">
-          {isSignUp ? "Create your account" : "Welcome back"}
+          {mode === "signup" ? "Create your account" : mode === "forgot" ? "Reset your password" : "Welcome back"}
         </h2>
 
         {error && (
@@ -73,7 +81,7 @@ export default function Login() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {isSignUp && (
+          {mode === "signup" && (
             <div>
               <label className="block text-sm font-medium text-[#525252] mb-1.5">
                 Full Name
@@ -103,20 +111,33 @@ export default function Login() {
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-[#525252] mb-1.5">
-              Password
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-lg border border-[#E5E5E5] bg-white text-[#0A0A0A] text-sm focus:outline-none focus:ring-2 focus:ring-[#0A0A0A] focus:border-transparent transition-all"
-              placeholder="••••••••"
-              required
-              minLength={6}
-            />
-          </div>
+          {mode !== "forgot" && (
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-sm font-medium text-[#525252]">
+                  Password
+                </label>
+                {mode === "signin" && (
+                  <button
+                    type="button"
+                    onClick={() => switchMode("forgot")}
+                    className="text-xs text-[#525252] hover:text-[#0A0A0A] transition-colors"
+                  >
+                    Forgot password?
+                  </button>
+                )}
+              </div>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-lg border border-[#E5E5E5] bg-white text-[#0A0A0A] text-sm focus:outline-none focus:ring-2 focus:ring-[#0A0A0A] focus:border-transparent transition-all"
+                placeholder="••••••••"
+                required
+                minLength={6}
+              />
+            </div>
+          )}
 
           <button
             type="submit"
@@ -125,25 +146,32 @@ export default function Login() {
           >
             {loading
               ? "Loading..."
-              : isSignUp
+              : mode === "signup"
               ? "Create Account"
+              : mode === "forgot"
+              ? "Send Reset Email"
               : "Sign In"}
           </button>
         </form>
 
-        <div className="mt-6 text-center">
-          <button
-            onClick={() => {
-              setIsSignUp(!isSignUp);
-              setError(null);
-              setMessage(null);
-            }}
-            className="text-sm text-[#525252] hover:text-[#0A0A0A] transition-colors"
-          >
-            {isSignUp
-              ? "Already have an account? Sign in"
-              : "Don't have an account? Sign up"}
-          </button>
+        <div className="mt-6 text-center space-y-2">
+          {mode === "forgot" ? (
+            <button
+              onClick={() => switchMode("signin")}
+              className="text-sm text-[#525252] hover:text-[#0A0A0A] transition-colors"
+            >
+              Back to sign in
+            </button>
+          ) : (
+            <button
+              onClick={() => switchMode(mode === "signup" ? "signin" : "signup")}
+              className="text-sm text-[#525252] hover:text-[#0A0A0A] transition-colors"
+            >
+              {mode === "signup"
+                ? "Already have an account? Sign in"
+                : "Don't have an account? Sign up"}
+            </button>
+          )}
         </div>
       </div>
     </div>
