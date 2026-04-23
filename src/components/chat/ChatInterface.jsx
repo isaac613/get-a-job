@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
 import { useQueryClient } from "@tanstack/react-query";
-import { Send, Loader2, Plus, ListTodo, CheckCircle2, ArrowRight, Route } from "lucide-react";
+import { Send, Loader2, Plus, ListTodo, CheckCircle2, ArrowRight, Route, Briefcase } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { createPageUrl } from "@/utils";
@@ -96,6 +96,52 @@ function RoadmapChangeCard({ messageId, changes, applied, onApply }) {
   );
 }
 
+function ApplicationActionsCard({ messageId, actions, applied, onApply }) {
+  if (applied[messageId]) {
+    return (
+      <div className="ml-10 mt-2 bg-emerald-50 border border-emerald-200 rounded-xl p-4 max-w-xl">
+        <div className="flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+          <p className="text-xs font-semibold text-emerald-800">Applications updated</p>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="ml-10 mt-2 bg-blue-50 border border-blue-200 rounded-xl p-4 max-w-xl">
+      <div className="flex items-center gap-2 mb-3">
+        <Briefcase className="w-3.5 h-3.5 text-blue-700" />
+        <p className="text-xs font-semibold text-blue-800">Proposed Application Changes</p>
+      </div>
+      <ul className="space-y-2 mb-3">
+        {actions.map((a, i) => (
+          <li key={i} className="text-xs text-blue-900 leading-relaxed">
+            {a.action === "add_application" && (
+              <span>Add <strong>{a.company}</strong> — {a.role_title} ({a.status || "interested"}{a.tier ? `, ${a.tier}` : ""})</span>
+            )}
+            {a.action === "update_application" && (
+              <span>
+                Update <strong>{a.match_company}</strong> — {a.match_role_title}:
+                {a.new_status && <span> status → {a.new_status}</span>}
+                {a.new_interview_stage && <span>, stage → {a.new_interview_stage}</span>}
+                {a.new_tier && <span>, tier → {a.new_tier}</span>}
+                {a.new_notes && <span>, notes updated</span>}
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+      <Button
+        size="sm"
+        onClick={() => onApply(messageId, actions)}
+        className="h-7 text-xs bg-blue-700 hover:bg-blue-800 gap-1.5"
+      >
+        Apply Changes
+      </Button>
+    </div>
+  );
+}
+
 function AgentRedirectCard({ suggestion, onSwitch }) {
   return (
     <div className="ml-10 mt-2">
@@ -120,6 +166,7 @@ export default function ChatInterface({ agentName, title, description, applicati
   const [sending, setSending] = useState(false);
   const [addedTaskSets, setAddedTaskSets] = useState({});
   const [appliedRoadmapSets, setAppliedRoadmapSets] = useState({});
+  const [appliedAppActionSets, setAppliedAppActionSets] = useState({});
   const bottomRef = useRef(null);
 
   useEffect(() => {
@@ -158,6 +205,7 @@ export default function ChatInterface({ agentName, title, description, applicati
           suggestedTasks: data.suggested_tasks?.length > 0 ? data.suggested_tasks : null,
           suggestedAgent: data.suggested_agent || null,
           suggestedRoadmapChanges: data.suggested_roadmap_changes?.length > 0 ? data.suggested_roadmap_changes : null,
+          suggestedApplicationActions: data.suggested_application_actions?.length > 0 ? data.suggested_application_actions : null,
         },
       ]);
     } catch (err) {
@@ -228,6 +276,48 @@ export default function ChatInterface({ agentName, title, description, applicati
     setAppliedRoadmapSets((prev) => ({ ...prev, [messageId]: true }));
     queryClient.invalidateQueries({ queryKey: ["careerRoles"] });
     toast.success("Roadmap updated");
+  };
+
+  const handleApplyApplicationActions = async (messageId, actions) => {
+    if (!user?.id || appliedAppActionSets[messageId]) return;
+    let hasError = false;
+    for (const a of actions) {
+      if (a.action === "add_application") {
+        const row = {
+          user_id: user.id,
+          company: a.company,
+          role_title: a.role_title,
+          status: a.status || "interested",
+          ...(a.tier && { tier: a.tier }),
+          ...(a.url && { url: a.url }),
+          ...(a.location && { location: a.location }),
+          ...(a.notes && { notes: a.notes }),
+        };
+        const { error } = await supabase.from("applications").insert(row);
+        if (error) { console.error("add_application error:", error); hasError = true; }
+      } else if (a.action === "update_application") {
+        const patch = {};
+        if (a.new_status) patch.status = a.new_status;
+        if (a.new_interview_stage) patch.interview_stage = a.new_interview_stage;
+        if (a.new_tier) patch.tier = a.new_tier;
+        if (a.new_notes) patch.notes = a.new_notes;
+        if (Object.keys(patch).length === 0) continue;
+        const { error } = await supabase
+          .from("applications")
+          .update(patch)
+          .eq("user_id", user.id)
+          .ilike("company", a.match_company)
+          .ilike("role_title", a.match_role_title);
+        if (error) { console.error("update_application error:", error); hasError = true; }
+      }
+    }
+    if (hasError) {
+      toast.error("Some applications could not be updated. Please try again.");
+      return;
+    }
+    setAppliedAppActionSets((prev) => ({ ...prev, [messageId]: true }));
+    queryClient.invalidateQueries({ queryKey: ["applications"] });
+    toast.success("Applications updated");
   };
 
   const handleSwitchAgent = (page) => {
@@ -303,6 +393,14 @@ export default function ChatInterface({ agentName, title, description, applicati
                   changes={msg.suggestedRoadmapChanges}
                   applied={appliedRoadmapSets}
                   onApply={handleApplyRoadmapChanges}
+                />
+              )}
+              {msg.suggestedApplicationActions && (
+                <ApplicationActionsCard
+                  messageId={msg.id}
+                  actions={msg.suggestedApplicationActions}
+                  applied={appliedAppActionSets}
+                  onApply={handleApplyApplicationActions}
                 />
               )}
               {msg.suggestedAgent && (

@@ -100,6 +100,29 @@ Rules:
 - Always mention the proposed changes in your response text before the JSON block
 - Omit this block entirely if no roadmap changes are needed`
 
+const APPLICATION_ACTIONS_RULES = `
+
+APPLICATION TRACKER ACTIONS:
+If the user explicitly asks you to add a company to their applications, update the status/stage of an application, or move/track something in their tracker, propose the changes at the very end of your response:
+SUGGESTED_APPLICATION_ACTIONS_JSON:{"actions":[{"action":"add_application","company":"...","role_title":"...","status":"interested","tier":"tier_2","url":"...","location":"...","notes":"..."}]}
+
+Each action must use one of these shapes:
+- {"action":"add_application","company":"Acme","role_title":"Product Manager","status":"interested","tier":"tier_2"}
+  Optional fields: url, location, notes, tier, cv_url, job_description, salary_range
+- {"action":"update_application","match_company":"EXACT company from their active applications","match_role_title":"EXACT role title","new_status":"applied"}
+  Optional new_* fields: new_status, new_interview_stage, new_notes, new_tier
+
+Valid status values: "interested" | "preparing" | "applied" | "interviewing" | "offer" | "rejected"
+Valid tier values: "tier_1" | "tier_2" | "tier_3"
+Valid interview_stage examples: "phone_screen", "technical", "onsite", "final_round", "reference_check"
+
+Rules:
+- Only propose actions the user EXPLICITLY requested. Do not add or modify applications proactively.
+- For add_application: always infer reasonable defaults. If the user didn't specify status, default to "interested". If they didn't specify role_title, ask first — do not emit the block.
+- For update_application: match_company + match_role_title must name a real application from the ACTIVE APPLICATIONS context block. If the user is ambiguous about which application to update, ask first.
+- Always describe what you're about to do in the response text before the JSON block, so the user can confirm.
+- Omit the block entirely if no tracker action was requested.`
+
 const CAREER_AGENT_REDIRECT_RULES = `
 
 AGENT REDIRECT:
@@ -358,7 +381,7 @@ Deno.serve(async (req) => {
     if (agent === 'resume-extractor') {
       systemPrompt = basePrompt + userContext
     } else if (agent === 'career_agent') {
-      systemPrompt = basePrompt + TASK_SUGGESTION_RULES + ROADMAP_CHANGE_RULES + CAREER_AGENT_REDIRECT_RULES + SCOPE_GUARD + userContext
+      systemPrompt = basePrompt + TASK_SUGGESTION_RULES + ROADMAP_CHANGE_RULES + APPLICATION_ACTIONS_RULES + CAREER_AGENT_REDIRECT_RULES + SCOPE_GUARD + userContext
     } else if (agent === 'interview_coach') {
       systemPrompt = basePrompt + TASK_SUGGESTION_RULES + INTERVIEW_COACH_REDIRECT_RULES + SCOPE_GUARD + userContext
     } else if (agent === 'skill_development_agent') {
@@ -430,12 +453,72 @@ Deno.serve(async (req) => {
       reply = agentResult.cleaned
     }
 
+    // Application tracker actions (career_agent only).
+    type AppAction = {
+      action: 'add_application' | 'update_application'
+      company?: string
+      role_title?: string
+      status?: string
+      tier?: string
+      url?: string
+      location?: string
+      notes?: string
+      match_company?: string
+      match_role_title?: string
+      new_status?: string
+      new_interview_stage?: string
+      new_notes?: string
+      new_tier?: string
+    }
+    let suggested_application_actions: AppAction[] | null = null
+    const appActionsResult = extractJsonBlock(reply, 'SUGGESTED_APPLICATION_ACTIONS_JSON:')
+    if (appActionsResult && typeof appActionsResult.parsed === 'object' && appActionsResult.parsed !== null) {
+      const parsed = appActionsResult.parsed as { actions?: unknown[] }
+      if (Array.isArray(parsed.actions) && parsed.actions.length > 0) {
+        const VALID_STATUSES = new Set(['interested', 'preparing', 'applied', 'interviewing', 'offer', 'rejected'])
+        const VALID_TIERS = new Set(['tier_1', 'tier_2', 'tier_3'])
+        const VALID_ACTIONS = new Set(['add_application', 'update_application'])
+        const cleaned: AppAction[] = []
+        for (const raw of parsed.actions as AppAction[]) {
+          if (!VALID_ACTIONS.has(raw.action)) continue
+          if (raw.action === 'add_application') {
+            if (!raw.company?.trim() || !raw.role_title?.trim()) continue
+            cleaned.push({
+              action: 'add_application',
+              company: String(raw.company).slice(0, 200).trim(),
+              role_title: String(raw.role_title).slice(0, 200).trim(),
+              status: raw.status && VALID_STATUSES.has(raw.status) ? raw.status : 'interested',
+              ...(raw.tier && VALID_TIERS.has(raw.tier) && { tier: raw.tier }),
+              ...(raw.url && { url: String(raw.url).slice(0, 2000) }),
+              ...(raw.location && { location: String(raw.location).slice(0, 200) }),
+              ...(raw.notes && { notes: String(raw.notes).slice(0, 2000) }),
+            })
+          } else {
+            if (!raw.match_company?.trim() || !raw.match_role_title?.trim()) continue
+            if (!raw.new_status && !raw.new_interview_stage && !raw.new_notes && !raw.new_tier) continue
+            cleaned.push({
+              action: 'update_application',
+              match_company: String(raw.match_company).slice(0, 200).trim(),
+              match_role_title: String(raw.match_role_title).slice(0, 200).trim(),
+              ...(raw.new_status && VALID_STATUSES.has(raw.new_status) && { new_status: raw.new_status }),
+              ...(raw.new_interview_stage && { new_interview_stage: String(raw.new_interview_stage).slice(0, 100) }),
+              ...(raw.new_notes && { new_notes: String(raw.new_notes).slice(0, 2000) }),
+              ...(raw.new_tier && VALID_TIERS.has(raw.new_tier) && { new_tier: raw.new_tier }),
+            })
+          }
+        }
+        if (cleaned.length > 0) suggested_application_actions = cleaned
+        reply = appActionsResult.cleaned
+      }
+    }
+
     return new Response(JSON.stringify({
       reply,
       agent,
       ...(suggested_tasks.length > 0 && { suggested_tasks }),
       ...(suggested_agent && { suggested_agent }),
       ...(suggested_roadmap_changes && { suggested_roadmap_changes }),
+      ...(suggested_application_actions && { suggested_application_actions }),
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 
   } catch (error) {
