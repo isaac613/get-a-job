@@ -36,4 +36,4 @@ export const fitScoringLogic = {
       "This is a simple version with no weighting for recency, ownership, or complexity yet"
     ]
   }
-};
+} as const;

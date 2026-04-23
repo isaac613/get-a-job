@@ -161,4 +161,4 @@ export const agentDecisionLogic = {
       }
     ]
   }
-};
+} as const;

@@ -199,4 +199,4 @@ export const taskGenerationLogic = {
       }
     ]
   }
-};
+} as const;

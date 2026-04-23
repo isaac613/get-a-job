@@ -611,4 +611,4 @@ export const proofSignalExtractionLogic = {
       "environment": "standard | high_pressure | elite"
     }
   }
-};
+} as const;

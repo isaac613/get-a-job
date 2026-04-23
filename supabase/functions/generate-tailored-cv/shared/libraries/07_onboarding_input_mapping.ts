@@ -195,4 +195,4 @@ export const onboardingInputMapping = {
       ]
     }
   }
-};
+} as const;

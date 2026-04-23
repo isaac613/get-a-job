@@ -6010,4 +6010,4 @@ export const skillLibrary = {
       }
     }
   ]
-};
+} as const;

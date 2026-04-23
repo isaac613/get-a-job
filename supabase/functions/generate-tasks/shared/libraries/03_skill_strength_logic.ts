@@ -36,4 +36,4 @@ export const skillStrengthLogic = {
       "No recency, ownership, or complexity factors included yet"
     ]
   }
-};
+} as const;

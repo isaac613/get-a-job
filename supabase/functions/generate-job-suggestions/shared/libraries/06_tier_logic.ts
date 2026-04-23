@@ -14,4 +14,4 @@ export const tierLogic = {
       "description": "More aligned to the long-term goal, but usually one step ahead of current readiness"
     }
   ]
-};
+} as const;

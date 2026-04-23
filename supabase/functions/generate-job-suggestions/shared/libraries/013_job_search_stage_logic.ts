@@ -172,4 +172,4 @@ export const jobSearchStageLogic = {
       "array of evidence strings"
     ]
   }
-};
+} as const;

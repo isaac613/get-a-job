@@ -5,7 +5,6 @@ export const locationContextIsrael = {
   "location": "Israel",
   "primary_market": "Tel Aviv High-Tech",
   "description": "Market-specific knowledge for the Israeli high-tech job market. Loaded conditionally when userprofile.location = Israel.",
-
   "market_overview": {
     "dominant_sectors": [
       "B2B SaaS",
@@ -19,48 +18,46 @@ export const locationContextIsrael = {
       "E-commerce and Marketplace"
     ],
     "market_characteristics": [
-      "Most Israeli tech companies are global from day one — they sell to US and European markets even if headquartered in Tel Aviv",
-      "The market is small and deeply connected — warm introductions and referrals are the single most effective way to get an interview",
-      "Startup culture dominates — roles tend to be broader and less specialized than equivalent roles at US enterprise companies",
+      "Most Israeli tech companies are global from day one \u2014 they sell to US and European markets even if headquartered in Tel Aviv",
+      "The market is small and deeply connected \u2014 warm introductions and referrals are the single most effective way to get an interview",
+      "Startup culture dominates \u2014 roles tend to be broader and less specialized than equivalent roles at US enterprise companies",
       "English is the working language for most tech roles, especially customer-facing and product roles",
       "Hebrew is used internally at most Israeli companies but English proficiency is expected and often tested",
-      "Speed is a cultural norm — hiring at startups moves fast when there is interest",
-      "The army network is one of the most powerful professional networks in the country — unit connections often matter as much as university connections",
-      "Israel has one of the highest densities of startups per capita in the world — there is genuine opportunity at every level"
+      "Speed is a cultural norm \u2014 hiring at startups moves fast when there is interest",
+      "The army network is one of the most powerful professional networks in the country \u2014 unit connections often matter as much as university connections",
+      "Israel has one of the highest densities of startups per capita in the world \u2014 there is genuine opportunity at every level"
     ]
   },
-
   "hiring_norms": {
     "process": [
-      "The first interview is almost always a phone screen with HR — it focuses on background, basic English level, and culture fit",
+      "The first interview is almost always a phone screen with HR \u2014 it focuses on background, basic English level, and culture fit",
       "After the HR screen, candidates typically move to a hiring manager interview and then a practical task or case study",
       "Final rounds often include a team or cross-functional interview",
       "Hiring at startups can move from phone screen to offer in 2-3 weeks when there is strong interest",
-      "Larger companies and multinationals move slower — 4-8 weeks is common",
-      "Ghosting after applying is the norm, not the exception — users should not read into silence"
+      "Larger companies and multinationals move slower \u2014 4-8 weeks is common",
+      "Ghosting after applying is the norm, not the exception \u2014 users should not read into silence"
     ],
     "what_employers_look_for": [
-      "Ownership mentality — Israeli startups want people who take initiative and do not wait to be told what to do",
-      "Generalist capability at junior level — ability to do multiple things beats narrow specialization",
-      "English fluency — written and spoken, especially for customer-facing and global roles",
-      "Relevant military experience — particularly for operational, analytical, technical, and leadership roles",
-      "Startup fit — comfort with ambiguity, fast pace, and wearing multiple hats",
-      "Real experience over academic achievement — what you have done matters more than your GPA"
+      "Ownership mentality \u2014 Israeli startups want people who take initiative and do not wait to be told what to do",
+      "Generalist capability at junior level \u2014 ability to do multiple things beats narrow specialization",
+      "English fluency \u2014 written and spoken, especially for customer-facing and global roles",
+      "Relevant military experience \u2014 particularly for operational, analytical, technical, and leadership roles",
+      "Startup fit \u2014 comfort with ambiguity, fast pace, and wearing multiple hats",
+      "Real experience over academic achievement \u2014 what you have done matters more than your GPA"
     ],
     "referral_culture": {
       "importance": "Critical",
       "description": "Referrals from someone inside the company dramatically increase the chance of getting an interview. In Israel, who you know genuinely matters more than almost anywhere else.",
       "practical_advice": [
-        "Always map existing connections before cold outreach — there is almost always a warm path",
-        "The army network is the most powerful referral network in Israel — leverage it actively",
-        "University alumni networks are valuable — Reichman alumni are active and worth reaching out to",
+        "Always map existing connections before cold outreach \u2014 there is almost always a warm path",
+        "The army network is the most powerful referral network in Israel \u2014 leverage it actively",
+        "University alumni networks are valuable \u2014 Reichman alumni are active and worth reaching out to",
         "A WhatsApp message to the right person can open a door that 50 LinkedIn applications cannot",
-        "Cold applying on LinkedIn is largely ineffective — it is used more for visibility and warm outreach than as an application channel",
-        "Reaching out directly to someone at the company and asking for a referral or intro is normal and expected in Israel — it is not considered rude or aggressive"
+        "Cold applying on LinkedIn is largely ineffective \u2014 it is used more for visibility and warm outreach than as an application channel",
+        "Reaching out directly to someone at the company and asking for a referral or intro is normal and expected in Israel \u2014 it is not considered rude or aggressive"
       ]
     }
   },
-
   "entry_points_for_business_graduates": {
     "most_accessible": [
       {
@@ -92,7 +89,6 @@ export const locationContextIsrael = {
       }
     ]
   },
-
   "company_landscape": {
     "israeli_tech_companies": [
       {
@@ -182,7 +178,7 @@ export const locationContextIsrael = {
       "description": "Tel Aviv has a dense early-stage startup ecosystem. Entry-level roles at startups are easier to land than at scale-ups but come with more risk and less structure.",
       "advantages": [
         "Faster to hire",
-        "Broader role scope — great for learning fast",
+        "Broader role scope \u2014 great for learning fast",
         "More responsibility earlier",
         "Equity upside"
       ],
@@ -193,56 +189,52 @@ export const locationContextIsrael = {
       ]
     }
   },
-
   "cv_norms": {
     "format": [
       "One page for students and recent graduates",
       "English is standard for most tech roles",
-      "Clean, minimal formatting — no photos, no graphics in most cases",
+      "Clean, minimal formatting \u2014 no photos, no graphics in most cases",
       "Reverse chronological order",
-      "Quantified achievements wherever possible — numbers, percentages, scale matter",
+      "Quantified achievements wherever possible \u2014 numbers, percentages, scale matter",
       "Military experience should be included and translated into civilian language"
     ],
     "military_experience": {
       "importance": "High",
       "advice": [
-        "Always include military service — it is expected and valued in Israel",
-        "Translate military roles into civilian language — leadership, operations, intelligence, technical, logistics",
-        "Highlight unit prestige where relevant — 8200, Mamram, and intelligence/cyber units carry significant weight",
-        "Quantify where possible — team size managed, scope of operation, technical systems used",
+        "Always include military service \u2014 it is expected and valued in Israel",
+        "Translate military roles into civilian language \u2014 leadership, operations, intelligence, technical, logistics",
+        "Highlight unit prestige where relevant \u2014 8200, Mamram, and intelligence/cyber units carry significant weight",
+        "Quantify where possible \u2014 team size managed, scope of operation, technical systems used",
         "Frame operational experience as project management, stakeholder coordination, or data-driven decision making depending on the role being targeted"
       ]
     }
   },
-
   "linkedin_norms": {
-    "importance": "High — recruiters in Israel actively search LinkedIn",
+    "importance": "High \u2014 recruiters in Israel actively search LinkedIn",
     "advice": [
       "A complete and well-written LinkedIn profile matters more in Israel than in many other markets",
-      "Connect with recruiters at target companies — many Israeli recruiters are responsive to direct outreach",
+      "Connect with recruiters at target companies \u2014 many Israeli recruiters are responsive to direct outreach",
       "Posting content or engaging with industry content increases visibility",
-      "Cold applying via LinkedIn Easy Apply is largely ineffective — use LinkedIn for warm outreach and relationship building instead",
-      "Message people directly at target companies — it is culturally accepted and often effective in Israel"
+      "Cold applying via LinkedIn Easy Apply is largely ineffective \u2014 use LinkedIn for warm outreach and relationship building instead",
+      "Message people directly at target companies \u2014 it is culturally accepted and often effective in Israel"
     ]
   },
-
   "networking_strategy": {
-    "priority": "Highest — referrals are the primary hiring channel in Israel",
+    "priority": "Highest \u2014 referrals are the primary hiring channel in Israel",
     "key_networks": [
-      "Military unit network — most powerful professional network in Israel",
-      "University alumni network — Reichman alumni are active and helpful",
+      "Military unit network \u2014 most powerful professional network in Israel",
+      "University alumni network \u2014 Reichman alumni are active and helpful",
       "LinkedIn connections at target companies",
       "Personal and family connections in tech"
     ],
     "practical_steps": [
       "Map all existing connections before starting any cold outreach",
       "Identify who in your network works at or knows someone at target companies",
-      "Ask for a referral directly — it is normal and expected in Israel",
+      "Ask for a referral directly \u2014 it is normal and expected in Israel",
       "Reach out to Reichman alumni at target companies via LinkedIn",
-      "Attend industry meetups and events in Tel Aviv — the community is small and accessible"
+      "Attend industry meetups and events in Tel Aviv \u2014 the community is small and accessible"
     ]
   },
-
   "salary_context": {
     "currency": "ILS (New Israeli Shekel)",
     "notes": [
@@ -250,14 +242,13 @@ export const locationContextIsrael = {
       "Sales roles often include commission on top of base",
       "Equity (options) are common at startups and scale-ups",
       "Multinational offices often pay above local startup rates",
-      "Salary negotiation is expected — the first offer is rarely the final offer"
+      "Salary negotiation is expected \u2014 the first offer is rarely the final offer"
     ]
   },
-
   "timeline_expectations": {
     "job_search_duration": "2-4 months is realistic for an active search at entry level in the Israeli market",
     "application_to_response": "1-2 weeks if there is interest, silence if there is not",
     "interview_to_offer": "2-3 weeks at startups, 4-8 weeks at larger companies",
-    "advice": "Start networking before actively applying — building relationships takes time and referrals need to be warm to be effective"
+    "advice": "Start networking before actively applying \u2014 building relationships takes time and referrals need to be warm to be effective"
   }
-};
+} as const;

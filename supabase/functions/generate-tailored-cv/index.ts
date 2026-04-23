@@ -113,66 +113,105 @@ Deno.serve(async (req) => {
       },
     };
 
-    // --- Build System Prompt with Library Context ---
-    const systemPrompt = `You are a CV Generation Engine for the "Get A Job" Career Operating System.
+    // --- Deterministic role lookup (replaces full library dump) ---
+    const normalize = (s: string) => s.toLowerCase().replace(/[\s_\-]+/g, " ").trim();
+    const targetNormalized = normalize(safeTargetRole);
 
-You have access to the following standardized libraries. Use them as your source of truth when deciding which skills to emphasize, which proof signals to surface, and how to structure the CV for the target role.
+    const targetRoleDef = (roleLibrary as any).roles.find((r: any) =>
+      r.role_id === safeTargetRole ||
+      r.id === safeTargetRole ||
+      (r.title && normalize(r.title) === targetNormalized) ||
+      (r.standardized_title && normalize(r.standardized_title) === targetNormalized)
+    );
 
-ROLE LIBRARY (use to understand what the target role requires ΓÇö responsibilities, required skills, keywords):
-${JSON.stringify(roleLibrary, null, 2)}
+    const targetMapping = (roleSkillMapping as any).role_skill_mapping.find((m: any) =>
+      m.role_id === (targetRoleDef?.role_id || targetRoleDef?.id || safeTargetRole)
+    );
 
-SKILL LIBRARY (use to understand skill categories and which skills are most relevant for each role type):
-${JSON.stringify(skillLibrary, null, 2)}
+    const library_match = Boolean(targetRoleDef);
 
-PROOF SIGNAL LIBRARY (use to identify which of the user's experiences are strongest proof signals for the target role ΓÇö and surface them prominently in the CV):
-${JSON.stringify(proofSignalLibrary, null, 2)}
+    // Collect skill IDs from both possible mapping schemas
+    const allSkillIds = new Set<string>();
+    if (targetMapping) {
+      const flatBuckets = [
+        ...(targetMapping.core_skills || []),
+        ...(targetMapping.secondary_skills || []),
+        ...(targetMapping.differentiator_skills || []),
+      ];
+      const nested = targetMapping.skills || {};
+      const nestedBuckets = [
+        ...(nested.core || []),
+        ...(nested.secondary || []),
+        ...(nested.differentiator || []),
+      ];
+      [...flatBuckets, ...nestedBuckets].forEach((entry: any) => {
+        if (typeof entry === "string") allSkillIds.add(entry);
+        else if (entry && typeof entry.skill_id === "string") allSkillIds.add(entry.skill_id);
+      });
+    }
 
-ROLE-SKILL MAPPING (use to know which skills are core, secondary, and differentiator for the target role ΓÇö lead with core skills in the CV):
-${JSON.stringify(roleSkillMapping, null, 2)}
+    const relevantSkills = (skillLibrary as any).skill_library.filter(
+      (s: any) => allSkillIds.has(s.skill_id || s.id)
+    );
+
+    const relevantSignals = (proofSignalLibrary as any).proof_signal_library.filter(
+      (ps: any) => {
+        const signalSkills = ps.mapped_skills || ps.skills || ps.skill_ids || [];
+        return signalSkills.some((sid: any) => {
+          if (typeof sid === "string") return allSkillIds.has(sid);
+          if (sid && typeof sid.skill_id === "string") return allSkillIds.has(sid.skill_id);
+          return false;
+        });
+      }
+    );
+
+    // --- Build System Prompt with Scoped Library Context ---
+    const systemPrompt = library_match ? `You are a CV Generation Engine for the "Get A Job" Career Operating System.
+
+TARGET ROLE DEFINITION:
+${JSON.stringify(targetRoleDef, null, 2)}
+
+ROLE-SKILL MAPPING (core skills = must-haves, secondary = nice-to-haves, differentiator = standout skills):
+${JSON.stringify(targetMapping, null, 2)}
+
+RELEVANT SKILLS (only the skills mapped to this role):
+${JSON.stringify(relevantSkills, null, 2)}
+
+RELEVANT PROOF SIGNALS (CV signals that demonstrate these skills — use to identify which user experiences to emphasize):
+${JSON.stringify(relevantSignals, null, 2)}
 
 CV STRUCTURE RULES:
 - One page maximum for students and recent graduates
-- Sections in this order: Header ΓåÆ About Me ΓåÆ Experience ΓåÆ Education ΓåÆ Skills & Tools ΓåÆ Military Service (if applicable) ΓåÆ Certifications ΓåÆ Projects
+- Sections in this order: Header → About Me → Experience → Education → Skills & Tools → Military Service (if applicable) → Certifications → Projects
 - About Me: 2-3 sentences, role-specific, third person, reflecting strongest proof signals for this role
 - Experience bullets: action verb + what you did + result or scale where possible. Quantify wherever the profile supports it
-- Skills section: categorized by type (Domain / Tools / Languages) ΓÇö not a flat list
-- Military service must be included if present ΓÇö translate into civilian language
-- Use keywords from the job description and role library naturally ΓÇö do not keyword-stuff
+- Skills section: categorized by type (Domain / Tools / Languages) — not a flat list
+- Military service must be included if present — translate into civilian language
+- Use keywords from the job description and role definition naturally — do not keyword-stuff
 - Never invent experience the user does not have
 - Never exaggerate beyond what the profile supports
 
-ROLE-SPECIFIC CONTENT EMPHASIS:
-Based on the target role, emphasize the following in bullets and the About Me:
+ROLE-SPECIFIC EMPHASIS:
+- Lead the CV with skills marked as "core_skills" in the role-skill mapping above
+- Use the proof signals above to identify which of the user's experiences most strongly demonstrate these core skills
+- The role definition above contains the role's sector, responsibilities, and keywords — mirror these naturally in the About Me and bullet points
+- Secondary skills should appear but not dominate; differentiator skills are bonus points if the user has them
 
-Customer Success / Account Management:
-- Lead with: customer-facing experience, relationship management, communication
-- Keywords: customer success, account management, onboarding, NPS, CSAT, churn, renewal, upsell
-- Metrics: accounts managed, retention rate, NPS scores
+STRONG ACTION VERBS TO USE:
+Led, Built, Managed, Owned, Delivered, Launched, Developed, Implemented, Drove, Executed, Designed, Analyzed, Coordinated, Streamlined, Improved, Reduced, Increased, Generated, Negotiated, Trained, Supported, Collaborated` : `You are a CV Generation Engine for the "Get A Job" Career Operating System.
 
-Sales / SDR / BDR:
-- Lead with: commercial results, outreach volume, pipeline
-- Keywords: pipeline, prospecting, outbound, quota, revenue, discovery calls
-- Metrics: calls/emails sent, meetings booked, conversion rates, revenue generated
+NOTE: The target role was not found in our standardized role library. Generate a strong CV using only the job description and user data. Infer appropriate skill emphasis from the job description itself.
 
-Marketing:
-- Lead with: campaigns, content, measurable outcomes
-- Keywords: campaign, growth, acquisition, conversion, engagement, content, analytics
-- Metrics: traffic growth, conversion rates, engagement rates, campaign ROI
-
-Product Management / Product Operations:
-- Lead with: ownership, cross-functional work, delivery
-- Keywords: roadmap, prioritization, discovery, user research, go-to-market, metrics
-- Metrics: features shipped, adoption rates, time to delivery
-
-Business Analysis / Operations:
-- Lead with: analytical thinking, process improvement, data work
-- Keywords: analysis, reporting, process improvement, stakeholder, SQL, Excel, dashboards
-- Metrics: efficiency gains, process improvements, reporting scope
-
-Technical / Engineering:
-- Lead with: technical stack, projects built, systems worked on
-- Keywords: specific languages and frameworks relevant to the role
-- Metrics: system scale, performance improvements, projects shipped
+CV STRUCTURE RULES:
+- One page maximum for students and recent graduates
+- Sections in this order: Header → About Me → Experience → Education → Skills & Tools → Military Service (if applicable) → Certifications → Projects
+- About Me: 2-3 sentences, role-specific, third person
+- Experience bullets: action verb + what you did + result or scale where possible. Quantify wherever the profile supports it
+- Skills section: categorized by type (Domain / Tools / Languages) — not a flat list
+- Military service must be included if present — translate into civilian language
+- Use keywords from the job description naturally — do not keyword-stuff
+- Never invent experience the user does not have
+- Never exaggerate beyond what the profile supports
 
 STRONG ACTION VERBS TO USE:
 Led, Built, Managed, Owned, Delivered, Launched, Developed, Implemented, Drove, Executed, Designed, Analyzed, Coordinated, Streamlined, Improved, Reduced, Increased, Generated, Negotiated, Trained, Supported, Collaborated`;
@@ -187,14 +226,20 @@ ${JSON.stringify(userContext, null, 2)}
 TASK:
 Generate a role-specific, one-page CV for this user tailored to the target role.
 
-Use the role library and skill mapping from your system prompt to:
+${library_match ? `Use the role definition, role-skill mapping, and proof signals from your system prompt to:
 1. Identify which of the user's experiences are strongest proof signals for this role
 2. Lead with the most relevant experience and skills
-3. Mirror keywords from the job description and role library naturally
+3. Mirror keywords from the job description and role definition naturally
 4. Write an About Me that immediately signals fit for this specific role
 5. Organize skills by category, not as a flat list
-6. Include military service if present ΓÇö translate into civilian language
-7. Flag major gaps honestly in the fit_analysis
+6. Include military service if present — translate into civilian language
+7. Flag major gaps honestly in the fit_analysis` : `Without a library match, use the job description to identify which of the user's experiences are most relevant. Still:
+1. Lead with the most relevant experience and skills
+2. Mirror keywords from the job description naturally
+3. Write an About Me that signals fit
+4. Organize skills by category
+5. Include military service if present — translate into civilian language
+6. Flag major gaps honestly in the fit_analysis`}
 
 OUTPUT STRUCTURE (JSON):
 {
@@ -284,137 +329,212 @@ Return ONLY valid JSON. Omit sections (military_service, certifications, project
     }
 
     const openaiData = await openaiRes.json();
-    let cvData: Record<string, unknown>;
+    let cvData: Record<string, any>;
     try {
       cvData = JSON.parse(openaiData.choices?.[0]?.message?.content || "{}");
     } catch {
       return Response.json({ error: "AI returned an invalid response format. Please try again." }, { status: 500 });
     }
 
-    // --- Generate PDF (Gidon Werner style) ---
+    // --- Generate PDF (professional layout) ---
     const doc = new jsPDF();
-    let y = 20;
-    const pageWidth = 190;
     const leftMargin = 15;
     const rightMargin = 195;
+    const pageWidth = rightMargin - leftMargin;
+    const pageBottom = 280;
+    const ACCENT: [number, number, number] = [37, 99, 235];
+    let y = 20;
 
-    const addText = (text: string, fontSize = 10, isBold = false, color = [0, 0, 0]) => {
+    const ensureSpace = (needed: number) => {
+      if (y + needed > pageBottom) {
+        doc.addPage();
+        y = 20;
+      }
+    };
+
+    const addSectionHeader = (title: string) => {
+      // Keep header with at least one following line — require ~10mm below
+      ensureSpace(10);
+      y += 4;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(ACCENT[0], ACCENT[1], ACCENT[2]);
+      doc.text(title.toUpperCase(), leftMargin, y);
+      y += 1.5;
+      doc.setDrawColor(ACCENT[0], ACCENT[1], ACCENT[2]);
+      doc.setLineWidth(0.4);
+      doc.line(leftMargin, y, rightMargin, y);
+      y += 4;
+    };
+
+    const addEntryHeader = (title: string, dates?: string, subtitle?: string) => {
+      ensureSpace(subtitle ? 12 : 7);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      doc.text(String(title || ""), leftMargin, y);
+      if (dates) {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.setTextColor(120, 120, 120);
+        doc.text(String(dates), rightMargin, y, { align: "right" });
+      }
+      y += 4.5;
+      if (subtitle) {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.setTextColor(80, 80, 80);
+        doc.text(String(subtitle), leftMargin, y);
+        y += 4.5;
+      }
+    };
+
+    const addBullet = (text: string) => {
+      const indent = 4;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(0, 0, 0);
+      const lines = doc.splitTextToSize(String(text || ""), pageWidth - indent);
+      lines.forEach((line: string, i: number) => {
+        ensureSpace(5);
+        const prefix = i === 0 ? "\u2022  " : "   ";
+        doc.text(prefix + line, leftMargin + indent, y);
+        y += 4.2;
+      });
+    };
+
+    const addParagraph = (text: string, fontSize = 10, color: [number, number, number] = [0, 0, 0]) => {
+      doc.setFont("helvetica", "normal");
       doc.setFontSize(fontSize);
-      doc.setFont("helvetica", isBold ? "bold" : "normal");
       doc.setTextColor(color[0], color[1], color[2]);
       const lines = doc.splitTextToSize(String(text || ""), pageWidth);
       lines.forEach((line: string) => {
-        if (y > 280) { doc.addPage(); y = 20; }
+        ensureSpace(fontSize * 0.5 + 1);
         doc.text(line, leftMargin, y);
         y += fontSize * 0.55;
       });
     };
 
-    const addDivider = () => {
-      if (y > 280) { doc.addPage(); y = 20; }
-      doc.setDrawColor(200, 200, 200);
-      doc.line(leftMargin, y, rightMargin, y);
-      y += 4;
+    const addSkillLine = (label: string, values: string[]) => {
+      if (!values || values.length === 0) return;
+      ensureSpace(6);
+      doc.setFontSize(9);
+      doc.setTextColor(0, 0, 0);
+      doc.setFont("helvetica", "bold");
+      const labelText = `${label}: `;
+      doc.text(labelText, leftMargin, y);
+      const labelWidth = doc.getTextWidth(labelText);
+      doc.setFont("helvetica", "normal");
+      const valueText = values.join(", ");
+      const lines = doc.splitTextToSize(valueText, pageWidth - labelWidth);
+      lines.forEach((line: string, i: number) => {
+        if (i > 0) {
+          ensureSpace(5);
+          doc.text(line, leftMargin + labelWidth, y);
+        } else {
+          doc.text(line, leftMargin + labelWidth, y);
+        }
+        y += 4.2;
+      });
     };
 
-    const addSection = (title: string) => {
-      y += 4;
-      addText(title, 11, true);
-      addDivider();
-    };
+    const addSpace = (space = 3) => { y += space; };
 
-    const addSpace = (space = 4) => { y += space; };
-
-    // Header
+    // --- Header ---
     const header = cvData.header as any;
     if (header) {
-      addText(header.name || "", 18, true);
-      if (header.title) addText(header.title, 11, false, [80, 80, 80]);
-      addDivider();
-      if (header.contact) addText(header.contact, 9, false, [80, 80, 80]);
-      addSpace(6);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(18);
+      doc.setTextColor(0, 0, 0);
+      doc.text(String(header.name || ""), leftMargin, y);
+      y += 7;
+      if (header.title) {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(11);
+        doc.setTextColor(80, 80, 80);
+        doc.text(String(header.title), leftMargin, y);
+        y += 5;
+      }
+      if (header.contact) {
+        doc.setFontSize(9);
+        doc.setTextColor(80, 80, 80);
+        doc.text(String(header.contact), leftMargin, y);
+        y += 3;
+      }
+      y += 2;
+      doc.setDrawColor(ACCENT[0], ACCENT[1], ACCENT[2]);
+      doc.setLineWidth(1.0);
+      doc.line(leftMargin, y, rightMargin, y);
+      y += 4;
     }
 
-    // About Me
+    // --- About Me ---
     if (cvData.about_me) {
-      addSection("ABOUT ME");
-      addText(String(cvData.about_me), 10);
-      addSpace(4);
+      addSectionHeader("About Me");
+      addParagraph(String(cvData.about_me), 10);
+      addSpace(2);
     }
 
-    // Experience
+    // --- Experience ---
     if (Array.isArray(cvData.experiences) && cvData.experiences.length > 0) {
-      addSection("EXPERIENCE");
-      (cvData.experiences as any[]).forEach((exp) => {
-        addText(`${exp.company || ""}`, 10, false, [80, 80, 80]);
-        addText(`${exp.title || ""}`, 10, true);
-        if (exp.dates) addText(exp.dates, 9, false, [120, 120, 120]);
-        addSpace(2);
-        (exp.bullets || []).forEach((bullet: string) => {
-          addText(`ΓÇó ${bullet}`, 9);
-        });
-        addSpace(5);
+      addSectionHeader("Experience");
+      (cvData.experiences as any[]).forEach((exp, idx) => {
+        addEntryHeader(exp.title || "", exp.dates, exp.company);
+        (exp.bullets || []).forEach((bullet: string) => addBullet(bullet));
+        if (idx < cvData.experiences.length - 1) addSpace(3);
       });
+      addSpace(2);
     }
 
-    // Education
+    // --- Education ---
     if (Array.isArray(cvData.education) && cvData.education.length > 0) {
-      addSection("EDUCATION");
-      (cvData.education as any[]).forEach((edu) => {
-        addText(edu.institution || "", 10, false, [80, 80, 80]);
-        addText(edu.degree || "", 10, true);
-        if (edu.dates) addText(edu.dates, 9, false, [120, 120, 120]);
-        if (edu.details?.length > 0) {
-          addSpace(2);
-          edu.details.forEach((d: string) => addText(`ΓÇó ${d}`, 9));
+      addSectionHeader("Education");
+      (cvData.education as any[]).forEach((edu, idx) => {
+        addEntryHeader(edu.degree || "", edu.dates, edu.institution);
+        if (Array.isArray(edu.details) && edu.details.length > 0) {
+          edu.details.forEach((d: string) => addBullet(d));
         }
-        addSpace(5);
+        if (idx < cvData.education.length - 1) addSpace(3);
       });
+      addSpace(2);
     }
 
-    // Military Service
+    // --- Skills & Tools ---
+    const skills = cvData.skills as any;
+    if (skills && (skills.domain?.length || skills.tools?.length || skills.languages?.length)) {
+      addSectionHeader("Skills & Tools");
+      if (skills.domain?.length > 0) addSkillLine("Domain", skills.domain);
+      if (skills.tools?.length > 0) addSkillLine("Tools", skills.tools);
+      if (skills.languages?.length > 0) addSkillLine("Languages", skills.languages);
+      addSpace(2);
+    }
+
+    // --- Military Service ---
     const military = cvData.military_service as any;
     if (military && military.unit) {
-      addSection("MILITARY SERVICE");
-      addText(military.unit || "", 10, false, [80, 80, 80]);
-      addText(military.role || "", 10, true);
-      if (military.dates) addText(military.dates, 9, false, [120, 120, 120]);
+      addSectionHeader("Military Service");
+      addEntryHeader(military.role || "", military.dates, military.unit);
+      (military.bullets || []).forEach((bullet: string) => addBullet(bullet));
       addSpace(2);
-      (military.bullets || []).forEach((bullet: string) => {
-        addText(`ΓÇó ${bullet}`, 9);
-      });
-      addSpace(5);
     }
 
-    // Skills & Tools
-    const skills = cvData.skills as any;
-    if (skills) {
-      addSection("SKILLS & TOOLS");
-      if (skills.domain?.length > 0) addText(`Domain: ${skills.domain.join(", ")}`, 9);
-      if (skills.tools?.length > 0) addText(`Tools: ${skills.tools.join(", ")}`, 9);
-      if (skills.languages?.length > 0) addText(`Languages: ${skills.languages.join(", ")}`, 9);
-      addSpace(4);
-    }
-
-    // Certifications
+    // --- Certifications ---
     if (Array.isArray(cvData.certifications) && cvData.certifications.length > 0) {
-      addSection("CERTIFICATIONS");
+      addSectionHeader("Certifications");
       (cvData.certifications as any[]).forEach((cert) => {
-        addText(`${cert.name} | ${cert.issuer}${cert.date ? ` | ${cert.date}` : ""}`, 9);
+        const line = `${cert.name || ""} \u2014 ${cert.issuer || ""}${cert.date ? `  (${cert.date})` : ""}`;
+        addParagraph(line, 9);
       });
-      addSpace(4);
+      addSpace(2);
     }
 
-    // Projects
+    // --- Projects ---
     if (Array.isArray(cvData.projects) && cvData.projects.length > 0) {
-      addSection("PROJECTS");
-      (cvData.projects as any[]).forEach((proj) => {
-        addText(proj.name || "", 10, true);
-        addSpace(2);
-        (proj.bullets || []).forEach((bullet: string) => {
-          addText(`ΓÇó ${bullet}`, 9);
-        });
-        addSpace(5);
+      addSectionHeader("Projects");
+      (cvData.projects as any[]).forEach((proj, idx) => {
+        addEntryHeader(proj.name || "", undefined, undefined);
+        (proj.bullets || []).forEach((bullet: string) => addBullet(bullet));
+        if (idx < cvData.projects.length - 1) addSpace(3);
       });
     }
 
@@ -466,6 +586,7 @@ Return ONLY valid JSON. Omit sections (military_service, certifications, project
       cv_url,
       application_id: appRecord?.id,
       fit_analysis: cvData.fit_analysis,
+      library_match,
       message: `CV generated for "${safeTargetRole}". Download it using the link, and it's been saved to your Application Tracker.`,
     });
   } catch (error) {

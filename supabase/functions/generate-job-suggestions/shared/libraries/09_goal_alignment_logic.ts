@@ -209,4 +209,4 @@ export const goalAlignmentLogic = {
       "industry_alignment": "string"
     }
   }
-};
+} as const;
