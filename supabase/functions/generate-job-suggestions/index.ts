@@ -36,6 +36,39 @@ function locationToCountryCode(loc: string | null | undefined): string {
   return 'us'
 }
 
+// Resolve an Israeli city to its metro/region label so JSearch queries use
+// the hub name (which indices actually contain), not the specific town.
+// Tel Aviv & Central districts are treated as one market (Gush Dan / Merkaz).
+const IL_METRO_CITIES: Record<string, string> = {
+  // Tel Aviv & Central
+  'tel aviv': 'Tel Aviv', 'ramat gan': 'Tel Aviv', 'bnei brak': 'Tel Aviv',
+  'holon': 'Tel Aviv', 'bat yam': 'Tel Aviv', 'herzliya': 'Tel Aviv',
+  'petah tikva': 'Tel Aviv', "petach tikva": 'Tel Aviv', "ra'anana": 'Tel Aviv',
+  'raanana': 'Tel Aviv', 'kfar saba': 'Tel Aviv', 'netanya': 'Tel Aviv',
+  'rishon lezion': 'Tel Aviv', "rishon le zion": 'Tel Aviv', 'rehovot': 'Tel Aviv',
+  'hod hasharon': 'Tel Aviv', "modi'in": 'Tel Aviv', 'modiin': 'Tel Aviv',
+  // Haifa
+  'haifa': 'Haifa', 'yokneam': 'Haifa', 'caesarea': 'Haifa', 'krayot': 'Haifa',
+  // Jerusalem
+  'jerusalem': 'Jerusalem',
+  // North
+  'nazareth': 'Nazareth', 'karmiel': 'Nazareth', 'tiberias': 'Nazareth',
+  'galilee': 'Nazareth', 'golan': 'Nazareth',
+  // South
+  'beer sheva': 'Beer Sheva', "be'er sheva": 'Beer Sheva',
+  'ashdod': 'Beer Sheva', 'ashkelon': 'Beer Sheva', 'eilat': 'Beer Sheva',
+};
+
+// Given a free-text location like "Herzliya, Israel", return the resolved metro
+// (e.g. "Tel Aviv"). Returns null if we don't have a mapping.
+function resolveIsraeliMetro(loc: string): string | null {
+  const s = loc.toLowerCase()
+  for (const [city, metro] of Object.entries(IL_METRO_CITIES)) {
+    if (s.includes(city)) return metro
+  }
+  return null
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -119,43 +152,90 @@ Deno.serve(async (req) => {
     const targetTitles: string[] = profile.target_job_titles || []
     const fallbackTitle: string = profile.five_year_role || profile.field_of_study || 'Software Developer'
 
-    // Build a smart JSearch query — combine up to 2 target titles so the search is broader
-    const primaryTargets = targetTitles.slice(0, 2)
-    const searchQuery = primaryTargets.length > 0
-      ? primaryTargets.join(' OR ')
-      : fallbackTitle
+    // Primary role term — prefer first explicit target, fall back to five_year_role.
+    // If it's a single very short word like "product", pad it so it reads like a job title.
+    const rawRoleTerm = (targetTitles[0] || fallbackTitle).trim()
+    const roleTerm = (rawRoleTerm.length > 0 && rawRoleTerm.split(/\s+/).length === 1 && rawRoleTerm.length <= 10)
+      ? `${rawRoleTerm} manager`
+      : rawRoleTerm
+
+    // Resolve to a metro/region hub so the query uses a name JSearch actually indexes.
+    // For Israel: Herzliya → "Tel Aviv". For other countries, keep the raw location.
+    const israeliMetro = countryCode === 'il' ? resolveIsraeliMetro(userLocation) : null
+    const locHub = israeliMetro || userLocation.split(',').map(s => s.trim()).filter(Boolean).join(' ')
+
+    // Cascade of queries: most specific first, then broaden. First one that returns
+    // >= 3 jobs wins. JSearch coverage outside the US is patchy; putting the location
+    // in the query text often works better than the country filter alone.
+    const candidates: Array<{ query: string; country?: string; label: string }> = []
+
+    // 1. Role + metro hub in query text (best for non-US: "Product Manager Tel Aviv")
+    if (locHub) {
+      candidates.push({ query: `${roleTerm} ${locHub}`.trim(), label: 'role+metro' })
+    }
+    // 2. Role + country filter
+    candidates.push({ query: roleTerm, country: countryCode, label: 'role+country-filter' })
+    // 3. Broader fallback: role + country name in query
+    if (countryCode === 'il') {
+      candidates.push({ query: `${roleTerm} Israel`, label: 'role+country-in-query' })
+    }
+    // 4. Remote international jobs — user can work from anywhere
+    candidates.push({ query: `${roleTerm} remote`, label: 'role+remote' })
+    // 5. Global role-only fallback — guarantees at least something
+    candidates.push({ query: roleTerm, label: 'role-only-global' })
 
     // 2. Fetch live jobs from JSearch (RapidAPI)
     let liveJobs: any[] = []
+    let usedQuery = ''
     const jsearchKey = Deno.env.get('RAPIDAPI_KEY') || Deno.env.get('JSEARCH_API_KEY')
-    if (jsearchKey) {
+
+    const mapJSearchJob = (job: any) => ({
+      id: job.job_id,
+      title: job.job_title,
+      company: job.employer_name,
+      description: job.job_description,
+      location: `${job.job_city || ''}, ${job.job_state || ''}`.replace(/^, | , $/g, '').trim(),
+      job_url: job.job_apply_link,
+      salary_min: job.job_min_salary,
+      salary_max: job.job_max_salary,
+    })
+
+    const fetchJSearch = async (query: string, country?: string): Promise<any[]> => {
+      if (!jsearchKey) return []
+      const base = `https://jsearch.p.rapidapi.com/search?query=${encodeURIComponent(query)}&num_pages=1`
+      const url = country ? `${base}&country=${country}` : base
       try {
-        const jsearchUrl = `https://jsearch.p.rapidapi.com/search?query=${encodeURIComponent(searchQuery)}&num_pages=1&country=${countryCode}`
-        const jsearchRes = await fetch(jsearchUrl, {
-          headers: {
-            'X-RapidAPI-Key': jsearchKey,
-            'X-RapidAPI-Host': 'jsearch.p.rapidapi.com',
-          },
+        const res = await fetch(url, {
+          headers: { 'X-RapidAPI-Key': jsearchKey, 'X-RapidAPI-Host': 'jsearch.p.rapidapi.com' },
           signal: AbortSignal.timeout(10000),
         })
-        if (jsearchRes.ok) {
-          const jData = await jsearchRes.json()
-          liveJobs = (jData.data || []).slice(0, 10).map((job: any) => ({
-            id: job.job_id,
-            title: job.job_title,
-            company: job.employer_name,
-            description: job.job_description,
-            location: `${job.job_city || ''}, ${job.job_state || ''}`.replace(/^, | , $/g, '').trim(),
-            job_url: job.job_apply_link,
-            salary_min: job.job_min_salary,
-            salary_max: job.job_max_salary,
-          }))
-        } else {
-          console.warn('JSearch failed:', await jsearchRes.text())
+        if (!res.ok) {
+          console.warn(`[job-suggestions] JSearch ${res.status} for query="${query}" country="${country ?? 'global'}"`)
+          return []
         }
+        const data = await res.json()
+        return Array.isArray(data?.data) ? data.data : []
       } catch (err) {
-        console.error('JSearch error:', err)
+        console.error(`[job-suggestions] JSearch fetch error for query="${query}":`, (err as Error).message)
+        return []
       }
+    }
+
+    if (jsearchKey) {
+      for (const c of candidates) {
+        const jobs = await fetchJSearch(c.query, c.country)
+        console.log(`[job-suggestions] candidate=${c.label} query="${c.query}" country="${c.country ?? 'global'}" → ${jobs.length} raw results`)
+        if (jobs.length >= 3) {
+          liveJobs = jobs.slice(0, 10).map(mapJSearchJob)
+          usedQuery = c.label
+          break
+        }
+        if (c === candidates[candidates.length - 1] && jobs.length > 0) {
+          liveJobs = jobs.slice(0, 10).map(mapJSearchJob)
+          usedQuery = `${c.label} (<3 results)`
+        }
+      }
+      console.log(`[job-suggestions] FINAL used=${usedQuery || 'none'} liveJobs=${liveJobs.length}`)
     }
 
     // 3. Scoped library lookup — only match roles relevant to the user's targets
@@ -207,11 +287,13 @@ Deno.serve(async (req) => {
       '- Only score jobs that genuinely align with the user\'s target domain. Do not suggest a CS job to a software developer.',
       '- For generic_suggestions: recommend roles the user is realistically ready for based on their actual skills — not roles that are easiest to fill from a library.',
       '- match_reason must reference specific skills from the user\'s profile, not generic statements.',
-      `- LOCATION: Suggest roles and companies that are hiring in ${userLocation || 'the user\'s market'}. When recommending generic roles, prefer local companies and regional market realities over global defaults. Do NOT default to US-centric names if the user is based elsewhere.`,
+      `- LOCATION: The user is based in ${userLocation || 'an unspecified market'}${israeliMetro ? ` (${israeliMetro} metro — Israel's ${israeliMetro === 'Tel Aviv' ? 'main tech hub covering Gush Dan / Merkaz: Tel Aviv, Ramat Gan, Herzliya, Petah Tikva, Netanya, Ra\'anana' : israeliMetro + ' region'})` : ''}. When recommending generic roles or naming target companies, prefer employers hiring in that metro over US-centric defaults. Reference local tech companies and offices of multinationals present in the region.`,
+      '- LIVE JOB INCLUSION POLICY: If the provided live jobs are remote-friendly or located outside the user\'s preferred metro, INCLUDE them anyway — the user would rather see remote/international opportunities than nothing. Mention in match_reason that the role is remote or outside their metro. Score at least 2-4 jobs unless truly none of them match the target domain at all.',
+      '- Do not reject a job solely for being outside the user\'s metro. Only reject for genuine domain mismatch (e.g. a data engineering job for a product management candidate).',
     ].join('\n')
 
     const userPrompt = `USER PROFILE:
-- Location: ${userLocation || 'Not provided'} (country code: ${countryCode})
+- Location: ${userLocation || 'Not provided'} (country code: ${countryCode}${israeliMetro ? `, metro: ${israeliMetro}` : ''})
 - Target Roles: ${JSON.stringify(targetTitles)}
 - 5-Year Goal: ${trunc(profile.five_year_role, 100) || 'Not provided'}
 - Skills: ${JSON.stringify((profile.skills || []).slice(0, 50))}
@@ -230,8 +312,8 @@ ${JSON.stringify(liveJobs.map(j => ({
 ))}
 
 TASK:
-1. Score each live job against the user's profile using the fit scoring weights. Keep only jobs that align with the user's target domain (score >= 40).
-2. Select up to 4 best-matching live jobs and assign each a tier.
+1. Score each live job against the user's profile using the fit scoring weights.
+2. Select the top 3-4 best-matching live jobs by score. Include jobs with score >= 30. It is better to show the user the best available jobs than an empty list. If all provided jobs are remote or outside their metro, include them anyway and note this in match_reason.
 3. Generate 2-3 generic role suggestions the user should be searching for — based on their skills and stated targets, NOT defaulting to the library taxonomy if it doesn't match.
 
 Return ONLY valid JSON:
