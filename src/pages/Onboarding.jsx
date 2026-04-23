@@ -96,7 +96,9 @@ export default function Onboarding() {
     if (profileCheckError) console.error("Error checking existing profile:", profileCheckError);
     if (profiles?.[0]?.onboarding_complete) {
       navigate(createPageUrl("Home"));
-    } else if (profiles?.[0]) {
+      return;
+    }
+    if (profiles?.[0]) {
       const p = profiles[0];
       setExistingProfileId(p.id);
       setProfileData((prev) => ({
@@ -106,6 +108,46 @@ export default function Onboarding() {
         volunteering: p.volunteering || [],
       }));
       setStep(p.onboarding_step || 0);
+
+      // Hydrate experiences/projects/certifications from DB so a user resuming
+      // partway through sees and can edit their existing records. Without this,
+      // the finalization step would DELETE old records and INSERT nothing (React
+      // state started empty), silently wiping their data.
+      const [expRes, projRes, certRes] = await Promise.all([
+        supabase.from("experiences").select("*").eq("user_id", user.id),
+        supabase.from("projects").select("*").eq("user_id", user.id),
+        supabase.from("certifications").select("*").eq("user_id", user.id),
+      ]);
+      if (expRes.data?.length) {
+        setExperiences(expRes.data.map((e) => ({
+          title: e.title || "",
+          company: e.company || "",
+          type: e.type || "full_time",
+          start_date: e.start_date || "",
+          end_date: e.end_date || "",
+          is_current: e.is_current || false,
+          responsibilities: Array.isArray(e.responsibilities) ? e.responsibilities.join("\n") : (e.responsibilities || ""),
+          skills_used: e.skills_used || [],
+          tools_used: e.tools_used || [],
+          managed_people: e.managed_people ?? false,
+          cross_functional: e.cross_functional ?? false,
+        })));
+      }
+      if (projRes.data?.length) {
+        setProjects(projRes.data.map((p) => ({
+          name: p.name || "",
+          description: p.description || "",
+          url: p.url || "",
+          skills_demonstrated: p.skills_demonstrated || [],
+        })));
+      }
+      if (certRes.data?.length) {
+        setCertifications(certRes.data.map((c) => ({
+          name: c.name || "",
+          issuer: c.issuer || "",
+          date_earned: c.date_earned || "",
+        })));
+      }
     }
     setCheckingProfile(false);
   };

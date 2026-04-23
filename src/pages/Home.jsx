@@ -117,6 +117,9 @@ export default function Home() {
     queryClient.removeQueries({ queryKey: ["tasks"] });
     queryClient.removeQueries({ queryKey: ["applications"] });
     queryClient.removeQueries({ queryKey: ["experiences"] });
+    queryClient.removeQueries({ queryKey: ["projects"] });
+    queryClient.removeQueries({ queryKey: ["certifications"] });
+    queryClient.removeQueries({ queryKey: ["jobSuggestions"] });
     navigate(createPageUrl("Onboarding"));
   };
 
