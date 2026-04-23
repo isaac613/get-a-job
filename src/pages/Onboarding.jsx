@@ -57,6 +57,27 @@ const EMPTY_PROFILE = {
   adjacent_fields: [],
 };
 
+// DB chk_experiences_type allows only these values
+const ALLOWED_EXPERIENCE_TYPES = new Set([
+  "internship", "full_time", "part_time", "freelance", "volunteer", "leadership", "military",
+]);
+
+// Guess an experience type from extractor hints + free-text keywords.
+// The extractor may or may not return a type field; if not, infer from title/company.
+function inferExperienceType(e) {
+  const hinted = String(e?.type || e?.employment_type || "").toLowerCase().replace(/\s|-/g, "_");
+  if (ALLOWED_EXPERIENCE_TYPES.has(hinted)) return hinted;
+
+  const text = `${e?.title || ""} ${e?.company || ""} ${e?.description || ""} ${Array.isArray(e?.responsibilities) ? e.responsibilities.join(" ") : (e?.responsibilities || "")}`.toLowerCase();
+  if (/\b(idf|nahal|givati|golani|paratroopers|sayeret|israeli? defense forces|military service|army|soldier|officer training)\b/.test(text)) return "military";
+  if (/\b(intern|internship)\b/.test(text)) return "internship";
+  if (/\b(volunteer|volunteering|pro bono)\b/.test(text)) return "volunteer";
+  if (/\b(freelance|freelancer|self-employed|contractor|consultant)\b/.test(text)) return "freelance";
+  if (/\b(president|captain|head of club|founder|co-founder|team lead(er)?)\b/.test(text) && /\b(club|society|association|student|chapter)\b/.test(text)) return "leadership";
+  if (/\b(part.time|parttime)\b/.test(text)) return "part_time";
+  return "full_time";
+}
+
 // Steps: 0=CV, 1=Education, 2=Experience, 3=Skills, 4=CareerDirection, 5=Constraints, 6=Survey, 7=TierReveal
 export default function Onboarding() {
   const navigate = useNavigate();
@@ -122,7 +143,7 @@ export default function Onboarding() {
         setExperiences(expRes.data.map((e) => ({
           title: e.title || "",
           company: e.company || "",
-          type: e.type || "full_time",
+          type: ALLOWED_EXPERIENCE_TYPES.has(e.type) ? e.type : "full_time",
           start_date: e.start_date || "",
           end_date: e.end_date || "",
           is_current: e.is_current || false,
@@ -185,7 +206,8 @@ export default function Onboarding() {
       setExperiences(exps.map((e) => ({
         title: e.title || "",
         company: e.company || "",
-        type: "full_time",
+        // Accept whatever the extractor returned; fall back to keyword inference.
+        type: inferExperienceType(e),
         start_date: e.start_date || "",
         end_date: e.end_date || "",
         is_current: e.is_current || false,

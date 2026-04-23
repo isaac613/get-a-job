@@ -448,6 +448,8 @@ export default function AddInformation() {
                     <SelectItem value="part_time">Part Time</SelectItem>
                     <SelectItem value="freelance">Freelance</SelectItem>
                     <SelectItem value="volunteer">Volunteer</SelectItem>
+                    <SelectItem value="leadership">Leadership / Club</SelectItem>
+                    <SelectItem value="military">Military / IDF</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
