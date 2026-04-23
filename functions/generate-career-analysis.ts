@@ -3,11 +3,9 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 // --- Load JSON Libraries ---
 import roleLibrary from "../data/00_role_library.json" assert { type: "json" };
+import skillLibrary from "../data/01_skill_library.json" assert { type: "json" };
+import proofSignalLibrary from "../data/02_proof_signal_library.json" assert { type: "json" };
 import roleSkillMapping from "../data/04_role_skill_mapping.json" assert { type: "json" };
-import fitScoringLogic from "../data/05_fit_scoring_logic.json" assert { type: "json" };
-import tierLogic from "../data/06_tier_logic.json" assert { type: "json" };
-import goalAlignmentLogic from "../data/09_goal_alignment_logic.json" assert { type: "json" };
-import agentDecisionLogic from "../data/010_agent_decision_logic.json" assert { type: "json" };
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -17,6 +15,136 @@ const corsHeaders = {
 const MODEL = 'gpt-4o-mini'
 const RATE_LIMIT_CALLS = 5
 const RATE_LIMIT_WINDOW = 3600 // 1 hour
+
+// Scoring weights per fit_scoring_logic
+const WEIGHTS = { core: 0.6, secondary: 0.3, differentiator: 0.1 } as const;
+const TIER_THRESHOLDS = { t1: 0.70, t2: 0.50, t3: 0.35 } as const;
+const MAX_ROLES_SCORED = 20;
+const MAX_T1 = 3, MAX_T2 = 2, MAX_T3 = 1;
+
+// ─── Helpers ────────────────────────────────────────────────────────────
+const STOPWORDS = new Set([
+  "the","a","an","of","to","and","or","in","on","for","with","at","by","from",
+  "as","is","are","was","were","be","been","has","have","had","do","does","did",
+  "that","this","these","those","it","its","their","them","they","you","your",
+  "our","his","her","she","he","who","whom","which","what","when","where","why",
+  "how","not","no","yes","also","but","if","then","so","than","such","can","could",
+  "may","might","will","would","shall","should","must","role","person","often",
+  "level","typically","usually","someone","user","users","work","working"
+]);
+
+function tokenize(s: string): string[] {
+  return (s || "").toLowerCase().match(/[a-z][a-z-]{2,}/g) || [];
+}
+
+function containsPhrase(text: string, phrase: string): boolean {
+  if (!phrase || phrase.length < 3) return false;
+  const esc = phrase.toLowerCase().trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp("\\b" + esc + "\\b").test(text);
+}
+
+function signalFires(signal: any, text: string): boolean {
+  for (const t of signal.tags || []) {
+    if (typeof t === "string" && containsPhrase(text, t.replace(/_/g, " "))) return true;
+  }
+  const desc = String(signal.description || "").toLowerCase();
+  const descTokens = [...new Set(tokenize(desc).filter((t) => !STOPWORDS.has(t)))];
+  if (descTokens.length === 0) return false;
+  let hits = 0;
+  for (const tok of descTokens) if (containsPhrase(text, tok)) hits++;
+  return hits >= Math.max(3, Math.ceil(descTokens.length * 0.4));
+}
+
+// Extract skill IDs from a mapping (handles flat and nested schemas)
+function bucketSkillIds(mapping: any, bucket: "core" | "secondary" | "differentiator"): string[] {
+  if (!mapping) return [];
+  const flat = mapping[`${bucket}_skills`];
+  if (Array.isArray(flat) && flat.length > 0) {
+    return flat
+      .map((e: any) => (typeof e === "string" ? e : e?.skill_id))
+      .filter((s: any): s is string => typeof s === "string");
+  }
+  const nested = mapping.skills;
+  if (nested && typeof nested === "object" && Array.isArray(nested[bucket])) {
+    return nested[bucket]
+      .map((e: any) => (typeof e === "string" ? e : e?.skill_id))
+      .filter((s: any): s is string => typeof s === "string");
+  }
+  return [];
+}
+
+function assignTier(score: number): "tier_1" | "tier_2" | "tier_3" | null {
+  if (score >= TIER_THRESHOLDS.t1) return "tier_1";
+  if (score >= TIER_THRESHOLDS.t2) return "tier_2";
+  if (score >= TIER_THRESHOLDS.t3) return "tier_3";
+  return null;
+}
+
+// ─── Pre-computed indexes ──────────────────────────────────────────────
+const allRoles: any[] = (roleLibrary as any).roles;
+const allSkills: any[] = (skillLibrary as any).skill_library;
+const allSignals: any[] = (proofSignalLibrary as any).proof_signal_library;
+const allMappings: any[] = (roleSkillMapping as any).role_skill_mapping;
+
+const ROLE_BY_ID = new Map<string, any>();
+for (const r of allRoles) ROLE_BY_ID.set(r.id || r.role_id, r);
+
+const MAPPING_BY_ROLE = new Map<string, any>();
+for (const m of allMappings) MAPPING_BY_ROLE.set(m.role_id, m);
+
+const SKILL_BY_ID = new Map<string, any>();
+for (const s of allSkills) SKILL_BY_ID.set(s.id || s.skill_id, s);
+
+function skillName(id: string): string {
+  return SKILL_BY_ID.get(id)?.name || id;
+}
+
+// Deterministic scoring
+function computeRoleScore(roleId: string, userSkillIds: Set<string>) {
+  const mapping = MAPPING_BY_ROLE.get(roleId);
+  const roleDef = ROLE_BY_ID.get(roleId);
+  const buckets = {
+    core: bucketSkillIds(mapping, "core"),
+    secondary: bucketSkillIds(mapping, "secondary"),
+    differentiator: bucketSkillIds(mapping, "differentiator"),
+  };
+  const matchedBy: Record<string, string[]> = { core: [], secondary: [], differentiator: [] };
+  const missingBy: Record<string, string[]> = { core: [], secondary: [], differentiator: [] };
+  for (const b of ["core", "secondary", "differentiator"] as const) {
+    for (const sid of buckets[b]) {
+      (userSkillIds.has(sid) ? matchedBy[b] : missingBy[b]).push(sid);
+    }
+  }
+  const ratio = (matched: number, total: number) => (total > 0 ? matched / total : 0);
+  const score =
+    ratio(matchedBy.core.length, buckets.core.length) * WEIGHTS.core +
+    ratio(matchedBy.secondary.length, buckets.secondary.length) * WEIGHTS.secondary +
+    ratio(matchedBy.differentiator.length, buckets.differentiator.length) * WEIGHTS.differentiator;
+
+  const matchedSkillIds = [...matchedBy.core, ...matchedBy.secondary, ...matchedBy.differentiator];
+  const missingSkillIds = [...missingBy.core, ...missingBy.secondary]; // gaps = core + secondary only
+  return {
+    role_id: roleId,
+    title: roleDef?.standardized_title || roleDef?.title || roleId,
+    score: Math.round(score * 1000) / 1000,
+    tier: assignTier(score),
+    matched_skill_ids: matchedSkillIds,
+    missing_skill_ids: missingSkillIds,
+    matched_skills: matchedSkillIds.map(skillName),
+    missing_skills: missingSkillIds.map(skillName),
+    role_family: roleDef?.role_family,
+    seniority: roleDef?.seniority,
+    mapping_exists: Boolean(mapping),
+  };
+}
+
+function inferQualificationLevel(experiences: any[]): "Junior" | "Mid-Level" | "Senior" {
+  const count = experiences.length;
+  const hasManaged = experiences.some((e: any) => e.managed_people);
+  if (hasManaged || count >= 5) return "Senior";
+  if (count >= 2) return "Mid-Level";
+  return "Junior";
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -37,7 +165,6 @@ Deno.serve(async (req) => {
         status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
-
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -135,50 +262,108 @@ Deno.serve(async (req) => {
       ? sanitisedDreamRoles
       : (profile.five_year_role ? [trunc(profile.five_year_role, 100)] : []);
 
-    // --- Build System Prompt with Library Context ---
-    const systemPrompt = `You are a Career Analysis Engine for the "Get A Job" Career Operating System.
+    // ─── PHASE 1: Deterministic scoring ────────────────────────────────
 
-You have access to the following standardized libraries. Use them as your source of truth — do not invent role titles, skill names, or scoring logic outside of what these libraries define.
+    // 1a. Build profile text for proof signal matching
+    const profileTextParts: string[] = [
+      sanitisedProfile.full_name,
+      sanitisedProfile.summary,
+      sanitisedProfile.degree,
+      sanitisedProfile.field_of_study,
+      sanitisedProfile.education_level,
+      sanitisedProfile.skills.join(" "),
+      ...sanitisedExperiences.map(e => `${e.title} at ${e.company}. ${e.responsibilities} ${(e.skills_used || []).join(" ")} ${(e.tools_used || []).join(" ")}`),
+      ...sanitisedProjects.map(p => `${p.name}. ${p.description} ${(p.skills_demonstrated || []).join(" ")}`),
+      ...sanitisedCerts.map(c => `${c.name} ${c.issuer}`),
+      sanitisedProfile.target_job_titles.join(" "),
+    ];
+    const profileText = profileTextParts.filter(Boolean).join(" ").toLowerCase();
 
-ROLE LIBRARY (use these standardized role titles and their defined skill requirements):
-${JSON.stringify(roleLibrary, null, 2)}
+    // 1b. Extract user skill IDs from proof signals + stated skills
+    const userSkillIds = new Set<string>();
+    for (const sig of allSignals) {
+      if (signalFires(sig, profileText)) {
+        for (const sid of sig.maps_to_skills || []) {
+          if (typeof sid === "string") userSkillIds.add(sid);
+        }
+      }
+    }
+    // Also accept stated skills that match library IDs directly
+    for (const stated of sanitisedProfile.skills) {
+      const norm = stated.toLowerCase().replace(/[\s-]+/g, "_");
+      if (SKILL_BY_ID.has(norm)) userSkillIds.add(norm);
+    }
 
-ROLE-SKILL MAPPING (core, secondary, and differentiator skills per role — use to score fit accurately):
-${JSON.stringify(roleSkillMapping, null, 2)}
+    // 1c. Score all roles
+    const allScored = allRoles
+      .map(r => computeRoleScore(r.id || r.role_id, userSkillIds))
+      .filter(r => r.mapping_exists && r.tier !== null);
 
-FIT SCORING LOGIC (use this exact weighting system to calculate readiness scores):
-${JSON.stringify(fitScoringLogic, null, 2)}
+    // 1d. Build candidate pool: targeted roles + strong matches
+    const allTargets = Array.from(new Set([
+      ...sanitisedProfile.target_job_titles,
+      ...dreamRolesForPrompt,
+    ])).filter(Boolean).map(t => t.toLowerCase());
 
-TIER LOGIC (use these exact definitions when assigning roles to tiers):
-${JSON.stringify(tierLogic, null, 2)}
+    const isTargeted = (roleId: string): boolean => {
+      if (allTargets.length === 0) return false;
+      const def = ROLE_BY_ID.get(roleId);
+      if (!def) return false;
+      const titles = [def.standardized_title, ...(def.alternate_titles || [])]
+        .filter(Boolean).map((s: string) => s.toLowerCase());
+      return titles.some((t: string) => allTargets.some(a => t.includes(a) || a.includes(t)));
+    };
 
-GOAL ALIGNMENT LOGIC (use this to score how well each role aligns to the user's 5-year goal):
-${JSON.stringify(goalAlignmentLogic, null, 2)}
+    const targeted = allScored.filter(r => isTargeted(r.role_id));
+    const strongUntargeted = allScored
+      .filter(r => !isTargeted(r.role_id) && (r.tier === "tier_1" || r.tier === "tier_2"));
 
-AGENT DECISION LOGIC (use these rules to determine which tier each role belongs to):
-${JSON.stringify(agentDecisionLogic, null, 2)}
+    // Union, sort by score desc, cap
+    const candidatePool = [...targeted, ...strongUntargeted]
+      .sort((a, b) => b.score - a.score)
+      .slice(0, MAX_ROLES_SCORED);
 
-SCORING RULES:
-- Use the fit_scoring_logic weights exactly: core skills = 60%, secondary = 30%, differentiator = 10%
-- Skill strength scores: strong = 1.0, medium = 0.6, weak = 0.3, missing = 0.0
-- Tier 1 minimum thresholds: readiness >= 0.72 AND goal alignment >= 0.68
-- Tier 2 minimum threshold: readiness >= 0.62
-- Tier 3 minimum threshold: goal alignment >= 0.72
-- A role can only be Tier 1 if it is both immediately realistic AND strongly aligned to the 5-year goal
-- Do not force roles into tiers if they do not meet the minimum thresholds
-- Return variable number of roles per tier based on quality — tiers can be empty if no role qualifies
+    // 1e. Select final set: top-N by tier
+    const byTier = {
+      tier_1: candidatePool.filter(r => r.tier === "tier_1").slice(0, MAX_T1),
+      tier_2: candidatePool.filter(r => r.tier === "tier_2").slice(0, MAX_T2),
+      tier_3: candidatePool.filter(r => r.tier === "tier_3").slice(0, MAX_T3),
+    };
+    const selected = [...byTier.tier_1, ...byTier.tier_2, ...byTier.tier_3];
 
-ROLE SELECTION RULES:
-- Only recommend roles that exist in the role library
-- Use the standardized role titles from the library exactly as written
-- Match the user's experience and skills against the role's core_skills, secondary_skills, and differentiator_skills
-- Consider the user's location, employment status, and openness to lateral moves when scoring
-- Cross-sector transitions are allowed but require strong transferable proof signals
-- Entry level roles allow more flexibility for cross-sector moves than senior roles`;
+    if (selected.length === 0) {
+      return new Response(JSON.stringify({
+        qualification_level: inferQualificationLevel(sanitisedExperiences),
+        overall_assessment: "No roles in the library currently meet the minimum fit threshold for this profile. Focus on building foundational skills and revisit after gaining more experience.",
+        skill_gaps: [],
+        roles: [],
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    // Aggregate skill_gaps across all selected roles
+    const allMissing = new Set<string>();
+    for (const r of selected) for (const sid of r.missing_skill_ids) allMissing.add(sid);
+    const aggregatedGaps = [...allMissing].slice(0, 8).map(skillName);
+
+    // ─── PHASE 2: LLM writes explanations only ─────────────────────────
+    const rolesForLLM = selected.map(r => ({
+      title: r.title,
+      tier: r.tier,
+      readiness_score: r.score,
+      matched_skills: r.matched_skills,
+      missing_skills: r.missing_skills,
+    }));
+
+    const systemPrompt = `You are a career advisor for the "Get A Job" platform.
+
+You will receive a user's profile and a set of pre-scored role recommendations with their fit scores, tiers, matched skills, and skill gaps.
+
+Your job is to write clear, helpful explanations — NOT to compute scores or assign tiers. Scores and tiers are already computed deterministically by the server.
+
+Write in a supportive, actionable tone. Reference the user's specific experiences and skills. Do not invent facts about the user. Do not modify the titles, tiers, scores, matched_skills, or missing_skills values.`;
 
     const userPrompt = `USER PROFILE:
 - Name: ${sanitisedProfile.full_name || 'Not provided'}
-- Skills: ${JSON.stringify(sanitisedProfile.skills)}
 - Education: ${sanitisedProfile.degree} in ${sanitisedProfile.field_of_study} (${sanitisedProfile.education_level})
 - Summary: ${sanitisedProfile.summary || 'Not provided'}
 - 5-Year Goal: ${sanitisedProfile.five_year_role || 'Not provided'}
@@ -188,45 +373,45 @@ ROLE SELECTION RULES:
 - Employment Status: ${sanitisedProfile.employment_status || 'Not provided'}
 - Open to Lateral Roles: ${sanitisedProfile.open_to_lateral}
 - Open to Roles Outside Degree: ${sanitisedProfile.open_to_outside_degree}
+- Stated Skills: ${JSON.stringify(sanitisedProfile.skills)}
 - Experiences: ${JSON.stringify(sanitisedExperiences)}
 - Projects: ${JSON.stringify(sanitisedProjects)}
 - Certifications: ${JSON.stringify(sanitisedCerts)}
 ${dreamRolesForPrompt.length ? `- Dream Roles: ${dreamRolesForPrompt.join(', ')}` : ''}
 
-TASK:
-Analyze this user's profile using the role library and scoring logic provided in your system prompt. Generate a career analysis with tiered role recommendations.
+PRE-SCORED ROLE RECOMMENDATIONS (do not modify title, tier, score, or skill lists):
+${JSON.stringify(rolesForLLM, null, 2)}
 
-For each recommended role:
-- Use the exact role title from the role library
-- Calculate readiness_score using the fit scoring logic (weighted average of core/secondary/differentiator skill scores)
-- Calculate goal_alignment_score using the goal alignment logic
-- Assign to tier using the agent decision logic thresholds
-- List matched_skills (skills the user demonstrably has for this role)
-- List missing_skills (core and secondary skills the user lacks)
-- Write reasoning explaining why this role is in this tier for this specific user
-- Write action_items as concrete next steps to improve readiness for this role
+For each role listed above, write:
+1. reasoning: 2-3 sentences explaining why this user is/isn't a strong fit, referencing their specific experiences and skills
+2. action_items: 2-3 concrete, specific next steps to close the skill gaps
+3. alignment_to_goal: 1 sentence connecting this role to their 5-year target (if provided)
 
-Return a JSON object:
+Also write at the top level:
+- overall_assessment: 2-3 sentences summarising the user's current position and strongest signals
+- qualification_level: "Junior", "Mid-Level", or "Senior" based on their experience depth
+
+Return JSON matching this exact structure:
 {
-  "qualification_level": "string (Entry / Mid / Senior based on experience depth)",
-  "overall_assessment": "string (2-3 sentence honest assessment of the user's current position and strongest signals)",
-  "skill_gaps": ["gap1", "gap2"],
+  "qualification_level": "string",
+  "overall_assessment": "string",
   "roles": [
     {
-      "title": "string (exact title from role library)",
-      "tier": "tier_1|tier_2|tier_3",
-      "readiness_score": number (0.0-1.0),
-      "goal_alignment_score": number (0.0-1.0),
-      "matched_skills": ["skill1"],
-      "missing_skills": ["skill1"],
-      "reasoning": "string (why this tier for this specific user)",
-      "action_items": ["action1", "action2"],
-      "alignment_to_goal": "string (how this role connects to their 5-year goal)"
+      "title": "string (copy exactly from the input)",
+      "tier": "string (copy exactly)",
+      "readiness_score": number (copy exactly),
+      "matched_skills": [strings] (copy exactly),
+      "missing_skills": [strings] (copy exactly),
+      "reasoning": "string (YOU write this)",
+      "action_items": [strings] (YOU write this),
+      "alignment_to_goal": "string (YOU write this)"
     }
   ]
 }
 
-Return ONLY valid JSON. Include 4-6 roles spanning available tiers. Do not include roles that fail minimum thresholds.`
+CRITICAL: Do not change any title, tier, readiness_score, matched_skills, or missing_skills value. Copy them verbatim. You are only authoring reasoning, action_items, alignment_to_goal, overall_assessment, and qualification_level.
+
+Return ONLY valid JSON.`;
 
     const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -237,8 +422,8 @@ Return ONLY valid JSON. Include 4-6 roles spanning available tiers. Do not inclu
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        temperature: 0.3,
-        max_tokens: 3000,
+        temperature: 0.4,
+        max_tokens: 2000,
         response_format: { type: 'json_object' },
       }),
       signal: AbortSignal.timeout(45000),
@@ -258,32 +443,51 @@ Return ONLY valid JSON. Include 4-6 roles spanning available tiers. Do not inclu
     }
 
     const completion = await openaiResponse.json()
-    let result: Record<string, unknown>;
+    let llmResult: Record<string, any>;
     try {
-      result = JSON.parse(completion.choices?.[0]?.message?.content || '{}');
+      llmResult = JSON.parse(completion.choices?.[0]?.message?.content || '{}');
     } catch {
       return new Response(JSON.stringify({ error: 'AI returned an invalid response format. Please try again.' }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    if (!Array.isArray(result.roles) || result.roles.length === 0) {
-      return new Response(JSON.stringify({ error: 'AI returned an unexpected response structure. Please try again.' }), {
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    // ─── PHASE 3: Hard validation — override LLM-supplied numeric/ID fields ───
+    const llmRolesByTitle = new Map<string, any>();
+    if (Array.isArray(llmResult.roles)) {
+      for (const r of llmResult.roles) {
+        if (typeof r?.title === "string") llmRolesByTitle.set(r.title, r);
+      }
     }
 
-    const VALID_TIERS = ['tier_1', 'tier_2', 'tier_3'];
-    result.roles = (result.roles as any[]).filter(
-      (r) => typeof r.title === 'string' && r.title.trim() && VALID_TIERS.includes(r.tier)
-    );
-    if (result.roles.length === 0) {
-      return new Response(JSON.stringify({ error: 'AI returned roles with invalid structure. Please try again.' }), {
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    const finalRoles = selected.map(server => {
+      const llm = llmRolesByTitle.get(server.title) || {};
+      return {
+        title: server.title,
+        tier: server.tier,
+        readiness_score: server.score,
+        matched_skills: server.matched_skills,
+        missing_skills: server.missing_skills,
+        reasoning: typeof llm.reasoning === "string" ? llm.reasoning : "",
+        action_items: Array.isArray(llm.action_items)
+          ? llm.action_items.filter((x: any) => typeof x === "string").slice(0, 5)
+          : [],
+        alignment_to_goal: typeof llm.alignment_to_goal === "string" ? llm.alignment_to_goal : "",
+      };
+    });
 
-    return new Response(JSON.stringify(result), {
+    const response = {
+      qualification_level: ["Junior", "Mid-Level", "Senior"].includes(llmResult.qualification_level)
+        ? llmResult.qualification_level
+        : inferQualificationLevel(sanitisedExperiences),
+      overall_assessment: typeof llmResult.overall_assessment === "string" && llmResult.overall_assessment.trim()
+        ? llmResult.overall_assessment
+        : "",
+      skill_gaps: aggregatedGaps,
+      roles: finalRoles,
+    };
+
+    return new Response(JSON.stringify(response), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (error) {
@@ -295,7 +499,7 @@ Return ONLY valid JSON. Include 4-6 roles spanning available tiers. Do not inclu
       await serviceClient.rpc('log_error', {
         p_user_id: null,
         p_function_name: 'generate-career-analysis',
-        p_error_message: error.message,
+        p_error_message: (error as Error).message,
         p_error_details: null,
       })
     } catch { /* best-effort logging */ }
