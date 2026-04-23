@@ -3,7 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
 import { useQueryClient } from "@tanstack/react-query";
-import { Send, Loader2, Plus, ListTodo, CheckCircle2, ArrowRight, Route, Briefcase } from "lucide-react";
+import { Send, Loader2, Plus, ListTodo, CheckCircle2, ArrowRight, Route, Briefcase, ChevronDown, Trash2, MessageSquare } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { createPageUrl } from "@/utils";
@@ -167,53 +174,197 @@ export default function ChatInterface({ agentName, title, description, applicati
   const [addedTaskSets, setAddedTaskSets] = useState({});
   const [appliedRoadmapSets, setAppliedRoadmapSets] = useState({});
   const [appliedAppActionSets, setAppliedAppActionSets] = useState({});
+  const [conversations, setConversations] = useState([]);
+  const [activeConversationId, setActiveConversationId] = useState(null);
+  const [loadingMessages, setLoadingMessages] = useState(false);
   const bottomRef = useRef(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Load conversations for this user+agent on mount. If any exist, open the
+  // most recent one; otherwise stay empty (first message creates a conversation).
+  useEffect(() => {
+    if (!user?.id || !agentName) return;
+    (async () => {
+      const { data, error } = await supabase
+        .from("conversations")
+        .select("id, title, updated_at, application_id")
+        .eq("user_id", user.id)
+        .eq("agent", agentName)
+        .order("updated_at", { ascending: false });
+      if (error) { console.error("Failed to load conversations:", error); return; }
+      setConversations(data || []);
+      if (data && data.length > 0 && !activeConversationId) {
+        setActiveConversationId(data[0].id);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, agentName]);
+
+  // Load messages when the active conversation changes.
+  useEffect(() => {
+    if (!activeConversationId) { setMessages([]); return; }
+    setLoadingMessages(true);
+    (async () => {
+      const { data, error } = await supabase
+        .from("chat_messages")
+        .select("*")
+        .eq("conversation_id", activeConversationId)
+        .order("created_at", { ascending: true });
+      if (error) {
+        console.error("Failed to load messages:", error);
+        setMessages([]);
+      } else {
+        setMessages((data || []).map((m) => ({
+          id: m.id,
+          role: m.role,
+          content: m.content,
+          suggestedTasks: Array.isArray(m.suggested_tasks) && m.suggested_tasks.length > 0 ? m.suggested_tasks : null,
+          suggestedRoadmapChanges: Array.isArray(m.suggested_roadmap_changes) && m.suggested_roadmap_changes.length > 0 ? m.suggested_roadmap_changes : null,
+          suggestedApplicationActions: Array.isArray(m.suggested_application_actions) && m.suggested_application_actions.length > 0 ? m.suggested_application_actions : null,
+          suggestedAgent: m.suggested_agent || null,
+        })));
+      }
+      setLoadingMessages(false);
+    })();
+  }, [activeConversationId]);
+
+  const startNewConversation = () => {
+    // Clear active state; the next send creates the DB row lazily.
+    setActiveConversationId(null);
+    setMessages([]);
+    setAddedTaskSets({});
+    setAppliedRoadmapSets({});
+    setAppliedAppActionSets({});
+  };
+
+  const selectConversation = (id) => {
+    if (id === activeConversationId) return;
+    setActiveConversationId(id);
+    setAddedTaskSets({});
+    setAppliedRoadmapSets({});
+    setAppliedAppActionSets({});
+  };
+
+  const deleteConversation = async (id) => {
+    const { error } = await supabase.from("conversations").delete().eq("id", id);
+    if (error) { toast.error("Could not delete conversation."); return; }
+    setConversations((prev) => prev.filter((c) => c.id !== id));
+    if (id === activeConversationId) {
+      setActiveConversationId(null);
+      setMessages([]);
+    }
+  };
+
   const sendMessage = async () => {
-    if (!input.trim() || sending) return;
+    if (!input.trim() || sending || !user?.id) return;
     const text = input.trim();
     setInput("");
 
-    const userMsg = { role: "user", content: text, id: crypto.randomUUID() };
+    // 1. Ensure we have a conversation row. Create lazily on first send.
+    let convoId = activeConversationId;
+    let convoIsNew = false;
+    if (!convoId) {
+      const title = text.slice(0, 60);
+      const { data: newConvo, error: createErr } = await supabase
+        .from("conversations")
+        .insert({
+          user_id: user.id,
+          agent: agentName || "career-coach",
+          title,
+          ...(applicationId && { application_id: applicationId }),
+        })
+        .select("id, title, updated_at, application_id")
+        .single();
+      if (createErr || !newConvo) {
+        console.error("Could not create conversation:", createErr);
+        toast.error("Could not start conversation. Please try again.");
+        return;
+      }
+      convoId = newConvo.id;
+      convoIsNew = true;
+      setActiveConversationId(convoId);
+      setConversations((prev) => [newConvo, ...prev]);
+    }
+
+    // 2. Optimistic user message + persist
+    const userMsgLocalId = crypto.randomUUID();
+    const userMsg = { role: "user", content: text, id: userMsgLocalId };
     const updatedMessages = [...messages, userMsg];
     setMessages(updatedMessages);
-
     setSending(true);
+
+    const { data: inserted, error: userInsertErr } = await supabase
+      .from("chat_messages")
+      .insert({ conversation_id: convoId, role: "user", content: text })
+      .select("id")
+      .single();
+    if (userInsertErr) {
+      console.error("Failed to persist user message:", userInsertErr);
+      // Keep going — the AI call is the primary UX
+    } else if (inserted?.id) {
+      setMessages((prev) => prev.map((m) => m.id === userMsgLocalId ? { ...m, id: inserted.id } : m));
+    }
+
+    // 3. Call AI
     try {
       const { data, error } = await supabase.functions.invoke("ai-chat", {
         body: {
           message: text,
           agent: agentName || "career-coach",
-          // Strip system-role entries to prevent prompt injection
           conversation_history: updatedMessages.slice(-20).filter((m) => m.role !== "system"),
           ...(applicationId && { application_id: applicationId }),
         },
       });
-
       if (error) throw error;
+
+      const assistantContent = data.reply || "Sorry, I could not generate a response.";
+      const assistantPayload = {
+        conversation_id: convoId,
+        role: "assistant",
+        content: assistantContent,
+        suggested_tasks: data.suggested_tasks?.length > 0 ? data.suggested_tasks : null,
+        suggested_roadmap_changes: data.suggested_roadmap_changes?.length > 0 ? data.suggested_roadmap_changes : null,
+        suggested_application_actions: data.suggested_application_actions?.length > 0 ? data.suggested_application_actions : null,
+        suggested_agent: data.suggested_agent || null,
+      };
+
+      const { data: savedAssistant } = await supabase
+        .from("chat_messages")
+        .insert(assistantPayload)
+        .select("id")
+        .single();
 
       setMessages((prev) => [
         ...prev,
         {
+          id: savedAssistant?.id || crypto.randomUUID(),
           role: "assistant",
-          content: data.reply || "Sorry, I could not generate a response.",
-          id: crypto.randomUUID(),
-          suggestedTasks: data.suggested_tasks?.length > 0 ? data.suggested_tasks : null,
-          suggestedAgent: data.suggested_agent || null,
-          suggestedRoadmapChanges: data.suggested_roadmap_changes?.length > 0 ? data.suggested_roadmap_changes : null,
-          suggestedApplicationActions: data.suggested_application_actions?.length > 0 ? data.suggested_application_actions : null,
+          content: assistantContent,
+          suggestedTasks: assistantPayload.suggested_tasks,
+          suggestedRoadmapChanges: assistantPayload.suggested_roadmap_changes,
+          suggestedApplicationActions: assistantPayload.suggested_application_actions,
+          suggestedAgent: assistantPayload.suggested_agent,
         },
       ]);
+
+      // 4. Touch conversation updated_at + set title if this was the very first send
+      const patch = { updated_at: new Date().toISOString() };
+      if (convoIsNew) patch.title = text.slice(0, 60);
+      await supabase.from("conversations").update(patch).eq("id", convoId);
+      setConversations((prev) =>
+        prev.map((c) => c.id === convoId ? { ...c, ...patch } : c)
+            .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
+      );
     } catch (err) {
       console.error("Chat error:", err);
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: "Something went wrong. Please try again.", id: crypto.randomUUID() },
-      ]);
+      const errMsg = { role: "assistant", content: "Something went wrong. Please try again.", id: crypto.randomUUID() };
+      setMessages((prev) => [...prev, errMsg]);
+      await supabase.from("chat_messages").insert({
+        conversation_id: convoId, role: "assistant", content: errMsg.content,
+      });
     }
     setSending(false);
   };
@@ -334,27 +485,64 @@ export default function ChatInterface({ agentName, title, description, applicati
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="px-6 py-4 border-b border-[#E5E5E5] bg-white flex items-center justify-between">
-        <div>
+      <div className="px-6 py-4 border-b border-[#E5E5E5] bg-white flex items-center justify-between gap-3">
+        <div className="min-w-0">
           <h2 className="text-sm font-semibold text-[#0A0A0A]">{title}</h2>
           {description && (
-            <p className="text-xs text-[#A3A3A3] mt-0.5">{description}</p>
+            <p className="text-xs text-[#A3A3A3] mt-0.5 truncate">{description}</p>
           )}
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setMessages([])}
-          className="text-xs"
-        >
-          <Plus className="w-3.5 h-3.5 mr-1" />
-          New
-        </Button>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Conversation switcher */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="text-xs max-w-[220px]">
+                <MessageSquare className="w-3.5 h-3.5 mr-1.5 flex-shrink-0" />
+                <span className="truncate">
+                  {conversations.find((c) => c.id === activeConversationId)?.title || "New conversation"}
+                </span>
+                <ChevronDown className="w-3.5 h-3.5 ml-1.5 flex-shrink-0" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-[320px]">
+              <DropdownMenuItem onClick={startNewConversation} className="text-sm">
+                <Plus className="w-3.5 h-3.5 mr-2" />
+                New conversation
+              </DropdownMenuItem>
+              {conversations.length > 0 && <DropdownMenuSeparator />}
+              {conversations.map((c) => (
+                <DropdownMenuItem
+                  key={c.id}
+                  onClick={() => selectConversation(c.id)}
+                  className="text-sm flex items-center justify-between gap-2"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate">{c.title || "Untitled"}</p>
+                    <p className="text-[10px] text-[#A3A3A3]">{new Date(c.updated_at).toLocaleDateString()}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); deleteConversation(c.id); }}
+                    className="p-1 rounded hover:bg-red-50 text-[#A3A3A3] hover:text-red-500 flex-shrink-0"
+                    aria-label="Delete conversation"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-6 py-6 space-y-4">
-        {messages.length === 0 && (
+        {loadingMessages && (
+          <div className="flex items-center justify-center py-8 text-xs text-[#A3A3A3]">
+            <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> Loading conversation…
+          </div>
+        )}
+        {!loadingMessages && messages.length === 0 && (
           <div className="text-center py-12 space-y-4">
             <p className="text-sm text-[#A3A3A3]">
               Start a conversation. Ask a question about your career path.
