@@ -158,9 +158,35 @@ export default function StepResumeUpload({ onNext, onExtracted, profileData, onC
         setCvTruncated(true);
       }
 
+      const extractionPrompt = `Extract structured information from this resume text. Return ONLY a raw JSON object (no markdown, no code blocks) with these fields: full_name, phone_number, location, linkedin_url, summary, degree, field_of_study, education_level, skills (array of ALL skills combined), tools_software (array: apps/platforms/tools like Excel, Figma, Salesforce, Python, AWS), hard_skills (array: domain knowledge like Financial modeling, Market research, Contract law), technical_skills (array: engineering/programming skills like React, SQL, Machine learning — leave empty if not applicable), analytical_skills (array: data/problem-solving skills like Data analysis, Forecasting, A/B testing), communication_skills (array: written/verbal skills like Presentations, Technical writing, Public speaking), leadership_skills (array: people/management skills like Project management, Mentoring, Stakeholder management), experiences (array of {title, company, type, start_date, end_date, responsibilities}).
+
+EXPERIENCE TYPE CLASSIFICATION (required for every experience):
+Set the "type" field on each experience to EXACTLY ONE of these values:
+- "military"    — any military service. See military section below.
+- "internship"  — explicit internships or summer placements
+- "full_time"   — regular full-time employment (default when unclear but the role looks like a paid job)
+- "part_time"   — part-time paid work
+- "freelance"   — freelance / contract / self-employed / consulting
+- "volunteer"   — unpaid volunteer work, community service, pro bono
+- "leadership"  — student club president, team captain, society chair, founder of a student initiative
+
+MILITARY SERVICE — recognise and extract carefully:
+Treat any of the following as MILITARY experience (type="military"):
+- English mentions: "IDF", "Israel Defense Forces", "Israeli Defense Forces", "Israeli military", "army service", "mandatory service", "reserve service", "commander", "combat soldier"
+- Hebrew mentions: "צה״ל", "צהל", "שירות צבאי", "שירות מילואים", "מפקד"
+- Specific units/corps (any of these → military): Givati, Golani, Nahal, Nachal, Paratroopers, Tzanhanim, Sayeret, Sayeret Matkal, Shaldag, Duvdevan, Kfir, Egoz, Maglan, Unit 8200, 8200, Mamram, Talpiot, Havatzalot, Intelligence Corps, Modi'in, Cyber Defense, IAF, Israeli Air Force, Navy, Shayetet, Home Front Command, Pikud Haoref, Combat Engineering, Artillery Corps, Armored Corps, Gaza Division, Officer's School, Bahad 1
+
+When you classify an experience as military:
+- Set company to "Israel Defense Forces (IDF)" unless a more specific unit is named (e.g. "IDF — Unit 8200", "IDF Paratroopers Brigade", "IDF Nahal Brigade")
+- Set title to a meaningful English role, not just "Soldier". Prefer: "Combat Soldier", "Team Commander", "Squad Commander", "Platoon Commander", "Intelligence Officer", "Intelligence Analyst", "Signals Intelligence Analyst", "Software Developer (IDF)", "Cyber Analyst", "Instructor", "NCO", "Officer", "Sergeant", "Lieutenant" based on what the resume describes. If unclear, use "Combat Soldier" or "Military Service Member".
+- Keep awards/commendations (Presidential Award for Excellence, unit citations, excellence commendations) in the responsibilities text — do not drop them.
+- Translate Hebrew responsibility bullets to concise English.
+
+Here is the resume:\n\n${fileText.slice(0, 15000)}`;
+
       const { data: extractData, error: fnError } = await supabase.functions.invoke("ai-chat", {
         body: {
-          message: `Extract structured information from this resume text. Return ONLY a raw JSON object (no markdown, no code blocks) with these fields: full_name, phone_number, location, linkedin_url, summary, degree, field_of_study, education_level, skills (array of ALL skills combined), tools_software (array: apps/platforms/tools like Excel, Figma, Salesforce, Python, AWS), hard_skills (array: domain knowledge like Financial modeling, Market research, Contract law), technical_skills (array: engineering/programming skills like React, SQL, Machine learning — leave empty if not applicable), analytical_skills (array: data/problem-solving skills like Data analysis, Forecasting, A/B testing), communication_skills (array: written/verbal skills like Presentations, Technical writing, Public speaking), leadership_skills (array: people/management skills like Project management, Mentoring, Stakeholder management), experiences (array of {title, company, start_date, end_date, responsibilities}). Here is the resume:\n\n${fileText.slice(0, 15000)}`,
+          message: extractionPrompt,
           agent: "resume-extractor",
           conversation_history: [],
         },
