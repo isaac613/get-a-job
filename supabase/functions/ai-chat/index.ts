@@ -416,41 +416,61 @@ Deno.serve(async (req) => {
     let suggested_agent: { agent: string; label: string; page: string; reason: string } | null = null
     let suggested_roadmap_changes: Array<{ action: string; role_title?: string; title?: string; new_tier?: string; tier?: string; reason: string }> | null = null
 
+    // ─── Structured block extraction ──────────────────────────────────────
+    // Important: ALWAYS strip the marker + JSON from `reply` whenever the
+    // extractor parses it, regardless of whether the payload is valid for our
+    // downstream fields. If we only strip "on success" the user ends up seeing
+    // raw JSON in chat when the LLM emits a slightly-off shape (e.g. wraps
+    // tasks in {tasks: [...]} instead of just [...]).
     const tasksResult = extractJsonBlock(reply, 'SUGGESTED_TASKS_JSON:')
-    if (tasksResult && Array.isArray(tasksResult.parsed)) {
+    if (tasksResult) {
+      reply = tasksResult.cleaned
       const VALID_CATEGORIES = new Set(['application', 'cv', 'skill', 'project', 'networking'])
       const VALID_PRIORITIES = new Set(['high', 'medium', 'low'])
-      suggested_tasks = (tasksResult.parsed as Array<{ title: string; description: string; category: string; priority: string }>)
-        .map(t => ({
-          ...t,
-          category: VALID_CATEGORIES.has(t.category) ? t.category : 'application',
-          priority: VALID_PRIORITIES.has(t.priority) ? t.priority : 'medium',
-        }))
-      reply = tasksResult.cleaned
+      // Accept either a top-level array OR an object with a `tasks` array
+      const arr = Array.isArray(tasksResult.parsed)
+        ? tasksResult.parsed
+        : (tasksResult.parsed && typeof tasksResult.parsed === 'object' && Array.isArray((tasksResult.parsed as any).tasks))
+          ? (tasksResult.parsed as any).tasks
+          : null
+      if (Array.isArray(arr)) {
+        suggested_tasks = (arr as Array<{ title: string; description: string; category: string; priority: string }>)
+          .filter(t => t && typeof t.title === 'string' && t.title.trim())
+          .map(t => ({
+            ...t,
+            category: VALID_CATEGORIES.has(t.category) ? t.category : 'application',
+            priority: VALID_PRIORITIES.has(t.priority) ? t.priority : 'medium',
+          }))
+      }
     }
 
     const roadmapResult = extractJsonBlock(reply, 'SUGGESTED_ROADMAP_CHANGES_JSON:')
-    if (roadmapResult && typeof roadmapResult.parsed === 'object' && roadmapResult.parsed !== null) {
-      const parsed = roadmapResult.parsed as { changes?: unknown[] }
-      if (Array.isArray(parsed.changes) && parsed.changes.length > 0) {
+    if (roadmapResult) {
+      reply = roadmapResult.cleaned
+      const parsed = roadmapResult.parsed
+      const changes = parsed && typeof parsed === 'object' && Array.isArray((parsed as any).changes)
+        ? (parsed as any).changes as Array<{ action: string; role_title?: string; title?: string; new_tier?: string; tier?: string; reason: string }>
+        : Array.isArray(parsed) ? parsed as any[] : null
+      if (Array.isArray(changes) && changes.length > 0) {
         const VALID_TIERS = new Set(['tier_1', 'tier_2', 'tier_3'])
         const VALID_ACTIONS = new Set(['update_tier', 'add_role', 'remove_role'])
-        suggested_roadmap_changes = (parsed.changes as Array<{ action: string; role_title?: string; title?: string; new_tier?: string; tier?: string; reason: string }>)
-          .filter(c => VALID_ACTIONS.has(c.action))
+        const validChanges = changes
+          .filter(c => c && VALID_ACTIONS.has(c.action))
           .map(c => ({
             ...c,
             ...(c.new_tier && { new_tier: VALID_TIERS.has(c.new_tier) ? c.new_tier : 'tier_2' }),
             ...(c.tier && { tier: VALID_TIERS.has(c.tier) ? c.tier : 'tier_2' }),
           }))
-        if (suggested_roadmap_changes.length === 0) suggested_roadmap_changes = null
-        reply = roadmapResult.cleaned
+        if (validChanges.length > 0) suggested_roadmap_changes = validChanges
       }
     }
 
     const agentResult = extractJsonBlock(reply, 'SUGGESTED_AGENT_JSON:')
-    if (agentResult && typeof agentResult.parsed === 'object' && agentResult.parsed !== null) {
-      suggested_agent = agentResult.parsed as { agent: string; label: string; page: string; reason: string }
+    if (agentResult) {
       reply = agentResult.cleaned
+      if (typeof agentResult.parsed === 'object' && agentResult.parsed !== null) {
+        suggested_agent = agentResult.parsed as { agent: string; label: string; page: string; reason: string }
+      }
     }
 
     // Application tracker actions (career_agent only).
@@ -472,14 +492,18 @@ Deno.serve(async (req) => {
     }
     let suggested_application_actions: AppAction[] | null = null
     const appActionsResult = extractJsonBlock(reply, 'SUGGESTED_APPLICATION_ACTIONS_JSON:')
-    if (appActionsResult && typeof appActionsResult.parsed === 'object' && appActionsResult.parsed !== null) {
-      const parsed = appActionsResult.parsed as { actions?: unknown[] }
-      if (Array.isArray(parsed.actions) && parsed.actions.length > 0) {
+    if (appActionsResult) {
+      reply = appActionsResult.cleaned
+      const parsed = appActionsResult.parsed
+      const actions = parsed && typeof parsed === 'object' && Array.isArray((parsed as any).actions)
+        ? (parsed as any).actions as AppAction[]
+        : Array.isArray(parsed) ? parsed as AppAction[] : null
+      if (Array.isArray(actions) && actions.length > 0) {
         const VALID_STATUSES = new Set(['interested', 'preparing', 'applied', 'interviewing', 'offer', 'rejected'])
         const VALID_TIERS = new Set(['tier_1', 'tier_2', 'tier_3'])
         const VALID_ACTIONS = new Set(['add_application', 'update_application'])
         const cleaned: AppAction[] = []
-        for (const raw of parsed.actions as AppAction[]) {
+        for (const raw of actions) {
           if (!VALID_ACTIONS.has(raw.action)) continue
           if (raw.action === 'add_application') {
             if (!raw.company?.trim() || !raw.role_title?.trim()) continue
@@ -508,8 +532,25 @@ Deno.serve(async (req) => {
           }
         }
         if (cleaned.length > 0) suggested_application_actions = cleaned
-        reply = appActionsResult.cleaned
       }
+    }
+
+    // Belt-and-suspenders sweep: if any marker still survives in the reply
+    // (malformed JSON that extractJsonBlock couldn't parse, or a marker with
+    // no JSON at all), strip from the marker through the end of the surrounding
+    // block so the user never sees a raw `SUGGESTED_*_JSON:` string.
+    const STRUCTURED_MARKERS = [
+      'SUGGESTED_TASKS_JSON:',
+      'SUGGESTED_ROADMAP_CHANGES_JSON:',
+      'SUGGESTED_AGENT_JSON:',
+      'SUGGESTED_APPLICATION_ACTIONS_JSON:',
+    ]
+    for (const marker of STRUCTURED_MARKERS) {
+      const idx = reply.indexOf(marker)
+      if (idx === -1) continue
+      // Drop everything from the marker onward — the whole structured block
+      // is always the LAST thing in the response by design, so this is safe.
+      reply = reply.slice(0, idx).replace(/\n+\s*$/, '').trim()
     }
 
     return new Response(JSON.stringify({
