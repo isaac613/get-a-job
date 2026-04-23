@@ -194,7 +194,24 @@ export default function StepResumeUpload({ onNext, onExtracted, profileData, onC
           }
 
           if (extracted) {
-            onExtracted(extracted);
+            // Run proof signal extraction in parallel — non-blocking, failure is non-fatal
+            let proofSignals = [];
+            let primaryDomain = null;
+            let adjacentFields = [];
+            try {
+              const { data: psData } = await supabase.functions.invoke("extract-proof-signals", {
+                body: { cv_text: fileText.slice(0, 15000) },
+              });
+              if (psData?.proof_signals?.length) {
+                proofSignals = psData.proof_signals;
+                primaryDomain = psData.primary_domain || null;
+                adjacentFields = psData.adjacent_fields || [];
+              }
+            } catch (psErr) {
+              console.warn("Proof signal extraction failed (non-fatal):", psErr);
+            }
+
+            onExtracted({ ...extracted, proof_signals: proofSignals, primary_domain: primaryDomain, adjacent_fields: adjacentFields });
             setExtracting(false);
             setDone(true);
             return;

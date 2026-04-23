@@ -66,7 +66,6 @@ export default function AddInformation() {
       return data || [];
     },
     enabled: !!user?.id,
-    initialData: [],
   });
 
   // Courses table not yet implemented — placeholder to avoid changing tab structure
@@ -119,10 +118,8 @@ export default function AddInformation() {
     linkedin_url: "",
   });
 
-  const profileInitialized = React.useRef(null);
   React.useEffect(() => {
-    if (profile && profileInitialized.current !== profile.id) {
-      profileInitialized.current = profile.id;
+    if (profile) {
       setProfileForm({
         full_name: profile.full_name || "",
         five_year_role: profile.five_year_role || "",

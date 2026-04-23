@@ -27,7 +27,14 @@
       "mcp__supabase__list_tables",
       "Bash(git -C C:UsersIsaacOneDriveDocumentsGetaJobGet-a-Job log --oneline --all -- .env.local)",
       "Bash(grep -r createPageUrl C:UsersIsaacOneDriveDocumentsGetaJobGet-a-Jobsrc --include=*.js --include=*.jsx --include=*.ts --include=*.tsx -l)",
-      "Bash(grep -r createPageUrl C:/Users/Isaac/OneDrive/Documents/GetaJob/Get-a-Job/src --include=*.jsx --include=*.js --include=*.ts -l)"
+      "Bash(grep -r createPageUrl C:/Users/Isaac/OneDrive/Documents/GetaJob/Get-a-Job/src --include=*.jsx --include=*.js --include=*.ts -l)",
+      "Bash(where supabase *)",
+      "Bash(npx supabase *)",
+      "Bash(node -e ' *)",
+      "Bash(node *)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('Keys:', list\\(d.keys\\(\\)\\)\\); roles=d.get\\('roles',[]\\); print\\('Role count:', len\\(roles\\)\\); print\\('First role keys:', list\\(roles[0].keys\\(\\)\\) if roles else 'none'\\)\")",
+      "Bash(python3 *)",
+      "Bash(git add *)"
     ]
   },
   "enableAllProjectMcpServers": true,

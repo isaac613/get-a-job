@@ -52,6 +52,9 @@ const EMPTY_PROFILE = {
   cv_tailoring_strategy: "",
   linkedin_outreach_strategy: "",
   volunteering: [],
+  proof_signals: [],
+  primary_domain: null,
+  adjacent_fields: [],
 };
 
 // Steps: 0=CV, 1=Education, 2=Experience, 3=Skills, 4=CareerDirection, 5=Constraints, 6=Survey, 7=TierReveal
@@ -129,6 +132,9 @@ export default function Onboarding() {
       communication_skills: extracted.communication_skills?.length ? extracted.communication_skills : prev.communication_skills || [],
       leadership_skills: extracted.leadership_skills?.length ? extracted.leadership_skills : prev.leadership_skills || [],
       volunteering: extracted.volunteering || prev.volunteering || [],
+      proof_signals: extracted.proof_signals?.length ? extracted.proof_signals : prev.proof_signals || [],
+      primary_domain: extracted.primary_domain || prev.primary_domain || null,
+      adjacent_fields: extracted.adjacent_fields?.length ? extracted.adjacent_fields : prev.adjacent_fields || [],
     }));
 
     // Pre-fill experiences from resume
@@ -166,14 +172,14 @@ export default function Onboarding() {
       degree, field_of_study, education_level, gpa, honors, relevant_coursework, resume_url,
       onboarding_step, onboarding_complete,
       skill_gaps, qualification_level, overall_assessment, last_reality_check_date,
-      five_year_role
+      five_year_role, proof_signals, primary_domain, adjacent_fields
     } = data;
     return {
       full_name, phone_number, location, linkedin_url, summary, skills,
       degree, field_of_study, education_level, gpa, honors, relevant_coursework, resume_url,
       onboarding_step, onboarding_complete,
       skill_gaps, qualification_level, overall_assessment, last_reality_check_date,
-      five_year_role
+      five_year_role, proof_signals, primary_domain, adjacent_fields
     };
   };
 
