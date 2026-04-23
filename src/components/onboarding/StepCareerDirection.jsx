@@ -1,12 +1,54 @@
-import React from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Check } from "lucide-react";
 import SkillTagInput from "./SkillTagInput";
+import { matchRoles } from "@/lib/roleMatch";
 
 export default function StepCareerDirection({ data, onChange, onNext, onBack }) {
   const set = (key, val) => onChange({ ...data, [key]: val });
 
   const canProceed = data.five_year_role?.trim();
+
+  // Debounced suggestions for the 5-year role input.
+  // The user may type "product", "PM", "UX", etc. — we surface matching library titles
+  // so they can pick a canonical one without being forced.
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [dismissedFor, setDismissedFor] = useState(""); // raw text the user dismissed with "None of these"
+  const debounceRef = useRef(null);
+  const [debouncedInput, setDebouncedInput] = useState(data.five_year_role || "");
+
+  useEffect(() => {
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setDebouncedInput(data.five_year_role || "");
+    }, 350);
+    return () => clearTimeout(debounceRef.current);
+  }, [data.five_year_role]);
+
+  const { exact, suggestions } = useMemo(
+    () => matchRoles(debouncedInput, 5),
+    [debouncedInput]
+  );
+
+  // Auto-hide suggestions if the field matches exactly, is empty, or was dismissed.
+  const shouldShow =
+    showSuggestions &&
+    !exact &&
+    !!debouncedInput.trim() &&
+    debouncedInput.trim() !== dismissedFor &&
+    suggestions.length > 0;
+
+  const chooseSuggestion = (s) => {
+    set("five_year_role", s.title);
+    setShowSuggestions(false);
+    setDismissedFor("");
+  };
+
+  const dismiss = () => {
+    setDismissedFor((data.five_year_role || "").trim());
+    setShowSuggestions(false);
+  };
 
   return (
     <div className="space-y-6">
@@ -24,9 +66,48 @@ export default function StepCareerDirection({ data, onChange, onNext, onBack }) 
           </label>
           <Input
             value={data.five_year_role || ""}
-            onChange={(e) => set("five_year_role", e.target.value)}
-            placeholder="e.g. Senior Product Manager at a fintech company"
+            onChange={(e) => {
+              set("five_year_role", e.target.value);
+              setShowSuggestions(true);
+              // Clear the dismissal if user changes the text
+              if (e.target.value.trim() !== dismissedFor) setDismissedFor("");
+            }}
+            onFocus={() => setShowSuggestions(true)}
+            placeholder="e.g. Product Manager, Data Analyst, Marketing Manager"
           />
+
+          {/* Exact match — quiet confirmation */}
+          {exact && (data.five_year_role || "").trim() && (
+            <p className="mt-2 inline-flex items-center gap-1.5 text-xs text-emerald-700">
+              <Check className="w-3.5 h-3.5" /> Matched: {exact.title}
+            </p>
+          )}
+
+          {/* Partial match — suggestion list */}
+          {shouldShow && (
+            <div className="mt-2 bg-[#F9FAFB] border border-[#E5E5E5] rounded-lg p-3">
+              <p className="text-xs text-[#525252] mb-2">Did you mean:</p>
+              <div className="space-y-1">
+                {suggestions.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => chooseSuggestion(s)}
+                    className="w-full text-left text-sm px-3 py-1.5 rounded-md border border-transparent hover:border-[#E5E5E5] hover:bg-white text-[#0A0A0A]"
+                  >
+                    {s.title}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={dismiss}
+                  className="w-full text-left text-xs px-3 py-1.5 rounded-md text-[#A3A3A3] hover:text-[#525252]"
+                >
+                  None of these — keep "{(data.five_year_role || "").trim()}"
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         <SkillTagInput
