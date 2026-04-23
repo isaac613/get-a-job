@@ -6,6 +6,7 @@ import roleLibrary from "../data/00_role_library.json" assert { type: "json" };
 import skillLibrary from "../data/01_skill_library.json" assert { type: "json" };
 import proofSignalLibrary from "../data/02_proof_signal_library.json" assert { type: "json" };
 import roleSkillMapping from "../data/04_role_skill_mapping.json" assert { type: "json" };
+import skillTransferMap from "../data/15_skill_transfer_map.json" assert { type: "json" };
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -16,10 +17,21 @@ const MODEL = 'gpt-4o-mini'
 const RATE_LIMIT_CALLS = 5
 const RATE_LIMIT_WINDOW = 3600 // 1 hour
 
-// Scoring weights per fit_scoring_logic
+// Fit scoring weights per fit_scoring_logic
 const WEIGHTS = { core: 0.6, secondary: 0.3, differentiator: 0.1 } as const;
-const TIER_THRESHOLDS = { t1: 0.70, t2: 0.50, t3: 0.35 } as const;
-const MAX_ROLES_SCORED = 20;
+
+// Legacy pure-fit thresholds — used as fallback when no 5-year goal is known
+const FIT_ONLY_THRESHOLDS = { t1: 0.70, t2: 0.50, t3: 0.35 } as const;
+
+// Goal-aware thresholds — tiers combine readiness (fit) AND goal alignment
+const GOAL_TIER_THRESHOLDS = {
+  tier_1_min_fit: 0.50,
+  tier_1_min_alignment: 0.60,
+  tier_2_min_fit: 0.50,
+  tier_3_min_fit: 0.35,
+  tier_3_min_alignment: 0.60,
+} as const;
+
 const MAX_T1 = 3, MAX_T2 = 2, MAX_T3 = 1;
 
 // ─── Helpers ────────────────────────────────────────────────────────────
@@ -73,10 +85,24 @@ function bucketSkillIds(mapping: any, bucket: "core" | "secondary" | "differenti
   return [];
 }
 
-function assignTier(score: number): "tier_1" | "tier_2" | "tier_3" | null {
-  if (score >= TIER_THRESHOLDS.t1) return "tier_1";
-  if (score >= TIER_THRESHOLDS.t2) return "tier_2";
-  if (score >= TIER_THRESHOLDS.t3) return "tier_3";
+// Pure-fit tier — used only when the user has no 5-year goal
+function assignTierFitOnly(score: number): "tier_1" | "tier_2" | "tier_3" | null {
+  if (score >= FIT_ONLY_THRESHOLDS.t1) return "tier_1";
+  if (score >= FIT_ONLY_THRESHOLDS.t2) return "tier_2";
+  if (score >= FIT_ONLY_THRESHOLDS.t3) return "tier_3";
+  return null;
+}
+
+// Goal-aware tier — combines readiness (fit) AND alignment to the 5-year goal.
+// Tier 1 = strong enough fit AND strong goal alignment (best next move)
+// Tier 2 = strong fit but weak goal alignment (viable but off-path)
+// Tier 3 = on-path but not yet ready (aspirational)
+function assignTierWithGoal(fitScore: number, goalAlignment: number):
+  "tier_1" | "tier_2" | "tier_3" | null {
+  const t = GOAL_TIER_THRESHOLDS;
+  if (fitScore >= t.tier_1_min_fit && goalAlignment >= t.tier_1_min_alignment) return "tier_1";
+  if (fitScore >= t.tier_2_min_fit) return "tier_2";
+  if (fitScore >= t.tier_3_min_fit && goalAlignment >= t.tier_3_min_alignment) return "tier_3";
   return null;
 }
 
@@ -85,6 +111,7 @@ const allRoles: any[] = (roleLibrary as any).roles;
 const allSkills: any[] = (skillLibrary as any).skill_library;
 const allSignals: any[] = (proofSignalLibrary as any).proof_signal_library;
 const allMappings: any[] = (roleSkillMapping as any).role_skill_mapping;
+const allTransfers: any[] = (skillTransferMap as any).transfers;
 
 const ROLE_BY_ID = new Map<string, any>();
 for (const r of allRoles) ROLE_BY_ID.set(r.id || r.role_id, r);
@@ -95,12 +122,106 @@ for (const m of allMappings) MAPPING_BY_ROLE.set(m.role_id, m);
 const SKILL_BY_ID = new Map<string, any>();
 for (const s of allSkills) SKILL_BY_ID.set(s.id || s.skill_id, s);
 
+// Index transfers by (source, target) for O(1) lookup: find how candidate → goal transitions
+const TRANSFER_BY_S_T = new Map<string, any>();
+for (const t of allTransfers) TRANSFER_BY_S_T.set(`${t.s}→${t.t}`, t);
+
 function skillName(id: string): string {
   return SKILL_BY_ID.get(id)?.name || id;
 }
 
-// Deterministic scoring
-function computeRoleScore(roleId: string, userSkillIds: Set<string>) {
+// Resolve the user's free-text 5-year goal into a role_id from the library.
+// Returns null if the text doesn't match any known role.
+function resolveGoalRoleId(goalText: string | null | undefined): string | null {
+  if (!goalText) return null;
+  const norm = goalText.toLowerCase().replace(/[\s_\-]+/g, " ").trim();
+  if (!norm) return null;
+  for (const r of allRoles) {
+    const id = r.id || r.role_id;
+    const titles = [r.standardized_title, ...(r.alternate_titles || [])]
+      .filter(Boolean).map((t: string) => t.toLowerCase().replace(/[\s_\-]+/g, " ").trim());
+    if (titles.some((t: string) => t === norm)) return id;
+  }
+  // Fallback: partial match
+  for (const r of allRoles) {
+    const id = r.id || r.role_id;
+    const titles = [r.standardized_title, ...(r.alternate_titles || [])]
+      .filter(Boolean).map((t: string) => t.toLowerCase().replace(/[\s_\-]+/g, " ").trim());
+    if (titles.some((t: string) => t.includes(norm) || norm.includes(t))) return id;
+  }
+  return null;
+}
+
+// Broad role family groups — for low-alignment "related but not adjacent" fallback.
+// Only used when no transfer path and no family match exist.
+const FAMILY_GROUPS: Record<string, string> = {
+  Support: "customer_ops",
+  Relationship_Growth: "customer_ops",
+  Customer_Experience: "customer_ops",
+  Onboarding_Implementation: "customer_ops",
+  Sales: "commercial",
+  BD_Partnerships: "commercial",
+  Marketing: "commercial",
+  RevOps_BizOps: "analytics_ops",
+  Operations: "analytics_ops",
+  Data: "analytics_ops",
+  Finance: "analytics_ops",
+  Consulting: "analytics_ops",
+  Product: "product_tech",
+  Engineering: "product_tech",
+  Design_UX: "product_tech",
+  AI_ML: "product_tech",
+  Solutions_Engineering: "product_tech",
+  HR_People: "people_admin",
+  Admin_GA: "people_admin",
+  IT_Security: "product_tech",
+  Leadership: "leadership",
+};
+
+// Compute goal alignment score 0–1 for a candidate role given the user's goal role id.
+// Returns a reason string so the LLM/frontend can explain the number.
+function computeGoalAlignment(
+  candidateId: string,
+  goalRoleId: string | null
+): { score: number; reason: string } {
+  if (!goalRoleId) return { score: 0, reason: "no goal provided" };
+  if (candidateId === goalRoleId) return { score: 1.0, reason: "exact target role" };
+
+  const cand = ROLE_BY_ID.get(candidateId);
+  const goal = ROLE_BY_ID.get(goalRoleId);
+  if (!cand || !goal) return { score: 0.1, reason: "candidate or goal missing from library" };
+
+  // Transfer path candidate → goal
+  const transfer = TRANSFER_BY_S_T.get(`${candidateId}→${goalRoleId}`);
+  if (transfer) {
+    const type = String(transfer.type || "").toLowerCase();
+    if (type === "natural") return { score: 0.85, reason: "natural transfer path to goal" };
+    if (type === "stretch") return { score: 0.70, reason: "stretch transfer path to goal" };
+    if (type === "pivot")   return { score: 0.50, reason: "pivot transfer path to goal" };
+    return { score: 0.65, reason: `known transfer path to goal (${type || "unspecified"})` };
+  }
+
+  // Same role_family (covers reverse transfers / adjacent same-track roles)
+  if (cand.role_family && goal.role_family && cand.role_family === goal.role_family) {
+    return { score: 0.9, reason: `same role family (${cand.role_family})` };
+  }
+
+  // Related broad family group
+  const candGroup = FAMILY_GROUPS[cand.role_family];
+  const goalGroup = FAMILY_GROUPS[goal.role_family];
+  if (candGroup && goalGroup && candGroup === goalGroup) {
+    return { score: 0.5, reason: `related category (${candGroup})` };
+  }
+
+  return { score: 0.1, reason: "no clear connection to goal" };
+}
+
+// Deterministic scoring — now accepts goalRoleId to compute goal_alignment_score
+function computeRoleScore(
+  roleId: string,
+  userSkillIds: Set<string>,
+  goalRoleId: string | null
+) {
   const mapping = MAPPING_BY_ROLE.get(roleId);
   const roleDef = ROLE_BY_ID.get(roleId);
   const buckets = {
@@ -116,18 +237,27 @@ function computeRoleScore(roleId: string, userSkillIds: Set<string>) {
     }
   }
   const ratio = (matched: number, total: number) => (total > 0 ? matched / total : 0);
-  const score =
+  const fitScore =
     ratio(matchedBy.core.length, buckets.core.length) * WEIGHTS.core +
     ratio(matchedBy.secondary.length, buckets.secondary.length) * WEIGHTS.secondary +
     ratio(matchedBy.differentiator.length, buckets.differentiator.length) * WEIGHTS.differentiator;
 
+  const { score: goalAlignment, reason: alignmentReason } =
+    computeGoalAlignment(roleId, goalRoleId);
+
+  const tier = goalRoleId
+    ? assignTierWithGoal(fitScore, goalAlignment)
+    : assignTierFitOnly(fitScore);
+
   const matchedSkillIds = [...matchedBy.core, ...matchedBy.secondary, ...matchedBy.differentiator];
-  const missingSkillIds = [...missingBy.core, ...missingBy.secondary]; // gaps = core + secondary only
+  const missingSkillIds = [...missingBy.core, ...missingBy.secondary];
   return {
     role_id: roleId,
     title: roleDef?.standardized_title || roleDef?.title || roleId,
-    score: Math.round(score * 1000) / 1000,
-    tier: assignTier(score),
+    score: Math.round(fitScore * 1000) / 1000,
+    goal_alignment_score: Math.round(goalAlignment * 1000) / 1000,
+    alignment_reason: alignmentReason,
+    tier,
     matched_skill_ids: matchedSkillIds,
     missing_skill_ids: missingSkillIds,
     matched_skills: matchedSkillIds.map(skillName),
@@ -294,12 +424,15 @@ Deno.serve(async (req) => {
       if (SKILL_BY_ID.has(norm)) userSkillIds.add(norm);
     }
 
-    // 1c. Score all roles
+    // 1c. Resolve the user's 5-year goal into a library role_id (if any)
+    const goalRoleId = resolveGoalRoleId(sanitisedProfile.five_year_role);
+
+    // 1d. Score all roles (with goal alignment)
     const allScored = allRoles
-      .map(r => computeRoleScore(r.id || r.role_id, userSkillIds))
+      .map(r => computeRoleScore(r.id || r.role_id, userSkillIds, goalRoleId))
       .filter(r => r.mapping_exists && r.tier !== null);
 
-    // 1d. Build candidate pool: targeted roles + strong matches
+    // 1e. Build candidate pool: targeted roles + strong matches
     const allTargets = Array.from(new Set([
       ...sanitisedProfile.target_job_titles,
       ...dreamRolesForPrompt,
@@ -317,17 +450,26 @@ Deno.serve(async (req) => {
     const targeted = allScored.filter(r => isTargeted(r.role_id));
     const strongUntargeted = allScored
       .filter(r => !isTargeted(r.role_id) && (r.tier === "tier_1" || r.tier === "tier_2"));
+    const candidatePool = [...targeted, ...strongUntargeted];
 
-    // Union, sort by score desc — do NOT slice before per-tier filtering, or
-    // high-scoring Tier 1 matches will crowd out Tier 2/3 from the pool.
-    const candidatePool = [...targeted, ...strongUntargeted]
-      .sort((a, b) => b.score - a.score);
-
-    // 1e. Select final set: top-N by tier
+    // 1f. Select final set: top-N per tier with tier-appropriate sort
+    //   - Tier 1 sorted by combined score (0.5 * fit + 0.5 * alignment) — both dimensions matter
+    //   - Tier 2 sorted by fit desc — viable-now roles
+    //   - Tier 3 sorted by alignment desc — aspirational on-path roles
+    const combinedT1 = (r: any) => 0.5 * r.score + 0.5 * r.goal_alignment_score;
     const byTier = {
-      tier_1: candidatePool.filter(r => r.tier === "tier_1").slice(0, MAX_T1),
-      tier_2: candidatePool.filter(r => r.tier === "tier_2").slice(0, MAX_T2),
-      tier_3: candidatePool.filter(r => r.tier === "tier_3").slice(0, MAX_T3),
+      tier_1: candidatePool
+        .filter(r => r.tier === "tier_1")
+        .sort((a, b) => combinedT1(b) - combinedT1(a))
+        .slice(0, MAX_T1),
+      tier_2: candidatePool
+        .filter(r => r.tier === "tier_2")
+        .sort((a, b) => b.score - a.score)
+        .slice(0, MAX_T2),
+      tier_3: candidatePool
+        .filter(r => r.tier === "tier_3")
+        .sort((a, b) => b.goal_alignment_score - a.goal_alignment_score)
+        .slice(0, MAX_T3),
     };
     const selected = [...byTier.tier_1, ...byTier.tier_2, ...byTier.tier_3];
 
@@ -350,9 +492,13 @@ Deno.serve(async (req) => {
       title: r.title,
       tier: r.tier,
       readiness_score: r.score,
+      goal_alignment_score: r.goal_alignment_score,
+      alignment_reason: r.alignment_reason,
       matched_skills: r.matched_skills,
       missing_skills: r.missing_skills,
     }));
+
+    const goalRoleTitle = goalRoleId ? ROLE_BY_ID.get(goalRoleId)?.standardized_title : null;
 
     const systemPrompt = `You are a career advisor for the "Get A Job" platform.
 
@@ -379,13 +525,20 @@ Write in a supportive, actionable tone. Reference the user's specific experience
 - Certifications: ${JSON.stringify(sanitisedCerts)}
 ${dreamRolesForPrompt.length ? `- Dream Roles: ${dreamRolesForPrompt.join(', ')}` : ''}
 
-PRE-SCORED ROLE RECOMMENDATIONS (do not modify title, tier, score, or skill lists):
+TIER DEFINITIONS (for your reasoning — the server has already assigned tiers):
+- Tier 1: strong fit AND strong alignment to the 5-year goal — the best immediate next move
+- Tier 2: strong fit but weak goal alignment — viable now, but pulls away from the long-term path
+- Tier 3: moderate fit but strong goal alignment — aspirational, one step ahead of current readiness
+
+${goalRoleTitle ? `RESOLVED 5-YEAR GOAL ROLE (matched to library): ${goalRoleTitle}` : `NO 5-YEAR GOAL PROVIDED — tier assignment used fit score only.`}
+
+PRE-SCORED ROLE RECOMMENDATIONS (do not modify title, tier, scores, or skill lists):
 ${JSON.stringify(rolesForLLM, null, 2)}
 
 For each role listed above, write:
-1. reasoning: 2-3 sentences explaining why this user is/isn't a strong fit, referencing their specific experiences and skills
+1. reasoning: 2-3 sentences explaining why this user is/isn't a strong fit, referencing their specific experiences and skills. Mention both the fit score and the goal alignment score when relevant.
 2. action_items: 2-3 concrete, specific next steps to close the skill gaps
-3. alignment_to_goal: 1 sentence connecting this role to their 5-year target (if provided)
+3. alignment_to_goal: 1 sentence explaining the goal alignment score using the alignment_reason as a factual anchor (e.g. "natural transfer path", "same role family", "no clear connection")
 
 Also write at the top level:
 - overall_assessment: 2-3 sentences summarising the user's current position and strongest signals
@@ -400,6 +553,7 @@ Return JSON matching this exact structure:
       "title": "string (copy exactly from the input)",
       "tier": "string (copy exactly)",
       "readiness_score": number (copy exactly),
+      "goal_alignment_score": number (copy exactly),
       "matched_skills": [strings] (copy exactly),
       "missing_skills": [strings] (copy exactly),
       "reasoning": "string (YOU write this)",
@@ -409,7 +563,7 @@ Return JSON matching this exact structure:
   ]
 }
 
-CRITICAL: Do not change any title, tier, readiness_score, matched_skills, or missing_skills value. Copy them verbatim. You are only authoring reasoning, action_items, alignment_to_goal, overall_assessment, and qualification_level.
+CRITICAL: Do not change any title, tier, readiness_score, goal_alignment_score, matched_skills, or missing_skills value. Copy them verbatim. You are only authoring reasoning, action_items, alignment_to_goal, overall_assessment, and qualification_level.
 
 Return ONLY valid JSON.`;
 
@@ -466,6 +620,8 @@ Return ONLY valid JSON.`;
         title: server.title,
         tier: server.tier,
         readiness_score: server.score,
+        goal_alignment_score: server.goal_alignment_score,
+        alignment_reason: server.alignment_reason,
         matched_skills: server.matched_skills,
         missing_skills: server.missing_skills,
         reasoning: typeof llm.reasoning === "string" ? llm.reasoning : "",
