@@ -184,11 +184,14 @@ Deno.serve(async (req) => {
     // 5. Global role-only fallback — guarantees at least something
     candidates.push({ query: roleTerm, label: 'role-only-global' })
 
-    // 2. Fetch live jobs from JSearch (RapidAPI)
+    // 2. Fetch live jobs. For Israel we prefer Fantastic.Jobs LinkedIn Job Search API
+    //    (much better IL coverage). For everyone else, JSearch is fine.
     let liveJobs: any[] = []
     let usedQuery = ''
     const jsearchKey = Deno.env.get('RAPIDAPI_KEY') || Deno.env.get('JSEARCH_API_KEY')
+    const linkedinKey = Deno.env.get('LINKEDIN_JOBS_API_KEY') || Deno.env.get('RAPIDAPI_KEY')
 
+    // --- JSearch mapper/fetcher (US + fallback) ---
     const mapJSearchJob = (job: any) => ({
       id: job.job_id,
       title: job.job_title,
@@ -198,6 +201,10 @@ Deno.serve(async (req) => {
       job_url: job.job_apply_link,
       salary_min: job.job_min_salary,
       salary_max: job.job_max_salary,
+      is_remote: Boolean(job.job_is_remote),
+      seniority: null,
+      date_posted: job.job_posted_at_datetime_utc || null,
+      source: 'jsearch',
     })
 
     const fetchJSearch = async (query: string, country?: string): Promise<any[]> => {
@@ -221,22 +228,108 @@ Deno.serve(async (req) => {
       }
     }
 
-    if (jsearchKey) {
+    // --- Fantastic.Jobs LinkedIn Job Search mapper/fetcher (best for IL) ---
+    // Response: flat array. Fields in the 7d retention window endpoint:
+    // id, title, organization, locations_derived[], url, description_text,
+    // date_posted, remote_derived, seniority, employment_type[], etc.
+    const mapLinkedInJob = (job: any) => {
+      const loc = Array.isArray(job?.locations_derived) && job.locations_derived.length
+        ? job.locations_derived[0]
+        : (Array.isArray(job?.cities_derived) && job.cities_derived.length ? job.cities_derived[0] : '')
+      return {
+        id: String(job?.id ?? job?.linkedin_id ?? ''),
+        title: job?.title || '',
+        company: job?.organization || '',
+        description: job?.description_text || '',
+        location: loc,
+        job_url: job?.url || '',
+        salary_min: null,
+        salary_max: null,
+        is_remote: Boolean(job?.remote_derived),
+        seniority: job?.seniority || null,
+        date_posted: job?.date_posted || null,
+        source: 'linkedin',
+      }
+    }
+
+    const fetchLinkedInJobs = async (titleFilter: string, locationFilter: string): Promise<any[]> => {
+      if (!linkedinKey) return []
+      const qs = new URLSearchParams({
+        limit: '10',
+        offset: '0',
+        description_type: 'text',
+        title_filter: `"${titleFilter}"`,
+        location_filter: `"${locationFilter}"`,
+      })
+      const url = `https://linkedin-job-search-api.p.rapidapi.com/active-jb-7d?${qs.toString()}`
+      try {
+        const res = await fetch(url, {
+          headers: {
+            'x-rapidapi-host': 'linkedin-job-search-api.p.rapidapi.com',
+            'x-rapidapi-key': linkedinKey,
+          },
+          signal: AbortSignal.timeout(12000),
+        })
+        if (!res.ok) {
+          console.warn(`[job-suggestions] LinkedIn ${res.status} for title="${titleFilter}" loc="${locationFilter}"`)
+          return []
+        }
+        const data = await res.json()
+        return Array.isArray(data) ? data : []
+      } catch (err) {
+        console.error(`[job-suggestions] LinkedIn fetch error:`, (err as Error).message)
+        return []
+      }
+    }
+
+    // --- Cascade: LinkedIn for IL first, then JSearch, then remote fallback ---
+    if (countryCode === 'il') {
+      // A. LinkedIn: metro (Tel Aviv) — best local match
+      if (locHub) {
+        const jobs = await fetchLinkedInJobs(roleTerm, locHub)
+        console.log(`[job-suggestions] linkedin metro title="${roleTerm}" loc="${locHub}" → ${jobs.length}`)
+        if (jobs.length > 0) {
+          // Prioritise user's metro, then include other IL districts
+          const metroFirst = jobs.sort((a: any, b: any) => {
+            const la = ((a?.locations_derived?.[0]) || '').toLowerCase()
+            const lb = ((b?.locations_derived?.[0]) || '').toLowerCase()
+            const metroLower = locHub.toLowerCase()
+            const aScore = la.includes(metroLower) ? 0 : 1
+            const bScore = lb.includes(metroLower) ? 0 : 1
+            return aScore - bScore
+          })
+          liveJobs = metroFirst.slice(0, 10).map(mapLinkedInJob)
+          usedQuery = 'linkedin-metro'
+        }
+      }
+      // B. LinkedIn: broader Israel query if metro came back empty
+      if (liveJobs.length === 0) {
+        const jobs = await fetchLinkedInJobs(roleTerm, 'Israel')
+        console.log(`[job-suggestions] linkedin country title="${roleTerm}" loc="Israel" → ${jobs.length}`)
+        if (jobs.length > 0) {
+          liveJobs = jobs.slice(0, 10).map(mapLinkedInJob)
+          usedQuery = 'linkedin-israel'
+        }
+      }
+    }
+
+    // Non-IL countries (or IL with no LinkedIn hits) — JSearch cascade
+    if (liveJobs.length === 0 && jsearchKey) {
       for (const c of candidates) {
         const jobs = await fetchJSearch(c.query, c.country)
-        console.log(`[job-suggestions] candidate=${c.label} query="${c.query}" country="${c.country ?? 'global'}" → ${jobs.length} raw results`)
+        console.log(`[job-suggestions] jsearch ${c.label} "${c.query}" country="${c.country ?? 'global'}" → ${jobs.length}`)
         if (jobs.length >= 3) {
           liveJobs = jobs.slice(0, 10).map(mapJSearchJob)
-          usedQuery = c.label
+          usedQuery = `jsearch-${c.label}`
           break
         }
         if (c === candidates[candidates.length - 1] && jobs.length > 0) {
           liveJobs = jobs.slice(0, 10).map(mapJSearchJob)
-          usedQuery = `${c.label} (<3 results)`
+          usedQuery = `jsearch-${c.label}-partial`
         }
       }
-      console.log(`[job-suggestions] FINAL used=${usedQuery || 'none'} liveJobs=${liveJobs.length}`)
     }
+    console.log(`[job-suggestions] FINAL used=${usedQuery || 'none'} liveJobs=${liveJobs.length}`)
 
     // 3. Scoped library lookup — only match roles relevant to the user's targets
     // Never dump the full role library into the prompt (it's 382 KB and biased toward CS/ops roles)
