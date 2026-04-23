@@ -131,25 +131,82 @@ function skillName(id: string): string {
 }
 
 // Resolve the user's free-text 5-year goal into a role_id from the library.
-// Returns null if the text doesn't match any known role.
+// Two-pass scored matcher (defensive against noisy user input):
+//   1. Exact normalized match on standardized_title or any alternate_title → immediate win
+//   2. Whole-word substring match scored by (inputLen / titleLen). Drops short
+//      alternate titles (< 5 chars) to avoid matching on abbreviations like "Lead".
+//      Never uses `norm.includes(title)` — that direction matches generic user
+//      input against overly-broad short titles and produces wrong results.
+//   Tiebreak by seniority_rank desc — students typically aspire to the senior
+//   version of an ambiguous family ("marketing" → Marketing Manager, not Coordinator).
+//   Returns null when best score < MIN_GOAL_RESOLUTION_SCORE so the tier system
+//   falls back to pure-fit thresholds rather than picking a garbage role.
+const SENIORITY_RANK: Record<string, number> = {
+  "Entry": 0, "entry": 0,
+  "Entry_Mid": 1,
+  "Mid": 2, "mid": 2,
+  "mid_to_senior": 3,
+  "Senior": 3, "senior": 3,
+  "Lead_Manager": 4, "lead": 4,
+  "Director_Head": 5,
+  "VP_Executive": 6, "executive": 6,
+};
+const MIN_GOAL_RESOLUTION_SCORE = 0.30;
+
 function resolveGoalRoleId(goalText: string | null | undefined): string | null {
   if (!goalText) return null;
   const norm = goalText.toLowerCase().replace(/[\s_\-]+/g, " ").trim();
   if (!norm) return null;
+
+  // Pass 1 — exact normalized match on title or alternate title
   for (const r of allRoles) {
     const id = r.id || r.role_id;
     const titles = [r.standardized_title, ...(r.alternate_titles || [])]
-      .filter(Boolean).map((t: string) => t.toLowerCase().replace(/[\s_\-]+/g, " ").trim());
+      .filter(Boolean)
+      .map((t: string) => t.toLowerCase().replace(/[\s_\-]+/g, " ").trim());
     if (titles.some((t: string) => t === norm)) return id;
   }
-  // Fallback: partial match
+
+  // Pass 2 — scored whole-word substring match
+  const esc = norm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(`\\b${esc}\\b`);
+  const inputLen = norm.length;
+
+  let best: { id: string; score: number; seniorityRank: number } | null = null;
   for (const r of allRoles) {
     const id = r.id || r.role_id;
-    const titles = [r.standardized_title, ...(r.alternate_titles || [])]
-      .filter(Boolean).map((t: string) => t.toLowerCase().replace(/[\s_\-]+/g, " ").trim());
-    if (titles.some((t: string) => t.includes(norm) || norm.includes(t))) return id;
+    const candidateTitles: string[] = [];
+    if (r.standardized_title) {
+      candidateTitles.push(
+        String(r.standardized_title).toLowerCase().replace(/[\s_\-]+/g, " ").trim()
+      );
+    }
+    for (const alt of (r.alternate_titles || [])) {
+      const a = String(alt).toLowerCase().replace(/[\s_\-]+/g, " ").trim();
+      if (a.length >= 5) candidateTitles.push(a);
+    }
+
+    let roleScore = 0;
+    for (const t of candidateTitles) {
+      if (pattern.test(t)) {
+        const s = inputLen / t.length;
+        if (s > roleScore) roleScore = s;
+      }
+    }
+
+    if (roleScore > 0) {
+      const seniorityRank = SENIORITY_RANK[r.seniority] ?? 2;
+      if (
+        !best ||
+        roleScore > best.score ||
+        (roleScore === best.score && seniorityRank > best.seniorityRank)
+      ) {
+        best = { id, score: roleScore, seniorityRank };
+      }
+    }
   }
-  return null;
+
+  return best && best.score >= MIN_GOAL_RESOLUTION_SCORE ? best.id : null;
 }
 
 // Broad role family groups — for low-alignment "related but not adjacent" fallback.
