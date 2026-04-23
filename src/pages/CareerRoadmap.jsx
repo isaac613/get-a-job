@@ -4,7 +4,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { Loader2, Brain, AlertCircle } from "lucide-react";
+import { Loader2, Brain, AlertCircle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import GeneratingBanner from "@/components/ui/GeneratingBanner";
@@ -112,10 +112,14 @@ export default function CareerRoadmap() {
           tier: r.tier,
           match_score: r.readiness_score,
           readiness_score: r.readiness_score,
+          goal_alignment_score: r.goal_alignment_score ?? null,
           matched_skills: r.matched_skills || [],
           missing_skills: r.missing_skills || [],
           skills_gap: r.missing_skills || [],
           alignment_to_goal: r.alignment_to_goal || "",
+          alignment_reason: r.alignment_reason || "",
+          reasoning: r.reasoning || "",
+          action_items: r.action_items || [],
         }));
 
         const { error: rpcError } = await supabase.rpc("replace_career_roles", {
@@ -124,11 +128,22 @@ export default function CareerRoadmap() {
         });
 
         if (rpcError) throw rpcError;
+
+        // Keep the "Last updated" stamp fresh on the profile
+        await supabase
+          .from("profiles")
+          .update({
+            last_reality_check_date: new Date().toLocaleDateString("sv"),
+            qualification_level: data?.qualification_level || profile?.qualification_level || "",
+            overall_assessment: data?.overall_assessment || profile?.overall_assessment || "",
+            skill_gaps: data?.skill_gaps || [],
+          })
+          .eq("id", user.id);
       }
 
       queryClient.invalidateQueries({ queryKey: ["careerRoles"] });
       queryClient.invalidateQueries({ queryKey: ["userProfile"] });
-      toast.success("Career roadmap generated!");
+      toast.success("Analysis refreshed.");
     } catch (err) {
       console.error("Roadmap generation error:", err);
       toast.error(`Failed to generate roadmap: ${err.message || 'Please try again.'}`);
@@ -200,6 +215,11 @@ export default function CareerRoadmap() {
           <p className="text-sm text-[#A3A3A3] mt-1">
             Roles classified by your current qualification level.
           </p>
+          {profile?.last_reality_check_date && roles.length > 0 && (
+            <p className="text-xs text-[#A3A3A3] mt-1">
+              Last updated: {new Date(profile.last_reality_check_date).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}
+            </p>
+          )}
         </div>
         {profile && (
           <Button
@@ -211,6 +231,11 @@ export default function CareerRoadmap() {
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 Analyzing...
+              </>
+            ) : roles.length > 0 ? (
+              <>
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Refresh Analysis
               </>
             ) : (
               <>

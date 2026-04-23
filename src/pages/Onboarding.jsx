@@ -297,10 +297,14 @@ export default function Onboarding() {
           tier: r.tier,
           match_score: r.readiness_score,
           readiness_score: r.readiness_score,
+          goal_alignment_score: r.goal_alignment_score ?? null,
           matched_skills: r.matched_skills || [],
           missing_skills: r.missing_skills || [],
           skills_gap: r.missing_skills || [],
           alignment_to_goal: r.alignment_to_goal || "",
+          alignment_reason: r.alignment_reason || "",
+          reasoning: r.reasoning || "",
+          action_items: r.action_items || [],
         }));
 
         const { error: rpcError } = await supabase.rpc("replace_career_roles", {

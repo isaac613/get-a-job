@@ -8,17 +8,23 @@ const tierConfig = {
   tier_3: { label: "Tier 3", className: "tier-badge-3", border: "border-l-indigo-400" },
 };
 
+// Readiness label is derived from tier — matches the goal-aligned tier semantics.
 const readinessConfig = {
-  "Ready Now": { bg: "bg-emerald-100", text: "text-emerald-700", dot: "bg-emerald-500" },
-  "Nearly Ready": { bg: "bg-amber-100", text: "text-amber-700", dot: "bg-amber-400" },
-  "Needs Work": { bg: "bg-red-100", text: "text-red-600", dot: "bg-red-400" },
+  tier_1: { label: "Ready & Aligned", bg: "bg-emerald-100", text: "text-emerald-700", dot: "bg-emerald-500" },
+  tier_2: { label: "Ready, Different Path", bg: "bg-amber-100", text: "text-amber-700", dot: "bg-amber-400" },
+  tier_3: { label: "Aspirational", bg: "bg-indigo-100", text: "text-indigo-700", dot: "bg-indigo-400" },
 };
 
 export default function RoleCard({ role, onTrack }) {
   const [expanded, setExpanded] = useState(false);
   const tier = tierConfig[role.tier] || tierConfig.tier_1;
 
-  const readiness = readinessConfig[role.readiness_status];
+  // readiness_score is stored 0–1; render as percentage. Allow upstream to pass match_percentage directly.
+  const rawScore = role.readiness_score ?? role.match_score;
+  const matchPercentage = role.match_percentage ?? (
+    rawScore != null ? Math.round(Number(rawScore) * 100) : null
+  );
+  const readiness = readinessConfig[role.tier];
 
   return (
     <div className={cn("bg-white rounded-xl border border-[#E5E5E5] border-l-4 overflow-hidden transition-all duration-200 hover:border-[#D4D4D4] hover:shadow-sm", tier.border)}>
@@ -33,13 +39,13 @@ export default function RoleCard({ role, onTrack }) {
           <div className="min-w-0">
             <p className="text-sm font-semibold text-[#0A0A0A] truncate">{role.title}</p>
             <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-              {role.match_percentage != null && (
-                <span className="text-xs text-[#A3A3A3]">{role.match_percentage}% match</span>
+              {matchPercentage != null && (
+                <span className="text-xs text-[#A3A3A3]">{matchPercentage}% match</span>
               )}
               {readiness && (
                 <span className={cn("inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full", readiness.bg, readiness.text)}>
                   <span className={cn("w-1.5 h-1.5 rounded-full", readiness.dot)} />
-                  {role.readiness_status}
+                  {readiness.label}
                 </span>
               )}
             </div>
