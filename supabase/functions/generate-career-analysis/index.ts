@@ -153,12 +153,25 @@ const SENIORITY_RANK: Record<string, number> = {
 };
 const MIN_GOAL_RESOLUTION_SCORE = 0.30;
 
-function resolveGoalRoleId(goalText: string | null | undefined): string | null {
+// Seniority cap by user experience level — applies only to scored pass (Pass 2).
+// Exact matches (Pass 1) always win regardless — if a student explicitly types
+// "VP Marketing" we respect that.
+type ExperienceLevel = "early_career" | "mid_career" | "senior_career";
+const SENIORITY_CAP: Record<ExperienceLevel, number> = {
+  early_career: 3,  // Senior and below
+  mid_career: 5,    // Director_Head and below
+  senior_career: 6, // VP_Executive (no effective cap)
+};
+
+function resolveGoalRoleId(
+  goalText: string | null | undefined,
+  experienceLevel: ExperienceLevel = "mid_career"
+): string | null {
   if (!goalText) return null;
   const norm = goalText.toLowerCase().replace(/[\s_\-]+/g, " ").trim();
   if (!norm) return null;
 
-  // Pass 1 — exact normalized match on title or alternate title
+  // Pass 1 — exact normalized match (no cap; user's explicit choice wins)
   for (const r of allRoles) {
     const id = r.id || r.role_id;
     const titles = [r.standardized_title, ...(r.alternate_titles || [])]
@@ -167,13 +180,17 @@ function resolveGoalRoleId(goalText: string | null | undefined): string | null {
     if (titles.some((t: string) => t === norm)) return id;
   }
 
-  // Pass 2 — scored whole-word substring match
+  // Pass 2 — scored whole-word substring match, filtered by seniority cap
+  const cap = SENIORITY_CAP[experienceLevel];
   const esc = norm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const pattern = new RegExp(`\\b${esc}\\b`);
   const inputLen = norm.length;
 
   let best: { id: string; score: number; seniorityRank: number } | null = null;
   for (const r of allRoles) {
+    const seniorityRank = SENIORITY_RANK[r.seniority] ?? 2;
+    if (seniorityRank > cap) continue;  // above ceiling for this experience level
+
     const id = r.id || r.role_id;
     const candidateTitles: string[] = [];
     if (r.standardized_title) {
@@ -195,7 +212,6 @@ function resolveGoalRoleId(goalText: string | null | undefined): string | null {
     }
 
     if (roleScore > 0) {
-      const seniorityRank = SENIORITY_RANK[r.seniority] ?? 2;
       if (
         !best ||
         roleScore > best.score ||
@@ -207,6 +223,35 @@ function resolveGoalRoleId(goalText: string | null | undefined): string | null {
   }
 
   return best && best.score >= MIN_GOAL_RESOLUTION_SCORE ? best.id : null;
+}
+
+function yearFromDate(s: unknown): number | null {
+  if (!s) return null;
+  const m = String(s).match(/\b(19|20)\d{2}\b/);
+  return m ? parseInt(m[0], 10) : null;
+}
+
+function totalYearsOfExperience(experiences: any[]): number {
+  const now = new Date().getFullYear();
+  let total = 0;
+  for (const exp of experiences || []) {
+    const start = yearFromDate(exp.start_date);
+    if (start === null) continue;
+    const endRaw = String(exp.end_date ?? "").toLowerCase();
+    const isCurrent = exp.is_current || !endRaw || endRaw.includes("present") || endRaw.includes("current");
+    const end = isCurrent ? now : (yearFromDate(exp.end_date) ?? now);
+    total += Math.max(0, end - start);
+  }
+  return total;
+}
+
+function inferExperienceLevel(experiences: any[], profile: any): ExperienceLevel {
+  const years = totalYearsOfExperience(experiences);
+  const edu = String(profile?.education_level || "").toLowerCase();
+  const isStudent = edu.includes("student") || edu.includes("in progress") || edu.includes("current");
+  if (isStudent || years < 3) return "early_career";
+  if (years < 8) return "mid_career";
+  return "senior_career";
 }
 
 // Broad role family groups — for low-alignment "related but not adjacent" fallback.
@@ -481,8 +526,9 @@ Deno.serve(async (req) => {
       if (SKILL_BY_ID.has(norm)) userSkillIds.add(norm);
     }
 
-    // 1c. Resolve the user's 5-year goal into a library role_id (if any)
-    const goalRoleId = resolveGoalRoleId(sanitisedProfile.five_year_role);
+    // 1c. Infer experience level and resolve goal within that ceiling
+    const experienceLevel = inferExperienceLevel(experiences || [], profile);
+    const goalRoleId = resolveGoalRoleId(sanitisedProfile.five_year_role, experienceLevel);
 
     // 1d. Score all roles (with goal alignment)
     const allScored = allRoles
@@ -533,6 +579,7 @@ Deno.serve(async (req) => {
     if (selected.length === 0) {
       return new Response(JSON.stringify({
         qualification_level: inferQualificationLevel(sanitisedExperiences),
+        experience_level: experienceLevel,
         overall_assessment: "No roles in the library currently meet the minimum fit threshold for this profile. Focus on building foundational skills and revisit after gaining more experience.",
         skill_gaps: [],
         roles: [],
@@ -693,6 +740,7 @@ Return ONLY valid JSON.`;
       qualification_level: ["Junior", "Mid-Level", "Senior"].includes(llmResult.qualification_level)
         ? llmResult.qualification_level
         : inferQualificationLevel(sanitisedExperiences),
+      experience_level: experienceLevel,
       overall_assessment: typeof llmResult.overall_assessment === "string" && llmResult.overall_assessment.trim()
         ? llmResult.overall_assessment
         : "",
