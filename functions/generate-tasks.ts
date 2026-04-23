@@ -194,19 +194,19 @@ TASK GENERATION RULES:
 - Always end with at least one networking or application task unless the user is in interview stage
 - Use the task structure format exactly: task_title, task_description, suggested_specific_action, reason, category, priority
 
-TASK CATEGORIES (use exactly these):
-- application — applying to roles, finding opportunities
-- cv — CV improvement, tailoring, updating
+TASK CATEGORIES (use EXACTLY one of these — any other value is invalid):
+- application — applying to roles, finding opportunities, interview prep (prep for an upcoming interview belongs here)
+- cv — CV improvement, tailoring, LinkedIn updates, positioning and clarity work
 - skill — learning a specific skill, taking a course
 - project — building something to demonstrate a skill
 - networking — outreach, referrals, relationship building
-- interview_prep — preparing for an upcoming interview (only if active interviews exist)
-- clarity_positioning — defining direction, updating LinkedIn, positioning work
 
-PRIORITY LEVELS:
-- urgent_now — blocking job search, time-sensitive, critical next step
-- this_week — important but not blocking, momentum-building
-- longer_term — skill building, strategic positioning`
+PRIORITY LEVELS (use EXACTLY one of these — any other value is invalid):
+- high — blocking job search, time-sensitive, critical next step
+- medium — important but not blocking, momentum-building
+- low — skill building, strategic positioning, nice-to-have
+
+DO NOT invent new categories or priorities. The database rejects any value outside the lists above.`
 
     const userPrompt = `USER PROFILE:
 - Name: ${sanitisedProfile.full_name || 'Not provided'}
@@ -264,8 +264,8 @@ Return a JSON object:
       "description": "string (what to do — 1-2 sentences)",
       "suggested_specific_action": "string (concrete example of how to do it)",
       "reason": "string (why this matters right now for this specific user)",
-      "category": "application|cv|skill|project|networking|interview_prep|clarity_positioning",
-      "priority": "urgent_now|this_week|longer_term",
+      "category": "application|cv|skill|project|networking",
+      "priority": "high|medium|low",
       "role_title": "string (target role this relates to, if any — use exact title from role library)"
     }
   ]
@@ -310,6 +310,24 @@ Return ONLY valid JSON. Generate 5-8 tasks unless overwhelm signals are present,
       return new Response(JSON.stringify({ error: 'AI returned an invalid response format. Please try again.' }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
+    }
+
+    // Normalize priority and category to the DB's chk constraints, regardless of what the LLM returned.
+    // chk_tasks_priority: low|medium|high · chk_tasks_category: application|project|networking|skill|cv
+    const PRIORITY_MAP: Record<string, string> = {
+      urgent_now: "high", this_week: "medium", longer_term: "low",
+      high: "high", medium: "medium", low: "low",
+    };
+    const CATEGORY_MAP: Record<string, string> = {
+      application: "application", cv: "cv", skill: "skill", project: "project", networking: "networking",
+      interview_prep: "application", clarity_positioning: "cv",
+    };
+    if (Array.isArray(result.tasks)) {
+      result.tasks = (result.tasks as any[]).map((t) => ({
+        ...t,
+        priority: PRIORITY_MAP[String(t?.priority)] || "medium",
+        category: CATEGORY_MAP[String(t?.category)] || "application",
+      }));
     }
 
     return new Response(JSON.stringify(result), {

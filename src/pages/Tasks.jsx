@@ -89,11 +89,19 @@ export default function Tasks() {
 
       if (error) throw error;
 
+      // Interim safety net: the edge function *should* return only DB-compliant values,
+      // but map here too in case an old deploy or an edge-case response slips through.
+      // chk_tasks_priority: low|medium|high · chk_tasks_category: application|project|networking|skill|cv
+      const PRIORITY_MAP = { urgent_now: "high", this_week: "medium", longer_term: "low", high: "high", medium: "medium", low: "low" };
+      const CATEGORY_MAP = { application: "application", cv: "cv", skill: "skill", project: "project", networking: "networking", interview_prep: "application", clarity_positioning: "application" };
+      const normPriority = (p) => PRIORITY_MAP[p] || "medium";
+      const normCategory = (c) => CATEGORY_MAP[c] || "application";
+
       const generatedTasks = (data?.tasks || []).map((t) => ({
         title: t.title,
         description: t.description,
-        category: t.category || "application",
-        priority: t.priority || "medium",
+        category: normCategory(t.category),
+        priority: normPriority(t.priority),
         role_title: t.role_title || null,
         is_complete: false,
         user_id: user.id,
