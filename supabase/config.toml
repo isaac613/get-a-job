@@ -1,0 +1,22 @@
+project_id = "ilmqmodklutztuybsvwd"
+
+# Functions handle auth themselves via supabase.auth.getUser() using the passed
+# Authorization header. Disable gateway-level JWT verification to avoid
+# UNAUTHORIZED_UNSUPPORTED_TOKEN_ALGORITHM errors when the project uses
+# asymmetric JWT signing keys (ES256/EdDSA) that the gateway's HS256 verifier
+# cannot validate.
+
+[functions.generate-career-analysis]
+verify_jwt = false
+
+[functions.generate-tailored-cv]
+verify_jwt = false
+
+[functions.generate-tasks]
+verify_jwt = false
+
+[functions.generate-job-suggestions]
+verify_jwt = false
+
+[functions.extract-proof-signals]
+verify_jwt = false
