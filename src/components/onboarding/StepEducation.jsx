@@ -51,12 +51,23 @@ export default function StepEducation({ data, onChange, onNext }) {
 
           <div>
             <label className="block text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium mb-1">
-              Degree & Field of Study
+              Degree
+            </label>
+            <Input
+              value={data.degree || ""}
+              onChange={(e) => set("degree", e.target.value)}
+              placeholder="e.g. BSc, BA, MBA"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium mb-1">
+              Field of Study / Specialization
             </label>
             <Input
               value={data.field_of_study || ""}
               onChange={(e) => set("field_of_study", e.target.value)}
-              placeholder="e.g. BSc Computer Science"
+              placeholder="e.g. Computer Science, Business Administration"
             />
           </div>
 

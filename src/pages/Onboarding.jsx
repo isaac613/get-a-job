@@ -111,6 +111,26 @@ export default function Onboarding() {
     else setCheckingProfile(false);
   }, [user]);
 
+  // Debounced auto-save of profileData. Prevents edits being lost when the user
+  // navigates away mid-typing before clicking Continue. Skips:
+  //  - before hydration completes (otherwise we'd overwrite DB with empty defaults)
+  //  - before a profile row exists (created on first Continue via saveProgress)
+  //  - while saving/finalising is already in flight (avoids duplicate writes)
+  useEffect(() => {
+    if (checkingProfile) return;
+    if (!existingProfileId) return;
+    if (saving || finalising || generatingRoles) return;
+    const handle = setTimeout(() => {
+      const payload = cleanProfilePayload({ ...profileData });
+      Object.keys(payload).forEach((k) => payload[k] === undefined && delete payload[k]);
+      supabase.from("profiles").update(payload).eq("id", existingProfileId).then(({ error }) => {
+        if (error) console.warn("Auto-save failed:", error.message);
+      });
+    }, 800);
+    return () => clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profileData, existingProfileId, checkingProfile, saving, finalising, generatingRoles]);
+
   const checkExistingProfile = async () => {
     if (!user) { setCheckingProfile(false); return; }
     const { data: profiles, error: profileCheckError } = await supabase.from("profiles").select("*").eq("id", user.id);
