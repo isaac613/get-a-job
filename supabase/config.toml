@@ -5,7 +5,12 @@ project_id = "ilmqmodklutztuybsvwd"
 # UNAUTHORIZED_UNSUPPORTED_TOKEN_ALGORITHM errors when the project uses
 # asymmetric JWT signing keys (ES256/EdDSA) that the gateway's HS256 verifier
 # cannot validate.
+#
+# This block covers every edge function deployed to this project as of the
+# last audit (11 total). If a new function is added locally, add a matching
+# [functions.<slug>] block here to keep verify_jwt=false locked in.
 
+# Local source in supabase/functions/
 [functions.generate-career-analysis]
 verify_jwt = false
 
@@ -19,4 +24,24 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.extract-proof-signals]
+verify_jwt = false
+
+# Deployed-only (no local source yet) — still listed so future redeploys don't regress.
+[functions.generate-learning-paths]
+verify_jwt = false
+
+[functions.generate-application-tasks]
+verify_jwt = false
+
+[functions.ai-chat]
+verify_jwt = false
+
+[functions.analyze-job-match]
+verify_jwt = false
+
+# Legacy camelCase duplicates still deployed — keep covered until retired.
+[functions.generateApplicationTasks]
+verify_jwt = false
+
+[functions.generateTailoredCV]
 verify_jwt = false
