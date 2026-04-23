@@ -14,6 +14,27 @@ const corsHeaders = {
 }
 
 const MODEL = 'gpt-4o-mini'
+const RATE_LIMIT_CALLS = 10
+const RATE_LIMIT_WINDOW = 3600
+
+// Map a free-text location string to a JSearch ISO country code.
+// JSearch defaults to the US when no country is given — wrong for non-US users.
+function locationToCountryCode(loc: string | null | undefined): string {
+  const s = String(loc ?? '').toLowerCase()
+  if (!s) return 'us'
+  if (s.includes('israel')) return 'il'
+  if (s.includes('united kingdom') || s.includes(' uk') || s.endsWith(' uk')) return 'gb'
+  if (s.includes('germany')) return 'de'
+  if (s.includes('france')) return 'fr'
+  if (s.includes('netherlands')) return 'nl'
+  if (s.includes('spain')) return 'es'
+  if (s.includes('canada')) return 'ca'
+  if (s.includes('australia')) return 'au'
+  if (s.includes('india')) return 'in'
+  if (s.includes('ireland')) return 'ie'
+  if (s.includes('singapore')) return 'sg'
+  return 'us'
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -53,6 +74,33 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
+    const { data: allowed } = await serviceClient.rpc('check_rate_limit', {
+      p_user_id: user.id,
+      p_function_name: 'generate-job-suggestions',
+      p_max_calls: RATE_LIMIT_CALLS,
+      p_window_seconds: RATE_LIMIT_WINDOW,
+    })
+    if (allowed === false) {
+      return new Response(JSON.stringify({ error: 'Rate limit exceeded. Try again in an hour.' }), {
+        status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    // Parse body defensively — currently only used for force_refresh from the frontend
+    const rawBody = await req.text()
+    if (rawBody.length > 10_000) {
+      return new Response(JSON.stringify({ error: 'Request payload too large.' }), {
+        status: 413, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+    if (rawBody.trim().length > 0) {
+      try { JSON.parse(rawBody) } catch {
+        return new Response(JSON.stringify({ error: 'Invalid JSON body.' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+    }
+
     // 1. Fetch user data
     const { data: profiles } = await supabase.from('profiles').select('*').eq('id', user.id)
     const { data: experiences } = await supabase.from('experiences').select('*').eq('user_id', user.id)
@@ -63,6 +111,9 @@ Deno.serve(async (req) => {
         status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
+
+    const userLocation: string = (profile.location || '').trim()
+    const countryCode = locationToCountryCode(userLocation)
 
     const trunc = (s: unknown, max: number) => String(s ?? '').slice(0, max)
     const targetTitles: string[] = profile.target_job_titles || []
@@ -79,16 +130,14 @@ Deno.serve(async (req) => {
     const jsearchKey = Deno.env.get('RAPIDAPI_KEY') || Deno.env.get('JSEARCH_API_KEY')
     if (jsearchKey) {
       try {
-        const jsearchRes = await fetch(
-          `https://jsearch.p.rapidapi.com/search?query=${encodeURIComponent(searchQuery)}&num_pages=1`,
-          {
-            headers: {
-              'X-RapidAPI-Key': jsearchKey,
-              'X-RapidAPI-Host': 'jsearch.p.rapidapi.com',
-            },
-            signal: AbortSignal.timeout(10000),
-          }
-        )
+        const jsearchUrl = `https://jsearch.p.rapidapi.com/search?query=${encodeURIComponent(searchQuery)}&num_pages=1&country=${countryCode}`
+        const jsearchRes = await fetch(jsearchUrl, {
+          headers: {
+            'X-RapidAPI-Key': jsearchKey,
+            'X-RapidAPI-Host': 'jsearch.p.rapidapi.com',
+          },
+          signal: AbortSignal.timeout(10000),
+        })
         if (jsearchRes.ok) {
           const jData = await jsearchRes.json()
           liveJobs = (jData.data || []).slice(0, 10).map((job: any) => ({
@@ -114,12 +163,16 @@ Deno.serve(async (req) => {
     const allTargetStrings = [...targetTitles, fallbackTitle]
     const targetTitlesLower = allTargetStrings.map(t => t.toLowerCase())
 
+    // 69 of 170 library roles use `title` instead of `standardized_title` after
+    // the sector merges — fall back to either so the filter doesn't crash.
     const matchedRoles = (roleLibrary.roles as any[]).filter(role => {
-      const titleLower = (role.standardized_title as string).toLowerCase()
-      const altLower = ((role.alternate_titles as string[]) || []).map(t => t.toLowerCase())
+      const rawTitle = (role.standardized_title ?? role.title) as string | undefined
+      if (!rawTitle) return false
+      const titleLower = rawTitle.toLowerCase()
+      const altLower = ((role.alternate_titles as string[]) || []).map(t => (t || '').toLowerCase())
       return targetTitlesLower.some(t =>
-        titleLower.includes(t) || t.includes(titleLower) ||
-        altLower.some(a => a.includes(t) || t.includes(a))
+        t && (titleLower.includes(t) || t.includes(titleLower) ||
+        altLower.some(a => a && (a.includes(t) || t.includes(a))))
       )
     }).slice(0, 10)
 
@@ -154,9 +207,11 @@ Deno.serve(async (req) => {
       '- Only score jobs that genuinely align with the user\'s target domain. Do not suggest a CS job to a software developer.',
       '- For generic_suggestions: recommend roles the user is realistically ready for based on their actual skills — not roles that are easiest to fill from a library.',
       '- match_reason must reference specific skills from the user\'s profile, not generic statements.',
+      `- LOCATION: Suggest roles and companies that are hiring in ${userLocation || 'the user\'s market'}. When recommending generic roles, prefer local companies and regional market realities over global defaults. Do NOT default to US-centric names if the user is based elsewhere.`,
     ].join('\n')
 
     const userPrompt = `USER PROFILE:
+- Location: ${userLocation || 'Not provided'} (country code: ${countryCode})
 - Target Roles: ${JSON.stringify(targetTitles)}
 - 5-Year Goal: ${trunc(profile.five_year_role, 100) || 'Not provided'}
 - Skills: ${JSON.stringify((profile.skills || []).slice(0, 50))}
@@ -222,7 +277,7 @@ Return ONLY valid JSON:
         max_tokens: 2048,
         response_format: { type: 'json_object' },
       }),
-      signal: AbortSignal.timeout(45000),
+      signal: AbortSignal.timeout(55000),
     })
 
     if (!openaiResponse.ok) {
@@ -232,11 +287,23 @@ Return ONLY valid JSON:
     }
 
     const completion = await openaiResponse.json()
+    const rawContent = completion.choices?.[0]?.message?.content ?? ''
+    const finishReason = completion.choices?.[0]?.finish_reason ?? 'unknown'
+    if (finishReason === 'length') {
+      return new Response(JSON.stringify({
+        error: 'Response was truncated. Try again or reduce your target roles.',
+      }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
     let result: any
     try {
-      result = JSON.parse(completion.choices?.[0]?.message?.content || '{}')
-    } catch {
-      return new Response(JSON.stringify({ error: 'Invalid AI JSON' }), {
+      // Strip markdown fences in case the model wraps its JSON
+      const cleaned = rawContent.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '')
+      result = JSON.parse(cleaned || '{}')
+    } catch (parseErr) {
+      console.error('[job-suggestions] JSON.parse failed:', (parseErr as Error).message)
+      return new Response(JSON.stringify({ error: 'AI returned an invalid response format. Please try again.' }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
