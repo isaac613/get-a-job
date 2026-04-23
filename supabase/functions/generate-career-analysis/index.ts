@@ -233,10 +233,36 @@ function yearFromDate(s: unknown): number | null {
   return m ? parseInt(m[0], 10) : null;
 }
 
+// Count only career-building employment toward experience years. Military,
+// volunteer, and student-leadership roles don't make someone a mid-career
+// professional — a Reichman undergrad with 2 years Nahal + 2 years Heseg
+// volunteering + 1 year part-time is still early-career, not mid-career.
+// Career-countable types: internship, full_time, part_time, freelance.
+const CAREER_COUNTABLE_TYPES = new Set(["internship", "full_time", "part_time", "freelance"]);
+
+// Re-infer experience type from title/company/responsibilities, used when the
+// stored type is missing or obviously wrong (e.g. legacy rows from before the
+// CV extractor learned to classify military service — everything was stamped
+// "full_time" regardless). Mirrors the client-side inferExperienceType.
+function reinferType(exp: any): string {
+  const stored = String(exp?.type ?? "").toLowerCase();
+  const text = `${exp?.title || ""} ${exp?.company || ""} ${Array.isArray(exp?.responsibilities) ? exp.responsibilities.join(" ") : (exp?.responsibilities || "")}`.toLowerCase();
+
+  if (/\b(idf|nahal|givati|golani|paratroopers|sayeret|matkal|shaldag|duvdevan|kfir|unit 8200|\b8200\b|mamram|talpiot|israeli? defense forces|military service|army|idf reserves|soldier|officer training|bahad)\b/.test(text)) return "military";
+  if (/\b(volunteer|volunteering|pro bono|mentor(ed|ing)? at)\b/.test(text)) return "volunteer";
+  if (/\b(intern|internship)\b/.test(text)) return "internship";
+  if (/\b(freelance|freelancer|self-employed|contractor|consultant)\b/.test(text)) return "freelance";
+  if (/\b(president|captain|chair|founder|co-founder|team lead(er)?)\b/.test(text) && /\b(club|society|association|student|chapter)\b/.test(text)) return "leadership";
+
+  return stored || "full_time";
+}
+
 function totalYearsOfExperience(experiences: any[]): number {
   const now = new Date().getFullYear();
   let total = 0;
   for (const exp of experiences || []) {
+    const t = reinferType(exp);
+    if (!CAREER_COUNTABLE_TYPES.has(t)) continue;
     const start = yearFromDate(exp.start_date);
     if (start === null) continue;
     const endRaw = String(exp.end_date ?? "").toLowerCase();
@@ -247,11 +273,18 @@ function totalYearsOfExperience(experiences: any[]): number {
   return total;
 }
 
+// Heuristic for student detection on the profile row. Education level values
+// we've seen in the wild: "high_school", "bachelors", "masters", "phd",
+// "bootcamp", "self_taught". Undergrad in progress is usually stored as
+// "bachelors" (the target degree) with no completion flag, so we also look
+// at whether any career-countable role started long enough ago to suggest
+// post-grad. If the only non-excluded experience is a sub-2-year part-time
+// gig overlapping with education, treat as still-a-student.
 function inferExperienceLevel(experiences: any[], profile: any): ExperienceLevel {
   const years = totalYearsOfExperience(experiences);
   const edu = String(profile?.education_level || "").toLowerCase();
-  const isStudent = edu.includes("student") || edu.includes("in progress") || edu.includes("current");
-  if (isStudent || years < 3) return "early_career";
+  const explicitStudent = edu.includes("student") || edu.includes("in progress") || edu.includes("current");
+  if (explicitStudent || years < 3) return "early_career";
   if (years < 8) return "mid_career";
   return "senior_career";
 }
@@ -531,11 +564,20 @@ Deno.serve(async (req) => {
     // 1c. Infer experience level and resolve goal within that ceiling
     const experienceLevel = inferExperienceLevel(experiences || [], profile);
     const goalRoleId = resolveGoalRoleId(sanitisedProfile.five_year_role, experienceLevel);
+    const seniorityCap = SENIORITY_CAP[experienceLevel];
 
-    // 1d. Score all roles (with goal alignment)
+    // 1d. Score all roles (with goal alignment), filtered by experience-level cap.
+    //   - early_career  → excludes Lead/Director/VP (ranks 4–6)
+    //   - mid_career    → excludes VP (rank 6)
+    //   - senior_career → no cap
+    // A student should NEVER see Director or VP roles in their results, even if the
+    // scoring math would otherwise surface them. Apply BEFORE scoring so the LLM
+    // never receives an over-cap role to explain.
     const allScored = allRoles
+      .filter(r => (SENIORITY_RANK[r.seniority] ?? 2) <= seniorityCap)
       .map(r => computeRoleScore(r.id || r.role_id, userSkillIds, goalRoleId))
       .filter(r => r.mapping_exists && r.tier !== null);
+    console.log(`[career-analysis] experienceLevel=${experienceLevel} cap=${seniorityCap} candidates=${allScored.length} (of ${allRoles.length} library roles)`);
 
     // 1e. Build candidate pool: targeted roles + strong matches
     const allTargets = Array.from(new Set([
@@ -606,11 +648,22 @@ Deno.serve(async (req) => {
 
     const goalRoleTitle = goalRoleId ? ROLE_BY_ID.get(goalRoleId)?.standardized_title : null;
 
+    const expLevelLabel = experienceLevel === 'early_career' ? 'early-career (student / 0–2 years)'
+      : experienceLevel === 'mid_career' ? 'mid-career (3–7 years)'
+      : 'senior (8+ years)';
+    const capLabel = experienceLevel === 'early_career'
+      ? 'Entry, Entry_Mid, Mid, and Senior individual-contributor roles only. ABSOLUTELY NO Director, Head of, VP, Chief, or "Lead / Manager" titles.'
+      : experienceLevel === 'mid_career'
+      ? 'Up to Director-level. No VP or Chief titles.'
+      : 'All seniority levels permitted.';
+
     const systemPrompt = `You are a career advisor for the "Get A Job" platform.
 
 You will receive a user's profile and a set of pre-scored role recommendations with their fit scores, tiers, matched skills, and skill gaps.
 
 Your job is to write clear, helpful explanations — NOT to compute scores or assign tiers. Scores and tiers are already computed deterministically by the server.
+
+USER SENIORITY CONTEXT: This user is ${expLevelLabel}. Appropriate roles: ${capLabel}. The server has already filtered the pre-scored list to respect this cap, so every role in the input is safe to recommend. Do not name, suggest, or mention any role above the user's cap in your reasoning, action_items, or alignment_to_goal text — if a Tier 3 aspirational role is shown, it's already within the cap.
 
 Write in a supportive, actionable tone. Reference the user's specific experiences and skills. Do not invent facts about the user. Do not modify the titles, tiers, scores, matched_skills, or missing_skills values.`;
 
