@@ -426,6 +426,12 @@ export default function Onboarding() {
 
       // Generate personalized tasks via Edge Function
       let tasksToInsert = [];
+      // Map the edge function's richer taxonomy → the DB's chk constraints
+      // (chk_tasks_priority: low|medium|high · chk_tasks_category: application|project|networking|skill|cv)
+      const PRIORITY_MAP = { urgent_now: "high", this_week: "medium", longer_term: "low", high: "high", medium: "medium", low: "low" };
+      const CATEGORY_MAP = { application: "application", cv: "cv", skill: "skill", project: "project", networking: "networking", interview_prep: "application", clarity_positioning: "application" };
+      const normPriority = (p) => PRIORITY_MAP[p] || "medium";
+      const normCategory = (c) => CATEGORY_MAP[c] || "application";
       try {
         const { data: taskData, error: taskInvokeError } = await supabase.functions.invoke("generate-tasks", {
           body: { context: "onboarding initial tasks" },
@@ -435,8 +441,8 @@ export default function Onboarding() {
           tasksToInsert = taskData.tasks.map((t) => ({
             title: t.title,
             description: t.description,
-            category: t.category || "application",
-            priority: t.priority || "medium",
+            category: normCategory(t.category),
+            priority: normPriority(t.priority),
             role_title: t.role_title || null,
             is_complete: false,
             user_id: user.id,
