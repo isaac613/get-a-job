@@ -101,7 +101,7 @@ Deno.serve(async (req) => {
 
     const trunc = (s: unknown, max: number) => String(s ?? '').slice(0, max)
     const profileSkills = (profile?.skills || []).slice(0, 50).map((s: unknown) => trunc(s, 60))
-    const safeGaps = gaps.slice(0, 25).map(s => trunc(s, 80))
+    const safeGaps = gaps.slice(0, 8).map(s => trunc(s, 80))
     const safeRoles = roles.slice(0, 10).map(s => trunc(s, 100))
 
     const prompt = `You are a Learning Path Generator for the "Get A Job" Career Operating System.
@@ -119,12 +119,14 @@ For each skill gap, recommend:
 - A capstone project idea that proves the skill
 - Estimated time commitment
 
-Return a JSON object:
+KEEP RESPONSES COMPACT so the JSON fits. Return EXACTLY 1 resource per skill — not 2, not more. Keep ALL strings under 100 characters each.
+
+Return a JSON object with this exact shape:
 {
   "learning_paths": [
     {
       "skill": "string (the skill gap)",
-      "why_important": "string (why this skill matters for target roles)",
+      "why_important": "string (1 sentence)",
       "resources": [
         {
           "title": "string",
@@ -136,19 +138,9 @@ Return a JSON object:
       ],
       "capstone_project": {
         "title": "string",
-        "description": "string",
-        "why_it_proves": "string (how this demonstrates the skill)"
+        "description": "string (1–2 sentences)",
+        "why_it_proves": "string (1 sentence)"
       }
-    }
-  ],
-  "courses": [
-    {
-      "skill_gap": "string",
-      "course_title": "string",
-      "platform": "string",
-      "description": "string",
-      "time_commitment": "string",
-      "relevance": "string (how it relates to target roles)"
     }
   ]
 }
@@ -157,13 +149,13 @@ Return ONLY valid JSON.`
 
     const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
-      signal: AbortSignal.timeout(45000),
+      signal: AbortSignal.timeout(55000),
       headers: { 'Authorization': `Bearer ${openaiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: MODEL,
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.5,
-        max_tokens: 2048,
+        max_tokens: 4096,
         response_format: { type: 'json_object' },
       }),
     })
@@ -176,19 +168,49 @@ Return ONLY valid JSON.`
     }
 
     const completion = await openaiResponse.json()
-    let result: { learning_paths?: unknown; courses?: unknown } = { learning_paths: [], courses: [] }
+    const rawContent = completion.choices?.[0]?.message?.content ?? ''
+    const finishReason = completion.choices?.[0]?.finish_reason ?? 'unknown'
+
+    // If the model got truncated by max_tokens, JSON.parse will fail. Surface a clear error.
+    if (finishReason === 'length') {
+      return new Response(JSON.stringify({
+        error: 'Your learning plan was too long to generate in one pass. Reduce the number of skill gaps and try again.',
+      }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    let result: { learning_paths?: unknown } = { learning_paths: [] }
     try {
-      result = JSON.parse(completion.choices?.[0]?.message?.content || '{"learning_paths":[],"courses":[]}')
-    } catch {
+      result = JSON.parse(rawContent || '{"learning_paths":[]}')
+    } catch (parseErr) {
+      console.error('[learning-paths] JSON.parse failed:', (parseErr as Error).message)
       return new Response(JSON.stringify({ error: 'AI returned an invalid response format. Please try again.' }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
     if (!Array.isArray(result.learning_paths)) result.learning_paths = []
-    if (!Array.isArray(result.courses)) result.courses = []
 
-    return new Response(JSON.stringify(result), {
+    // Synthesize the flat `courses` array from learning_paths so existing
+    // consumers (e.g. SkillGapCourses.jsx) keep working without asking the
+    // LLM to emit the duplicate structure.
+    const flatCourses: any[] = [];
+    for (const lp of (result.learning_paths as any[])) {
+      for (const r of (lp?.resources || [])) {
+        flatCourses.push({
+          skill_gap: lp?.skill || '',
+          course_title: r?.title || '',
+          platform: r?.platform || '',
+          description: r?.type ? `${r.type}: ${r?.title || ''}` : (r?.title || ''),
+          time_commitment: r?.time_commitment || '',
+          relevance: lp?.why_important || '',
+        });
+      }
+    }
+    const responseBody = { learning_paths: result.learning_paths, courses: flatCourses };
+
+    return new Response(JSON.stringify(responseBody), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (error) {
