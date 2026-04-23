@@ -236,14 +236,19 @@ export default function Onboarding() {
       degree, field_of_study, education_level, gpa, honors, relevant_coursework, resume_url,
       onboarding_step, onboarding_complete,
       skill_gaps, qualification_level, overall_assessment, last_reality_check_date,
-      five_year_role, proof_signals, primary_domain, adjacent_fields
+      five_year_role, proof_signals, primary_domain, adjacent_fields,
+      // Survey fields (StepSurvey)
+      biggest_challenge, cv_tailoring_strategy, linkedin_outreach_strategy,
+      role_clarity_score, job_search_efforts,
     } = data;
     return {
       full_name, phone_number, location, linkedin_url, summary, skills,
       degree, field_of_study, education_level, gpa, honors, relevant_coursework, resume_url,
       onboarding_step, onboarding_complete,
       skill_gaps, qualification_level, overall_assessment, last_reality_check_date,
-      five_year_role, proof_signals, primary_domain, adjacent_fields
+      five_year_role, proof_signals, primary_domain, adjacent_fields,
+      biggest_challenge, cv_tailoring_strategy, linkedin_outreach_strategy,
+      role_clarity_score, job_search_efforts,
     };
   };
 

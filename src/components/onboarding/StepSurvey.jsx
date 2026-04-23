@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { X } from "lucide-react";
 
 const CHALLENGES = [
   "I don't know which roles to target",
@@ -39,51 +40,36 @@ export default function StepSurvey({ data, onChange, onNext, onBack }) {
   const [customChallenge, setCustomChallenge] = useState("");
   const [customCVStrategy, setCustomCVStrategy] = useState("");
   const [customLinkedInStrategy, setCustomLinkedInStrategy] = useState("");
-  const [customClarityScore, setCustomClarityScore] = useState("");
 
   const set = (key, val) => onChange({ ...data, [key]: val });
 
+  // ─ biggest_challenge (multi-select array) ───────────────────────────
+  const selectedChallenges = data.biggest_challenge || [];
   const toggleChallenge = (challenge) => {
-    const current = data.biggest_challenge || [];
-    const updated = current.includes(challenge)
-      ? current.filter((c) => c !== challenge)
-      : [...current, challenge];
+    const updated = selectedChallenges.includes(challenge)
+      ? selectedChallenges.filter((c) => c !== challenge)
+      : [...selectedChallenges, challenge];
     set("biggest_challenge", updated);
   };
-
-  const addCustomChallenge = () => {
-    if (customChallenge.trim()) {
-      const current = data.biggest_challenge || [];
-      if (!current.includes(customChallenge.trim())) {
-        set("biggest_challenge", [...current, customChallenge.trim()]);
-      }
-      setCustomChallenge("");
-    }
+  const removeChallenge = (c) => set("biggest_challenge", selectedChallenges.filter((x) => x !== c));
+  const commitCustomChallenge = () => {
+    const v = customChallenge.trim();
+    if (!v) return;
+    if (!selectedChallenges.includes(v)) set("biggest_challenge", [...selectedChallenges, v]);
+    setCustomChallenge("");
   };
 
-  const addCustomCVStrategy = () => {
-    if (customCVStrategy.trim()) {
-      set("cv_tailoring_strategy", customCVStrategy.trim());
-      setCustomCVStrategy("");
-    }
+  // ─ single-value fields (CV / LinkedIn / Clarity) — commit custom on blur OR Enter ─
+  const commitCustom = (key, raw, normalise) => {
+    const v = raw.trim();
+    if (!v) return;
+    set(key, normalise ? normalise(v) : v);
   };
 
-  const addCustomLinkedInStrategy = () => {
-    if (customLinkedInStrategy.trim()) {
-      set("linkedin_outreach_strategy", customLinkedInStrategy.trim());
-      setCustomLinkedInStrategy("");
-    }
-  };
+  const isCustomCV = data.cv_tailoring_strategy && !CV_OPTIONS.some((o) => o.value === data.cv_tailoring_strategy);
+  const isCustomLinkedIn = data.linkedin_outreach_strategy && !LINKEDIN_OPTIONS.some((o) => o.value === data.linkedin_outreach_strategy);
 
-  const addCustomClarityScore = () => {
-    if (customClarityScore.trim()) {
-      set("role_clarity_score", customClarityScore.trim());
-      setCustomClarityScore("");
-    }
-  };
-
-  const canProceed = data.biggest_challenge?.length > 0 && data.cv_tailoring_strategy && data.linkedin_outreach_strategy && data.role_clarity_score;
-
+  // All survey questions are optional — no canProceed gate.
   return (
     <div className="space-y-6">
       <div>
@@ -94,19 +80,19 @@ export default function StepSurvey({ data, onChange, onNext, onBack }) {
       </div>
 
       <div className="bg-[#FFFBEB] border border-[#FDE68A] rounded-xl px-4 py-3 text-sm text-[#92400E]">
-        💡 The options below are <strong>suggestions only</strong> — you can click to select them or type your own answer in the field below each question.
+        💡 All questions are optional. Click a suggestion, type your own answer, or leave blank.
       </div>
 
       <div className="bg-white rounded-xl border border-[#E5E5E5] p-6 space-y-6">
 
-        {/* Biggest challenge */}
+        {/* Biggest challenge — multi select with chips for custom entries */}
         <div>
           <label className="block text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium mb-2">
-            What are your biggest job search challenges right now? (Select all that apply) <span className="text-red-400">*</span>
+            What are your biggest job search challenges right now? (Select all that apply)
           </label>
           <div className="grid grid-cols-1 gap-2">
             {CHALLENGES.map((c) => {
-              const isSelected = (data.biggest_challenge || []).includes(c);
+              const isSelected = selectedChallenges.includes(c);
               return (
                 <button
                   key={c}
@@ -123,21 +109,35 @@ export default function StepSurvey({ data, onChange, onNext, onBack }) {
               );
             })}
           </div>
+          {/* Custom chips (entries not in the suggestion list) */}
+          {selectedChallenges.filter((c) => !CHALLENGES.includes(c)).length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {selectedChallenges.filter((c) => !CHALLENGES.includes(c)).map((c) => (
+                <span key={c} className="inline-flex items-center gap-1 bg-[#0A0A0A] text-white text-xs px-2.5 py-1 rounded-md">
+                  {c}
+                  <button type="button" onClick={() => removeChallenge(c)} className="hover:text-red-300">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
           <div className="mt-2">
             <Input
               value={customChallenge}
               onChange={(e) => setCustomChallenge(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && addCustomChallenge()}
-              placeholder="Or type your own challenge and press Enter"
+              onBlur={commitCustomChallenge}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitCustomChallenge(); } }}
+              placeholder="Or type your own — press Enter or click outside to save"
               className="text-sm"
             />
           </div>
         </div>
 
-        {/* CV tailoring */}
+        {/* CV tailoring — single value */}
         <div>
           <label className="block text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium mb-2">
-            Do you tailor your CV for each application? <span className="text-red-400">*</span>
+            Do you tailor your CV for each application?
           </label>
           <div className="space-y-2">
             {CV_OPTIONS.map((o) => (
@@ -155,12 +155,21 @@ export default function StepSurvey({ data, onChange, onNext, onBack }) {
               </button>
             ))}
           </div>
+          {isCustomCV && (
+            <div className="mt-2 inline-flex items-center gap-1 bg-[#0A0A0A] text-white text-xs px-2.5 py-1 rounded-md">
+              Your answer: {data.cv_tailoring_strategy}
+              <button type="button" onClick={() => set("cv_tailoring_strategy", null)} className="hover:text-red-300">
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          )}
           <div className="mt-2">
             <Input
               value={customCVStrategy}
               onChange={(e) => setCustomCVStrategy(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && addCustomCVStrategy()}
-              placeholder="Or type your own answer and press Enter"
+              onBlur={() => { commitCustom("cv_tailoring_strategy", customCVStrategy); setCustomCVStrategy(""); }}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitCustom("cv_tailoring_strategy", customCVStrategy); setCustomCVStrategy(""); } }}
+              placeholder="Or type your own answer"
               className="text-sm"
             />
           </div>
@@ -169,7 +178,7 @@ export default function StepSurvey({ data, onChange, onNext, onBack }) {
         {/* LinkedIn outreach */}
         <div>
           <label className="block text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium mb-2">
-            Have you messaged people on LinkedIn as part of your job search? <span className="text-red-400">*</span>
+            Have you messaged people on LinkedIn as part of your job search?
           </label>
           <div className="space-y-2">
             {LINKEDIN_OPTIONS.map((o) => (
@@ -187,21 +196,30 @@ export default function StepSurvey({ data, onChange, onNext, onBack }) {
               </button>
             ))}
           </div>
+          {isCustomLinkedIn && (
+            <div className="mt-2 inline-flex items-center gap-1 bg-[#0A0A0A] text-white text-xs px-2.5 py-1 rounded-md">
+              Your answer: {data.linkedin_outreach_strategy}
+              <button type="button" onClick={() => set("linkedin_outreach_strategy", null)} className="hover:text-red-300">
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          )}
           <div className="mt-2">
             <Input
               value={customLinkedInStrategy}
               onChange={(e) => setCustomLinkedInStrategy(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && addCustomLinkedInStrategy()}
-              placeholder="Or type your own answer and press Enter"
+              onBlur={() => { commitCustom("linkedin_outreach_strategy", customLinkedInStrategy); setCustomLinkedInStrategy(""); }}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitCustom("linkedin_outreach_strategy", customLinkedInStrategy); setCustomLinkedInStrategy(""); } }}
+              placeholder="Or type your own answer"
               className="text-sm"
             />
           </div>
         </div>
 
-        {/* Role clarity score */}
+        {/* Role clarity score — integer */}
         <div>
           <label className="block text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium mb-2">
-            How clear are you about which specific roles you're targeting? <span className="text-red-400">*</span>
+            How clear are you about which specific roles you're targeting?
           </label>
           <div className="flex gap-2 flex-wrap">
             {CLARITY_OPTIONS.map((o) => (
@@ -219,15 +237,7 @@ export default function StepSurvey({ data, onChange, onNext, onBack }) {
               </button>
             ))}
           </div>
-          <div className="mt-2">
-            <Input
-              value={customClarityScore}
-              onChange={(e) => setCustomClarityScore(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && addCustomClarityScore()}
-              placeholder="Or type your own answer and press Enter"
-              className="text-sm"
-            />
-          </div>
+          <p className="text-xs text-[#A3A3A3] mt-2">Scale of 1–5. Leave blank if you&apos;re not sure.</p>
         </div>
 
         {/* What have you tried */}
@@ -246,7 +256,7 @@ export default function StepSurvey({ data, onChange, onNext, onBack }) {
 
       <div className="flex justify-between">
         <Button variant="outline" onClick={onBack} className="text-sm">Back</Button>
-        <Button onClick={onNext} disabled={!canProceed} className="bg-[#0A0A0A] hover:bg-[#262626] text-sm px-6">
+        <Button onClick={onNext} className="bg-[#0A0A0A] hover:bg-[#262626] text-sm px-6">
           Continue
         </Button>
       </div>
