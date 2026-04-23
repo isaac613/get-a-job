@@ -247,13 +247,42 @@ export default function Onboarding() {
         await supabase.from("profiles").update({ onboarding_step: 7 }).eq("id", existingProfileId);
       }
 
-      const { data, error } = await supabase.functions.invoke("generate-career-analysis", {
-        body: {
-          dream_roles: profileData.five_year_role ? [profileData.five_year_role] : [],
+      // Refresh session so we don't invoke with an expired access token
+      const { data: sessionData, error: sessionError } = await supabase.auth.refreshSession();
+      const accessToken = sessionData?.session?.access_token;
+      if (sessionError || !accessToken) {
+        throw new Error("Session expired. Please log out and log back in.");
+      }
+
+      const fnUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-career-analysis`;
+      const response = await fetch(fnUrl, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+          "apikey": import.meta.env.VITE_SUPABASE_ANON_KEY,
         },
+        body: JSON.stringify({
+          dream_roles: profileData.five_year_role ? [profileData.five_year_role] : [],
+        }),
       });
 
-      if (error) throw error;
+      const responseText = await response.text();
+      let data;
+      try {
+        data = responseText ? JSON.parse(responseText) : {};
+      } catch {
+        console.error("Career analysis: non-JSON response", { status: response.status, body: responseText });
+        throw new Error(`HTTP ${response.status}: invalid response`);
+      }
+      if (!response.ok) {
+        console.error("Career analysis: HTTP error", { status: response.status, body: data });
+        throw new Error(data?.error || data?.msg || `HTTP ${response.status}`);
+      }
+      if (data?.error) {
+        console.error("Career analysis: function error", { body: data });
+        throw new Error(data.error);
+      }
 
       const analysisRoles = data?.roles || [];
       if (!mountedRef.current) return;
@@ -292,9 +321,10 @@ export default function Onboarding() {
         }).eq("id", existingProfileId);
       }
     } catch (err) {
-      console.error("Career analysis error:", err);
+      console.error("Career analysis error:", err?.message || err, err);
       if (!mountedRef.current) return;
-      setTierRevealError("Career analysis failed. Please go back and try again.");
+      const detail = err?.message ? ` (${err.message})` : "";
+      setTierRevealError(`Career analysis failed.${detail} Please go back and try again.`);
     }
 
     if (!mountedRef.current) return;
