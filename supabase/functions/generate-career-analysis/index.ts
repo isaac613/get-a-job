@@ -318,10 +318,10 @@ Deno.serve(async (req) => {
     const strongUntargeted = allScored
       .filter(r => !isTargeted(r.role_id) && (r.tier === "tier_1" || r.tier === "tier_2"));
 
-    // Union, sort by score desc, cap
+    // Union, sort by score desc — do NOT slice before per-tier filtering, or
+    // high-scoring Tier 1 matches will crowd out Tier 2/3 from the pool.
     const candidatePool = [...targeted, ...strongUntargeted]
-      .sort((a, b) => b.score - a.score)
-      .slice(0, MAX_ROLES_SCORED);
+      .sort((a, b) => b.score - a.score);
 
     // 1e. Select final set: top-N by tier
     const byTier = {
