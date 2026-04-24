@@ -28,16 +28,88 @@ const WEIGHTS = { core: 0.6, secondary: 0.3, differentiator: 0.1 } as const;
 // path. 0.55 is calibrated against real onboarding profiles.
 const FIT_ONLY_THRESHOLDS = { t1: 0.55, t2: 0.40, t3: 0.25 } as const;
 
-// Goal-aware thresholds — tiers combine readiness (fit) AND goal alignment
+// Goal-aware thresholds — tiers combine readiness (fit) AND goal alignment.
+// Tier 3 fit floor is lower than Tier 1/2 because Tier 3 is aspirational: the
+// user isn't ready yet but the role is on-path.
 const GOAL_TIER_THRESHOLDS = {
   tier_1_min_fit: 0.50,
   tier_1_min_alignment: 0.60,
   tier_2_min_fit: 0.50,
-  tier_3_min_fit: 0.35,
+  tier_3_min_fit: 0.30,
   tier_3_min_alignment: 0.60,
 } as const;
 
-const MAX_T1 = 3, MAX_T2 = 2, MAX_T3 = 1;
+const MAX_T1 = 5, MAX_T2 = 5, MAX_T3 = 5;
+
+// Tier-1 seniority ceiling per experience level. "Could be hired NOW" —
+// a current student should not see Mid-level titles in Tier 1 even if the
+// skill math comes out high. Mid+ roles that are goal-aligned flow to Tier 3
+// (aspirational) instead. Uses SENIORITY_RANK values from below:
+//   Entry=0, Entry_Mid=1, Mid=2, Senior=3, Lead/Manager=4, Director=5, VP=6
+const T1_SENIORITY_CEILING: Record<"early_career" | "mid_career" | "senior_career", number> = {
+  early_career: 2,   // Entry + Entry_Mid + Mid (e.g. Customer Success Manager for a CS specialist)
+  mid_career: 4,     // up to Lead/Manager
+  senior_career: 6,  // no ceiling
+};
+
+// Seniority-gap penalty applied to raw skill fit. A student with no Mid
+// experience doesn't get credit for Mid-level overlap at face value — real
+// hirability degrades with each rank above their current level.
+// Multiplier = 0.90^gap, floored at 0.55.
+function seniorityGapPenalty(roleSeniorityRank: number, userLevel: "early_career" | "mid_career" | "senior_career"): number {
+  const userRank = userLevel === "early_career" ? 0 : userLevel === "mid_career" ? 2 : 4;
+  const gap = Math.max(0, roleSeniorityRank - userRank);
+  return Math.max(0.55, Math.pow(0.90, gap));
+}
+
+// Family-experience penalty: has the user ever worked in the role's family?
+// Direct-match = full credit; adjacent family group = near-full; unrelated = penalised.
+// Uses primary_domain as the user's home family anchor. A CS-background student
+// claiming skills that overlap a Product role still doesn't have direct Product
+// experience — recruiters weigh that heavily, so we do too.
+//
+// Entry-level roles get a softer penalty because they're designed for career
+// pivoters — employers hiring for "Associate PM" / "Junior Analyst" don't
+// expect prior family experience, so we shouldn't penalise a CS student
+// applying to Product-family Entry roles the same way we'd penalise them
+// applying to a Product-family Mid role.
+function familyExperiencePenalty(
+  roleFamily: string | null | undefined,
+  userHomeFamilies: Set<string>,
+  roleSeniorityRank: number
+): number {
+  if (!roleFamily) return 1.0;
+  if (userHomeFamilies.has(roleFamily)) return 1.0;
+  const isEntryLevel = roleSeniorityRank <= 1;  // Entry or Entry_Mid
+  const roleGroup = FAMILY_GROUPS[roleFamily];
+  for (const uf of userHomeFamilies) {
+    if (FAMILY_GROUPS[uf] && FAMILY_GROUPS[uf] === roleGroup) {
+      return isEntryLevel ? 0.97 : 0.92;
+    }
+  }
+  return isEntryLevel ? 0.92 : 0.85;
+}
+
+// primary_domain → role families the user has direct experience in.
+// Used by familyExperiencePenalty to decide whether a candidate role is
+// a direct-family or unrelated jump for this user.
+const PRIMARY_DOMAIN_TO_FAMILIES: Record<string, string[]> = {
+  customer_success: ["Relationship_Growth", "Customer_Experience", "Onboarding_Implementation", "Support"],
+  customer_experience: ["Customer_Experience", "Support", "Relationship_Growth"],
+  support: ["Support", "Customer_Experience"],
+  product: ["Product"],
+  product_management: ["Product"],
+  sales: ["Sales", "BD_Partnerships"],
+  marketing: ["Marketing"],
+  operations: ["Operations", "RevOps_BizOps"],
+  data: ["Data", "RevOps_BizOps"],
+  analytics: ["Data"],
+  finance: ["Finance"],
+  hr: ["HR_People", "Admin_GA"],
+  people: ["HR_People"],
+  engineering: ["Engineering", "Solutions_Engineering"],
+  design: ["Design_UX"],
+};
 
 // ─── Helpers ────────────────────────────────────────────────────────────
 const STOPWORDS = new Set([
@@ -98,15 +170,31 @@ function assignTierFitOnly(score: number): "tier_1" | "tier_2" | "tier_3" | null
   return null;
 }
 
-// Goal-aware tier — combines readiness (fit) AND alignment to the 5-year goal.
-// Tier 1 = strong enough fit AND strong goal alignment (best next move)
-// Tier 2 = strong fit but weak goal alignment (viable but off-path)
-// Tier 3 = on-path but not yet ready (aspirational)
-function assignTierWithGoal(fitScore: number, goalAlignment: number):
-  "tier_1" | "tier_2" | "tier_3" | null {
+// Goal-aware tier — combines readiness (fit), alignment to the 5-year goal,
+// AND whether the role is at a seniority the user could actually be hired
+// for NOW. Mid-level roles that are goal-aligned flow to Tier 3 (aspirational)
+// even if their adjusted fit looks high, because a student can't skip levels.
+// Tier 1 = could-hire-now + strong fit + strong goal alignment (best next move)
+// Tier 2 = could-hire-now + strong fit + weak alignment (viable but off-path)
+// Tier 3 = on-path + some baseline fit, regardless of seniority (aspirational)
+function assignTierWithGoal(
+  fitScore: number,
+  goalAlignment: number,
+  roleSeniorityRank: number,
+  userLevel: "early_career" | "mid_career" | "senior_career"
+): "tier_1" | "tier_2" | "tier_3" | null {
   const t = GOAL_TIER_THRESHOLDS;
-  if (fitScore >= t.tier_1_min_fit && goalAlignment >= t.tier_1_min_alignment) return "tier_1";
-  if (fitScore >= t.tier_2_min_fit) return "tier_2";
+  const canHireNow = roleSeniorityRank <= T1_SENIORITY_CEILING[userLevel];
+
+  if (canHireNow) {
+    if (fitScore >= t.tier_1_min_fit && goalAlignment >= t.tier_1_min_alignment) return "tier_1";
+    // Strong-alignment relaxation: roles that align tightly with the 5-year goal
+    // (same family or natural/stretch transfer path) qualify for Tier 1 at a
+    // lower fit bar, because the career trajectory matters and recruiters weigh
+    // "visible path to the role" nearly as much as raw readiness.
+    if (fitScore >= 0.40 && goalAlignment >= 0.70) return "tier_1";
+    if (fitScore >= t.tier_2_min_fit) return "tier_2";
+  }
   if (fitScore >= t.tier_3_min_fit && goalAlignment >= t.tier_3_min_alignment) return "tier_3";
   return null;
 }
@@ -199,24 +287,26 @@ function resolveGoalRoleId(
     return minLen >= 5 && a.slice(0, 5) === b.slice(0, 5);
   };
 
-  let best: { id: string; score: number; seniorityRank: number } | null = null;
+  // Early-career users typing "Product management" mean Product Manager (Mid),
+  // not Technical Product Manager (Senior) — so cap goal seniority below the
+  // user's overall seniorityCap. Otherwise the tiebreak can pick a too-advanced
+  // goal just because one alt title happens to strip to the same tokens.
+  const goalCap = experienceLevel === "early_career" ? 2   // up to Mid
+                : experienceLevel === "mid_career"   ? 4   // up to Lead/Manager
+                :                                      6;
+
+  let best: { id: string; score: number; stdTitleHit: boolean; seniorityRank: number } | null = null;
   for (const r of allRoles) {
     const seniorityRank = SENIORITY_RANK[r.seniority] ?? 2;
-    if (seniorityRank > cap) continue;
+    if (seniorityRank > goalCap) continue;
 
     const id = r.id || r.role_id;
-    const candidateTitles: string[] = [];
-    if (r.standardized_title) candidateTitles.push(String(r.standardized_title));
-    for (const alt of (r.alternate_titles || [])) {
-      const a = String(alt);
-      if (a.length >= 5) candidateTitles.push(a);
-    }
+    const stdTitle = r.standardized_title ? String(r.standardized_title) : null;
+    const altTitles = (r.alternate_titles || []).map(String).filter(a => a.length >= 5);
 
-    let roleScore = 0;
-    for (const title of candidateTitles) {
+    const scoreTitle = (title: string): number => {
       const titleTokens = tokenize(title).filter(t => !STOPWORDS.has(t));
-      if (titleTokens.length === 0) continue;
-
+      if (titleTokens.length === 0) return 0;
       let overlap = 0;
       const matchedTitleIdx = new Set<number>();
       for (const gt of goalTokens) {
@@ -225,21 +315,25 @@ function resolveGoalRoleId(
           if (stemMatch(gt, titleTokens[i])) { overlap++; matchedTitleIdx.add(i); break; }
         }
       }
-      const union = new Set([...goalTokens, ...titleTokens.map((_, i) =>
-        matchedTitleIdx.has(i) ? `__m${i}` : titleTokens[i])]).size;
       const denom = goalTokens.length + titleTokens.length - overlap;
-      const jaccard = denom > 0 ? overlap / denom : 0;
-      if (jaccard > roleScore) roleScore = jaccard;
-    }
+      return denom > 0 ? overlap / denom : 0;
+    };
 
-    if (roleScore > 0) {
-      if (
-        !best ||
-        roleScore > best.score ||
-        (roleScore === best.score && seniorityRank > best.seniorityRank)
-      ) {
-        best = { id, score: roleScore, seniorityRank };
-      }
+    const stdScore = stdTitle ? scoreTitle(stdTitle) : 0;
+    let altScore = 0;
+    for (const a of altTitles) { const s = scoreTitle(a); if (s > altScore) altScore = s; }
+
+    const bestHere = Math.max(stdScore, altScore);
+    const stdTitleHit = stdScore >= altScore && stdScore > 0;
+
+    if (bestHere > 0) {
+      // Tiebreak preference: (1) higher score, (2) matched via standardized_title
+      // not alternate, (3) lower seniority (closer to the user's real ceiling).
+      const replace = !best
+        || bestHere > best.score
+        || (bestHere === best.score && stdTitleHit && !best.stdTitleHit)
+        || (bestHere === best.score && stdTitleHit === best.stdTitleHit && seniorityRank < best.seniorityRank);
+      if (replace) best = { id, score: bestHere, stdTitleHit, seniorityRank };
     }
   }
 
@@ -395,11 +489,16 @@ function computeGoalAlignment(
   return { score: 0.1, reason: "no clear connection to goal" };
 }
 
-// Deterministic scoring — now accepts goalRoleId to compute goal_alignment_score
+// Deterministic scoring. Fit starts with skill overlap, then is adjusted by
+// seniority gap and family-experience penalties so the final number reflects
+// actual hirability — not just how many generic skills overlap. The raw
+// skill_fit is preserved on the result for diagnostics.
 function computeRoleScore(
   roleId: string,
   userSkillIds: Set<string>,
-  goalRoleId: string | null
+  goalRoleId: string | null,
+  userLevel: "early_career" | "mid_career" | "senior_career",
+  userHomeFamilies: Set<string>
 ) {
   const mapping = MAPPING_BY_ROLE.get(roleId);
   const roleDef = ROLE_BY_ID.get(roleId);
@@ -416,16 +515,21 @@ function computeRoleScore(
     }
   }
   const ratio = (matched: number, total: number) => (total > 0 ? matched / total : 0);
-  const fitScore =
+  const skillFit =
     ratio(matchedBy.core.length, buckets.core.length) * WEIGHTS.core +
     ratio(matchedBy.secondary.length, buckets.secondary.length) * WEIGHTS.secondary +
     ratio(matchedBy.differentiator.length, buckets.differentiator.length) * WEIGHTS.differentiator;
+
+  const roleSeniorityRank = SENIORITY_RANK[roleDef?.seniority] ?? 2;
+  const senPenalty = seniorityGapPenalty(roleSeniorityRank, userLevel);
+  const famPenalty = familyExperiencePenalty(roleDef?.role_family, userHomeFamilies, roleSeniorityRank);
+  const fitScore = skillFit * senPenalty * famPenalty;
 
   const { score: goalAlignment, reason: alignmentReason } =
     computeGoalAlignment(roleId, goalRoleId);
 
   const tier = goalRoleId
-    ? assignTierWithGoal(fitScore, goalAlignment)
+    ? assignTierWithGoal(fitScore, goalAlignment, roleSeniorityRank, userLevel)
     : assignTierFitOnly(fitScore);
 
   const matchedSkillIds = [...matchedBy.core, ...matchedBy.secondary, ...matchedBy.differentiator];
@@ -434,6 +538,9 @@ function computeRoleScore(
     role_id: roleId,
     title: roleDef?.standardized_title || roleDef?.title || roleId,
     score: Math.round(fitScore * 1000) / 1000,
+    raw_skill_fit: Math.round(skillFit * 1000) / 1000,
+    seniority_penalty: Math.round(senPenalty * 1000) / 1000,
+    family_penalty: Math.round(famPenalty * 1000) / 1000,
     goal_alignment_score: Math.round(goalAlignment * 1000) / 1000,
     alignment_reason: alignmentReason,
     tier,
@@ -620,6 +727,15 @@ Deno.serve(async (req) => {
     }
     const seniorityCap = SENIORITY_CAP[experienceLevel];
 
+    // User's "home" role families — which parts of the role space do they
+    // have real direct experience in? Seeded from primary_domain (set during
+    // onboarding). Used for the family-experience penalty so candidate roles
+    // that are a total domain jump (e.g. CS → Product) don't inherit full
+    // skill-fit credit just from generic skill overlap.
+    const userHomeFamilies = new Set<string>(
+      PRIMARY_DOMAIN_TO_FAMILIES[String(profile.primary_domain ?? "").toLowerCase()] || []
+    );
+
     // 1d. Score all roles (with goal alignment), filtered by experience-level cap.
     //   - early_career  → excludes Lead/Director/VP (ranks 4–6)
     //   - mid_career    → excludes VP (rank 6)
@@ -629,9 +745,9 @@ Deno.serve(async (req) => {
     // never receives an over-cap role to explain.
     const allScored = allRoles
       .filter(r => (SENIORITY_RANK[r.seniority] ?? 2) <= seniorityCap)
-      .map(r => computeRoleScore(r.id || r.role_id, userSkillIds, goalRoleId))
+      .map(r => computeRoleScore(r.id || r.role_id, userSkillIds, goalRoleId, experienceLevel, userHomeFamilies))
       .filter(r => r.mapping_exists && r.tier !== null);
-    console.log(`[career-analysis] experienceLevel=${experienceLevel} cap=${seniorityCap} candidates=${allScored.length} (of ${allRoles.length} library roles)`);
+    console.log(`[career-analysis] experienceLevel=${experienceLevel} cap=${seniorityCap} homeFamilies=${[...userHomeFamilies].join(',') || 'none'} candidates=${allScored.length} (of ${allRoles.length} library roles)`);
 
     // 1e. Build candidate pool: targeted roles + strong matches
     const allTargets = Array.from(new Set([
@@ -698,7 +814,11 @@ Deno.serve(async (req) => {
     const rolesForLLM = selected.map(r => ({
       title: r.title,
       tier: r.tier,
+      seniority: r.seniority,
       readiness_score: r.score,
+      raw_skill_overlap: r.raw_skill_fit,
+      seniority_penalty: r.seniority_penalty,
+      family_penalty: r.family_penalty,
       goal_alignment_score: r.goal_alignment_score,
       alignment_reason: r.alignment_reason,
       matched_skills: r.matched_skills,
@@ -750,9 +870,14 @@ Write in a supportive, actionable tone. Reference the user's specific experience
 ${dreamRolesForPrompt.length ? `- Dream Roles: ${dreamRolesForPrompt.join(', ')}` : ''}
 
 TIER DEFINITIONS (for your reasoning — the server has already assigned tiers):
-- Tier 1: strong fit AND strong alignment to the 5-year goal — the best immediate next move
-- Tier 2: strong fit but weak goal alignment — viable now, but pulls away from the long-term path
-- Tier 3: moderate fit but strong goal alignment — aspirational, one step ahead of current readiness
+- Tier 1: strong hirability NOW at a seniority the user could actually get + strong goal alignment — the best immediate next move
+- Tier 2: strong hirability NOW but weak goal alignment — viable but pulls from the long-term path
+- Tier 3: aspirational roles (usually one seniority step up or in a new family) that align with the 5-year goal — work toward these
+
+SCORE INTERPRETATION:
+- readiness_score is a hirability-adjusted fit (skill overlap × seniority-gap penalty × family-experience penalty). It answers "would a recruiter consider this person for this role right now?"
+- raw_skill_overlap is the unadjusted skill match. If readiness_score is much lower than raw_skill_overlap, it means the role is above the user's current seniority OR outside their current role family — i.e. they have the skills on paper but lack the direct experience a hiring manager would look for.
+- goal_alignment_score is separate: how well this role leads toward the 5-year goal.
 
 ${goalDisplay}
 
@@ -801,7 +926,7 @@ Return ONLY valid JSON.`;
           { role: 'user', content: userPrompt }
         ],
         temperature: 0.4,
-        max_tokens: 2000,
+        max_tokens: 4500,
         response_format: { type: 'json_object' },
       }),
       signal: AbortSignal.timeout(45000),
