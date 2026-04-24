@@ -122,6 +122,11 @@ export default function Onboarding() {
     if (saving || finalising || generatingRoles) return;
     const handle = setTimeout(() => {
       const payload = cleanProfilePayload({ ...profileData });
+      // saveProgress is the single source of truth for onboarding_step;
+      // letting the debounced auto-save write it too would clobber a newly
+      // advanced step with whatever profileData was hydrated with on mount.
+      delete payload.onboarding_step;
+      delete payload.onboarding_complete;
       Object.keys(payload).forEach((k) => payload[k] === undefined && delete payload[k]);
       supabase.from("profiles").update(payload).eq("id", existingProfileId).then(({ error }) => {
         if (error) console.warn("Auto-save failed:", error.message);

@@ -22,8 +22,11 @@ const RATE_LIMIT_WINDOW = 3600 // 1 hour
 // Fit scoring weights per fit_scoring_logic
 const WEIGHTS = { core: 0.6, secondary: 0.3, differentiator: 0.1 } as const;
 
-// Legacy pure-fit thresholds — used as fallback when no 5-year goal is known
-const FIT_ONLY_THRESHOLDS = { t1: 0.70, t2: 0.50, t3: 0.35 } as const;
+// Pure-fit thresholds — used only when no 5-year goal is known AND no
+// primary_domain fallback exists. 0.70 was unreachable for junior profiles
+// with sparse skill matches, so Tier 1 was never populated in the no-goal
+// path. 0.55 is calibrated against real onboarding profiles.
+const FIT_ONLY_THRESHOLDS = { t1: 0.55, t2: 0.40, t3: 0.25 } as const;
 
 // Goal-aware thresholds — tiers combine readiness (fit) AND goal alignment
 const GOAL_TIER_THRESHOLDS = {
@@ -182,35 +185,51 @@ function resolveGoalRoleId(
     if (titles.some((t: string) => t === norm)) return id;
   }
 
-  // Pass 2 — scored whole-word substring match, filtered by seniority cap
+  // Pass 2 — token-set Jaccard with 5-char stem folding. Survives typos like
+  // "Product managment" → "Product Manager" where whole-phrase regex fails.
+  // Tokens with 5+ matching leading chars are treated as the same stem so
+  // manag/manager/managment/management all collapse to one token match.
   const cap = SENIORITY_CAP[experienceLevel];
-  const esc = norm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const pattern = new RegExp(`\\b${esc}\\b`);
-  const inputLen = norm.length;
+  const goalTokens = tokenize(norm).filter(t => !STOPWORDS.has(t));
+  if (goalTokens.length === 0) return null;
+
+  const stemMatch = (a: string, b: string): boolean => {
+    if (a === b) return true;
+    const minLen = Math.min(a.length, b.length);
+    return minLen >= 5 && a.slice(0, 5) === b.slice(0, 5);
+  };
 
   let best: { id: string; score: number; seniorityRank: number } | null = null;
   for (const r of allRoles) {
     const seniorityRank = SENIORITY_RANK[r.seniority] ?? 2;
-    if (seniorityRank > cap) continue;  // above ceiling for this experience level
+    if (seniorityRank > cap) continue;
 
     const id = r.id || r.role_id;
     const candidateTitles: string[] = [];
-    if (r.standardized_title) {
-      candidateTitles.push(
-        String(r.standardized_title).toLowerCase().replace(/[\s_\-]+/g, " ").trim()
-      );
-    }
+    if (r.standardized_title) candidateTitles.push(String(r.standardized_title));
     for (const alt of (r.alternate_titles || [])) {
-      const a = String(alt).toLowerCase().replace(/[\s_\-]+/g, " ").trim();
+      const a = String(alt);
       if (a.length >= 5) candidateTitles.push(a);
     }
 
     let roleScore = 0;
-    for (const t of candidateTitles) {
-      if (pattern.test(t)) {
-        const s = inputLen / t.length;
-        if (s > roleScore) roleScore = s;
+    for (const title of candidateTitles) {
+      const titleTokens = tokenize(title).filter(t => !STOPWORDS.has(t));
+      if (titleTokens.length === 0) continue;
+
+      let overlap = 0;
+      const matchedTitleIdx = new Set<number>();
+      for (const gt of goalTokens) {
+        for (let i = 0; i < titleTokens.length; i++) {
+          if (matchedTitleIdx.has(i)) continue;
+          if (stemMatch(gt, titleTokens[i])) { overlap++; matchedTitleIdx.add(i); break; }
+        }
       }
+      const union = new Set([...goalTokens, ...titleTokens.map((_, i) =>
+        matchedTitleIdx.has(i) ? `__m${i}` : titleTokens[i])]).size;
+      const denom = goalTokens.length + titleTokens.length - overlap;
+      const jaccard = denom > 0 ? overlap / denom : 0;
+      if (jaccard > roleScore) roleScore = jaccard;
     }
 
     if (roleScore > 0) {
@@ -234,11 +253,12 @@ function yearFromDate(s: unknown): number | null {
 }
 
 // Count only career-building employment toward experience years. Military,
-// volunteer, and student-leadership roles don't make someone a mid-career
-// professional — a Reichman undergrad with 2 years Nahal + 2 years Heseg
-// volunteering + 1 year part-time is still early-career, not mid-career.
-// Career-countable types: internship, full_time, part_time, freelance.
-const CAREER_COUNTABLE_TYPES = new Set(["internship", "full_time", "part_time", "freelance"]);
+// volunteer, student-leadership, AND part-time roles don't make someone a
+// mid-career professional — a Reichman undergrad with 2 years Nahal + 2 years
+// Heseg volunteering + 1 year part-time is still early-career. Part-time is
+// excluded because students commonly hold part-time jobs during school that
+// shouldn't collapse them out of the early-career seniority cap.
+const CAREER_COUNTABLE_TYPES = new Set(["internship", "full_time", "freelance"]);
 
 // Re-infer experience type from title/company/responsibilities, used when the
 // stored type is missing or obviously wrong (e.g. legacy rows from before the
@@ -288,6 +308,28 @@ function inferExperienceLevel(experiences: any[], profile: any): ExperienceLevel
   if (years < 8) return "mid_career";
   return "senior_career";
 }
+
+// Canonical anchor role per primary_domain. Used when the user's typed goal
+// can't be resolved to a library role (typos, non-library titles) — we still
+// want alignment scoring to have a target so Tier 1 can populate. Pick the
+// most-central role in each domain; alignment of candidates then flows
+// through the normal transfer map / role_family / FAMILY_GROUPS cascade.
+const PRIMARY_DOMAIN_TO_ROLE_ID: Record<string, string> = {
+  customer_success: "customer_success_manager",
+  product: "product_manager",
+  product_management: "product_manager",
+  sales: "account_executive",
+  marketing: "marketing_manager",
+  operations: "business_analyst",
+  data: "data_analyst",
+  analytics: "data_analyst",
+  finance: "financial_analyst",
+  hr: "hr_business_partner",
+  people: "hr_business_partner",
+  engineering: "software_engineer",
+  design: "product_designer_ux_ui",
+  support: "customer_support_specialist",
+};
 
 // Broad role family groups — for low-alignment "related but not adjacent" fallback.
 // Only used when no transfer path and no family match exist.
@@ -561,9 +603,21 @@ Deno.serve(async (req) => {
       if (SKILL_BY_ID.has(norm)) userSkillIds.add(norm);
     }
 
-    // 1c. Infer experience level and resolve goal within that ceiling
+    // 1c. Infer experience level and resolve goal within that ceiling.
+    // If five_year_role can't be resolved (e.g. typo), fall back to
+    // primary_domain so alignment still has a target. Without this, the
+    // whole run collapses to pure-fit scoring and Tier 1 almost never
+    // populates for junior profiles.
     const experienceLevel = inferExperienceLevel(experiences || [], profile);
-    const goalRoleId = resolveGoalRoleId(sanitisedProfile.five_year_role, experienceLevel);
+    let goalRoleId = resolveGoalRoleId(sanitisedProfile.five_year_role, experienceLevel);
+    let goalSource: "five_year_role" | "primary_domain" | "none" = goalRoleId ? "five_year_role" : "none";
+    if (!goalRoleId && profile.primary_domain) {
+      const domainFallback = PRIMARY_DOMAIN_TO_ROLE_ID[String(profile.primary_domain).toLowerCase()];
+      if (domainFallback && ROLE_BY_ID.has(domainFallback)) {
+        goalRoleId = domainFallback;
+        goalSource = "primary_domain";
+      }
+    }
     const seniorityCap = SENIORITY_CAP[experienceLevel];
 
     // 1d. Score all roles (with goal alignment), filtered by experience-level cap.
@@ -623,6 +677,7 @@ Deno.serve(async (req) => {
         .slice(0, MAX_T3),
     };
     const selected = [...byTier.tier_1, ...byTier.tier_2, ...byTier.tier_3];
+    console.log(`[career-analysis] selected tiers → t1=${byTier.tier_1.map(r=>`${r.title}(fit=${r.score},align=${r.goal_alignment_score})`).join('|') || '-'} | t2=${byTier.tier_2.map(r=>`${r.title}(fit=${r.score},align=${r.goal_alignment_score})`).join('|') || '-'} | t3=${byTier.tier_3.map(r=>`${r.title}(fit=${r.score},align=${r.goal_alignment_score})`).join('|') || '-'}`);
 
     if (selected.length === 0) {
       return new Response(JSON.stringify({
@@ -651,6 +706,12 @@ Deno.serve(async (req) => {
     }));
 
     const goalRoleTitle = goalRoleId ? ROLE_BY_ID.get(goalRoleId)?.standardized_title : null;
+    const goalDisplay = goalSource === "five_year_role"
+      ? `RESOLVED 5-YEAR GOAL ROLE (matched to library): ${goalRoleTitle}`
+      : goalSource === "primary_domain"
+      ? `FALLBACK ANCHOR ROLE (from primary_domain "${profile.primary_domain}"): ${goalRoleTitle}. The user's typed 5-year goal could not be matched to a library role; alignment scoring uses this domain anchor instead.`
+      : `NO 5-YEAR GOAL PROVIDED — tier assignment used fit score only.`;
+    console.log(`[career-analysis] goalSource=${goalSource} goalRoleId=${goalRoleId ?? 'null'} five_year_role="${sanitisedProfile.five_year_role}"`);
 
     const expLevelLabel = experienceLevel === 'early_career' ? 'early-career (student / 0–2 years)'
       : experienceLevel === 'mid_career' ? 'mid-career (3–7 years)'
@@ -693,7 +754,7 @@ TIER DEFINITIONS (for your reasoning — the server has already assigned tiers):
 - Tier 2: strong fit but weak goal alignment — viable now, but pulls away from the long-term path
 - Tier 3: moderate fit but strong goal alignment — aspirational, one step ahead of current readiness
 
-${goalRoleTitle ? `RESOLVED 5-YEAR GOAL ROLE (matched to library): ${goalRoleTitle}` : `NO 5-YEAR GOAL PROVIDED — tier assignment used fit score only.`}
+${goalDisplay}
 
 PRE-SCORED ROLE RECOMMENDATIONS (do not modify title, tier, scores, or skill lists):
 ${JSON.stringify(rolesForLLM, null, 2)}
