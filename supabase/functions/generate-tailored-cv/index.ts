@@ -24,6 +24,25 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
+// Defensive array coercer. Profile columns are inconsistent in this DB: some
+// are proper Postgres ARRAY/jsonb (so we get a JS array back), but others like
+// `profiles.honors` are `text` storing a JSON string ("[]", "[\"Dean's List\"]").
+// Calling .slice().map() on a string doesn't throw on slice (strings have that
+// method) but crashes on map — which is exactly the 500 we were seeing. Wrap
+// every profile-derived array access in safeArray() before iterating.
+function safeArray(val: unknown): unknown[] {
+  if (Array.isArray(val)) return val;
+  if (typeof val === "string") {
+    try {
+      const parsed = JSON.parse(val);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
 Deno.serve(async (req) => {
   // CORS preflight. Must come before any other logic — without this the browser
   // aborts the POST with "Failed to send a request to the Edge Function".
@@ -102,26 +121,26 @@ Deno.serve(async (req) => {
       location: trunc(profile.location, 100),
       linkedin_url: trunc(profile.linkedin_url, 200),
       summary: trunc(profile.summary, 500),
-      skills: (profile.skills || []).slice(0, 50).map((s: unknown) => trunc(s, 60)),
-      experiences: experiences.slice(0, 10).map((exp: any) => ({
+      skills: safeArray(profile.skills).slice(0, 50).map((s) => trunc(s, 60)),
+      experiences: safeArray(experiences).slice(0, 10).map((exp: any) => ({
         title: trunc(exp.title, 100),
         company: trunc(exp.company, 100),
         start_date: trunc(exp.start_date, 20),
         end_date: trunc(exp.end_date, 20),
         is_current: exp.is_current,
         responsibilities: trunc(exp.responsibilities, 500),
-        skills_used: (exp.skills_used || []).slice(0, 20).map((s: unknown) => trunc(s, 60)),
-        tools_used: (exp.tools_used || []).slice(0, 20).map((s: unknown) => trunc(s, 60)),
+        skills_used: safeArray(exp.skills_used).slice(0, 20).map((s) => trunc(s, 60)),
+        tools_used: safeArray(exp.tools_used).slice(0, 20).map((s) => trunc(s, 60)),
         managed_people: exp.managed_people ?? false,
         cross_functional: exp.cross_functional ?? false,
         type: trunc(exp.type, 50),
       })),
-      projects: projects.slice(0, 10).map((p: any) => ({
+      projects: safeArray(projects).slice(0, 10).map((p: any) => ({
         name: trunc(p.name, 100),
         description: trunc(p.description, 300),
-        skills_demonstrated: (p.skills_demonstrated || []).slice(0, 20).map((s: unknown) => trunc(s, 60)),
+        skills_demonstrated: safeArray(p.skills_demonstrated).slice(0, 20).map((s) => trunc(s, 60)),
       })),
-      certifications: certifications.slice(0, 10).map((c: any) => ({
+      certifications: safeArray(certifications).slice(0, 10).map((c: any) => ({
         name: trunc(c.name, 100),
         issuer: trunc(c.issuer, 100),
         date_earned: trunc(c.date_earned, 20),
@@ -131,8 +150,8 @@ Deno.serve(async (req) => {
         field_of_study: trunc(profile.field_of_study, 100),
         education_level: trunc(profile.education_level, 50),
         gpa: trunc(profile.gpa, 10),
-        honors: (profile.honors || []).slice(0, 10).map((h: unknown) => trunc(h, 100)),
-        relevant_coursework: (profile.relevant_coursework || []).slice(0, 20).map((c: unknown) => trunc(c, 100)),
+        honors: safeArray(profile.honors).slice(0, 10).map((h) => trunc(h, 100)),
+        relevant_coursework: safeArray(profile.relevant_coursework).slice(0, 20).map((c) => trunc(c, 100)),
       },
     };
 
