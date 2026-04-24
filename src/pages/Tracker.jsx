@@ -136,7 +136,7 @@ export default function Tracker() {
 
       {/* Filters */}
       <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-        {["all", "interested", "preparing", "applied", "interviewing", "offer", "rejected"].map(
+        {["all", "interested", "preparing", "applied", "interviewing", "offer", "accepted", "rejected"].map(
           (s) => (
             <button
               key={s}

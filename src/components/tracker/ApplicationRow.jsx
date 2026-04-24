@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { ChevronDown, ChevronUp, MessageSquare } from "lucide-react";
+import { ChevronDown, ChevronUp, Lock, MessageSquare } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -21,6 +21,7 @@ const STATUS_LABELS = {
   applied: { label: "Applied", className: "bg-purple-50 text-purple-700" },
   interviewing: { label: "Interviewing", className: "bg-amber-50 text-amber-700" },
   offer: { label: "Offer", className: "bg-emerald-50 text-emerald-700" },
+  accepted: { label: "Accepted", className: "bg-emerald-100 text-emerald-800" },
   rejected: { label: "Rejected", className: "bg-red-50 text-red-700" },
 };
 
@@ -96,6 +97,13 @@ export default function ApplicationRow({ app, onUpdate }) {
     onUpdate();
   };
 
+  // Interview tab unlocks once the application reaches interviewing or later.
+  // Follow-Up tab unlocks once there's a terminal outcome to follow up on.
+  const INTERVIEW_UNLOCK_STATUSES = new Set(["interviewing", "offer", "accepted", "rejected"]);
+  const FOLLOWUP_UNLOCK_STATUSES = new Set(["offer", "accepted", "rejected"]);
+  const interviewLocked = !INTERVIEW_UNLOCK_STATUSES.has(app.status);
+  const followupLocked = !FOLLOWUP_UNLOCK_STATUSES.has(app.status);
+
   const tabs = [
     { id: "checklist", label: "📋 Steps" },
     { id: "target", label: "Target Role" },
@@ -104,8 +112,8 @@ export default function ApplicationRow({ app, onUpdate }) {
     { id: "projects", label: "Projects" },
     { id: "networking", label: "Networking" },
     { id: "application", label: "Application" },
-    { id: "interview", label: "Interview" },
-    { id: "followup", label: "Follow-Up" },
+    { id: "interview", label: "Interview", locked: interviewLocked, unlockHint: "Move this application to 'Interviewing' to unlock interview prep." },
+    { id: "followup", label: "Follow-Up", locked: followupLocked, unlockHint: "Unlocks once the application reaches Offer, Accepted, or Rejected." },
   ];
 
   return (
@@ -155,13 +163,17 @@ export default function ApplicationRow({ app, onUpdate }) {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
+                title={tab.locked ? tab.unlockHint : undefined}
                 className={cn(
-                  "px-4 py-2.5 text-xs font-medium transition-colors whitespace-nowrap",
+                  "px-4 py-2.5 text-xs font-medium transition-colors whitespace-nowrap inline-flex items-center gap-1.5",
                   activeTab === tab.id
                     ? "text-[#0A0A0A] border-b-2 border-[#0A0A0A]"
+                    : tab.locked
+                    ? "text-[#D4D4D4] hover:text-[#A3A3A3]"
                     : "text-[#A3A3A3] hover:text-[#525252]"
                 )}
               >
+                {tab.locked && <Lock className="w-3 h-3" />}
                 {tab.label}
               </button>
             ))}
@@ -280,8 +292,30 @@ export default function ApplicationRow({ app, onUpdate }) {
               </div>
             )}
 
-            {activeTab === "interview" && <InterviewPrep app={app} onUpdate={onUpdate} />}
-            {activeTab === "followup" && <FollowUp app={app} onUpdate={onUpdate} />}
+            {activeTab === "interview" && (
+              interviewLocked ? (
+                <div className="flex items-start gap-3 px-4 py-4 bg-[#FAFAFA] border border-[#F0F0F0] rounded-lg">
+                  <Lock className="w-4 h-4 text-[#A3A3A3] flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-[#525252] leading-relaxed">
+                    Move this application to <strong>Interviewing</strong> to unlock interview prep. Jumping ahead before you have an interview scheduled just adds noise.
+                  </p>
+                </div>
+              ) : (
+                <InterviewPrep app={app} onUpdate={onUpdate} />
+              )
+            )}
+            {activeTab === "followup" && (
+              followupLocked ? (
+                <div className="flex items-start gap-3 px-4 py-4 bg-[#FAFAFA] border border-[#F0F0F0] rounded-lg">
+                  <Lock className="w-4 h-4 text-[#A3A3A3] flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-[#525252] leading-relaxed">
+                    Follow-Up unlocks once the application reaches <strong>Offer</strong>, <strong>Accepted</strong>, or <strong>Rejected</strong>. There's nothing to follow up on yet.
+                  </p>
+                </div>
+              ) : (
+                <FollowUp app={app} onUpdate={onUpdate} />
+              )
+            )}
           </div>
         </div>
       )}

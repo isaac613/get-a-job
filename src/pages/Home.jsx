@@ -93,7 +93,7 @@ export default function Home() {
   const missingSkills = tier1Role?.missing_skills || [];
   const skillGaps = Array.isArray(profile?.skill_gaps) ? profile.skill_gaps : [];
   const pendingTasks = tasks.filter((t) => !t.is_complete);
-  const activeApps = applications.filter((a) => !["rejected", "withdrawn", "offer"].includes(a.status));
+  const activeApps = applications.filter((a) => !["rejected", "withdrawn", "offer", "accepted"].includes(a.status));
   const score = tier1Role?.readiness_score ?? (tier1Role?.match_percentage != null ? tier1Role.match_percentage / 100 : null);
 
   const handleResetOnboarding = async () => {

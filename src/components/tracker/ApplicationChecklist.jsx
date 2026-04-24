@@ -6,7 +6,7 @@ const STEPS = [
   {
     key: "qualification_confirmed",
     label: "Confirm You Qualify",
-    description: "Check your skill match score in Career Roadmap. Only proceed if you're 60%+ qualified. Applying without qualification wastes time and tanks your reputation with the company.",
+    description: "Check the tier for this role in Career Roadmap. Focus on Tier 1 (Your Move) — your strongest matches with high goal alignment. Tier 2 (Plan B) roles are also strong fits worth applying to. Tier 3 (Work Toward) roles need more skill-building before applying — wait or close the gap first.",
     step: 1,
   },
   {
