@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
-import { useQueryClient } from "@tanstack/react-query";
-import { Send, Loader2, Plus, ListTodo, CheckCircle2, ArrowRight, Route, Briefcase, ChevronDown, Trash2, MessageSquare } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Send, Loader2, Plus, ListTodo, CheckCircle2, ArrowRight, Route, Briefcase, ChevronDown, Trash2, MessageSquare, FileText, Download } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -149,6 +149,93 @@ function ApplicationActionsCard({ messageId, actions, applied, onApply }) {
   );
 }
 
+// Renders the CV agent's "generate a tailored CV" proposal. Three visual
+// states: ready-to-generate (shows a Generate CV button), generating (loading
+// spinner), and done (download link + fit analysis). The parent owns the
+// state object so it survives re-renders and can be persisted to the DB.
+function CVGenerationCard({ proposal, state, onGenerate, appLabel }) {
+  const { status, cv_url, fit_analysis, error } = state || {};
+
+  if (status === "done" && cv_url) {
+    const alignment = fit_analysis?.alignment;
+    const pct = typeof fit_analysis?.skill_match_percentage === "number"
+      ? Math.round(fit_analysis.skill_match_percentage)
+      : null;
+    const alignClass =
+      alignment === "Strong" ? "text-emerald-700"
+      : alignment === "Moderate" ? "text-amber-700"
+      : alignment === "Weak" ? "text-red-700"
+      : "text-[#525252]";
+    return (
+      <div className="ml-10 mt-2 bg-emerald-50 border border-emerald-200 rounded-xl p-4 max-w-xl">
+        <div className="flex items-center gap-2 mb-2">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+          <p className="text-xs font-semibold text-emerald-800">CV generated for {proposal.target_role}</p>
+        </div>
+        {fit_analysis && (
+          <div className="mb-3 bg-white border border-emerald-100 rounded-lg px-3 py-2 text-xs space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="text-[#525252]">Fit</span>
+              <span className={`font-semibold ${alignClass}`}>
+                {alignment || "—"}{pct != null ? ` · ${pct}%` : ""}
+              </span>
+            </div>
+            {Array.isArray(fit_analysis.major_gaps) && fit_analysis.major_gaps.length > 0 && (
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-[#A3A3A3] font-medium mt-1">Major gaps</p>
+                <p className="text-[11px] text-[#525252]">{fit_analysis.major_gaps.join(" · ")}</p>
+              </div>
+            )}
+            {fit_analysis.explanation && (
+              <p className="text-[11px] text-[#525252] leading-relaxed pt-1">{fit_analysis.explanation}</p>
+            )}
+          </div>
+        )}
+        <a
+          href={cv_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 text-xs font-medium bg-emerald-700 hover:bg-emerald-800 text-white rounded px-3 py-1.5 transition-colors"
+        >
+          <Download className="w-3.5 h-3.5" />
+          Download CV
+        </a>
+      </div>
+    );
+  }
+
+  return (
+    <div className="ml-10 mt-2 bg-rose-50 border border-rose-200 rounded-xl p-4 max-w-xl">
+      <div className="flex items-center gap-2 mb-2">
+        <FileText className="w-3.5 h-3.5 text-rose-700" />
+        <p className="text-xs font-semibold text-rose-800">Generate tailored CV</p>
+      </div>
+      <ul className="space-y-1 mb-3 text-xs text-rose-900">
+        <li><span className="text-rose-600">Role:</span> <strong>{proposal.target_role}</strong></li>
+        {appLabel && <li><span className="text-rose-600">Application:</span> {appLabel}</li>}
+        {!appLabel && proposal.application_id && (
+          <li><span className="text-rose-600">Application:</span> <span className="text-rose-500">linked to tracked role</span></li>
+        )}
+      </ul>
+      {error && (
+        <p className="text-[11px] text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1 mb-2">{error}</p>
+      )}
+      <Button
+        size="sm"
+        onClick={onGenerate}
+        disabled={status === "generating"}
+        className="h-7 text-xs bg-rose-700 hover:bg-rose-800 gap-1.5"
+      >
+        {status === "generating" ? (
+          <><Loader2 className="w-3 h-3 animate-spin" /> Generating…</>
+        ) : (
+          <>Generate CV <ArrowRight className="w-3 h-3" /></>
+        )}
+      </Button>
+    </div>
+  );
+}
+
 function AgentRedirectCard({ suggestion, onSwitch }) {
   return (
     <div className="ml-10 mt-2">
@@ -174,6 +261,34 @@ export default function ChatInterface({ agentName, title, description, applicati
   const [addedTaskSets, setAddedTaskSets] = useState({});
   const [appliedRoadmapSets, setAppliedRoadmapSets] = useState({});
   const [appliedAppActionSets, setAppliedAppActionSets] = useState({});
+  // Per-message CV generation state keyed by message id:
+  //   { [messageId]: { status: "idle"|"generating"|"done", cv_url?, fit_analysis?, error? } }
+  // Initialised from the stored `suggestedCVGeneration.result` when a message
+  // is loaded, so a previously generated CV's download link survives reloads.
+  const [cvGenStates, setCvGenStates] = useState({});
+
+  // Cached elsewhere (Tracker, CVAgent page) with the same key — this is just a
+  // lookup so CVGenerationCard can show "Role at Company" without re-fetching.
+  const { data: applications = [] } = useQuery({
+    queryKey: ["applications", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const { data, error } = await supabase
+        .from("applications")
+        .select("id, role_title, company")
+        .eq("user_id", user.id);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id,
+  });
+  const applicationsById = React.useMemo(() => {
+    const m = {};
+    for (const a of applications) {
+      m[a.id] = `${a.role_title}${a.company ? ` at ${a.company}` : ""}`;
+    }
+    return m;
+  }, [applications]);
   const [conversations, setConversations] = useState([]);
   const [activeConversationId, setActiveConversationId] = useState(null);
   const [loadingMessages, setLoadingMessages] = useState(false);
@@ -224,8 +339,19 @@ export default function ChatInterface({ agentName, title, description, applicati
           suggestedTasks: Array.isArray(m.suggested_tasks) && m.suggested_tasks.length > 0 ? m.suggested_tasks : null,
           suggestedRoadmapChanges: Array.isArray(m.suggested_roadmap_changes) && m.suggested_roadmap_changes.length > 0 ? m.suggested_roadmap_changes : null,
           suggestedApplicationActions: Array.isArray(m.suggested_application_actions) && m.suggested_application_actions.length > 0 ? m.suggested_application_actions : null,
+          suggestedCVGeneration: m.suggested_cv_generation || null,
           suggestedAgent: m.suggested_agent || null,
         })));
+        // Rehydrate CV generation card states from any stored result so a
+        // re-opened conversation still shows its download link + fit analysis.
+        const rehydrated = {};
+        for (const m of data || []) {
+          const g = m.suggested_cv_generation;
+          if (g && g.result && g.result.cv_url) {
+            rehydrated[m.id] = { status: "done", cv_url: g.result.cv_url, fit_analysis: g.result.fit_analysis };
+          }
+        }
+        setCvGenStates(rehydrated);
       }
       setLoadingMessages(false);
     })();
@@ -238,6 +364,7 @@ export default function ChatInterface({ agentName, title, description, applicati
     setAddedTaskSets({});
     setAppliedRoadmapSets({});
     setAppliedAppActionSets({});
+    setCvGenStates({});
   };
 
   const selectConversation = (id) => {
@@ -246,6 +373,7 @@ export default function ChatInterface({ agentName, title, description, applicati
     setAddedTaskSets({});
     setAppliedRoadmapSets({});
     setAppliedAppActionSets({});
+    setCvGenStates({});
   };
 
   const deleteConversation = async (id) => {
@@ -328,6 +456,7 @@ export default function ChatInterface({ agentName, title, description, applicati
         suggested_tasks: data.suggested_tasks?.length > 0 ? data.suggested_tasks : null,
         suggested_roadmap_changes: data.suggested_roadmap_changes?.length > 0 ? data.suggested_roadmap_changes : null,
         suggested_application_actions: data.suggested_application_actions?.length > 0 ? data.suggested_application_actions : null,
+        suggested_cv_generation: data.suggested_cv_generation || null,
         suggested_agent: data.suggested_agent || null,
       };
 
@@ -346,6 +475,7 @@ export default function ChatInterface({ agentName, title, description, applicati
           suggestedTasks: assistantPayload.suggested_tasks,
           suggestedRoadmapChanges: assistantPayload.suggested_roadmap_changes,
           suggestedApplicationActions: assistantPayload.suggested_application_actions,
+          suggestedCVGeneration: assistantPayload.suggested_cv_generation,
           suggestedAgent: assistantPayload.suggested_agent,
         },
       ]);
@@ -471,6 +601,43 @@ export default function ChatInterface({ agentName, title, description, applicati
     toast.success("Applications updated");
   };
 
+  const handleGenerateCV = async (messageId, proposal) => {
+    if (!user?.id || !proposal?.target_role) return;
+    if (cvGenStates[messageId]?.status === "generating" || cvGenStates[messageId]?.status === "done") return;
+
+    setCvGenStates((prev) => ({ ...prev, [messageId]: { status: "generating" } }));
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-tailored-cv", {
+        body: {
+          target_role: proposal.target_role,
+          ...(proposal.application_id && { application_id: proposal.application_id }),
+          ...(proposal.job_description && { job_description: proposal.job_description }),
+        },
+      });
+      if (error) throw error;
+      if (!data?.cv_url) throw new Error(data?.error || "CV generation did not return a download link.");
+
+      const next = { status: "done", cv_url: data.cv_url, fit_analysis: data.fit_analysis };
+      setCvGenStates((prev) => ({ ...prev, [messageId]: next }));
+
+      // Persist the result alongside the original proposal so refreshing the
+      // conversation still shows the download button + fit analysis.
+      const merged = { ...proposal, result: { cv_url: data.cv_url, fit_analysis: data.fit_analysis, application_id: data.application_id } };
+      await supabase.from("chat_messages")
+        .update({ suggested_cv_generation: merged })
+        .eq("id", messageId);
+
+      // If the function touched an application, refresh the tracker cache.
+      queryClient.invalidateQueries({ queryKey: ["applications"] });
+      toast.success("CV generated");
+    } catch (err) {
+      console.error("CV generation failed:", err);
+      const message = err?.message || "Could not generate CV. Please try again.";
+      setCvGenStates((prev) => ({ ...prev, [messageId]: { status: "idle", error: message } }));
+      toast.error(message);
+    }
+  };
+
   const handleSwitchAgent = (page) => {
     navigate(createPageUrl(page));
   };
@@ -589,6 +756,14 @@ export default function ChatInterface({ agentName, title, description, applicati
                   actions={msg.suggestedApplicationActions}
                   applied={appliedAppActionSets}
                   onApply={handleApplyApplicationActions}
+                />
+              )}
+              {msg.suggestedCVGeneration && msg.suggestedCVGeneration.target_role && (
+                <CVGenerationCard
+                  proposal={msg.suggestedCVGeneration}
+                  state={cvGenStates[msg.id]}
+                  onGenerate={() => handleGenerateCV(msg.id, msg.suggestedCVGeneration)}
+                  appLabel={applicationsById[msg.suggestedCVGeneration.application_id] || null}
                 />
               )}
               {msg.suggestedAgent && (

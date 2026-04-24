@@ -123,6 +123,36 @@ Rules:
 - Always describe what you're about to do in the response text before the JSON block, so the user can confirm.
 - Omit the block entirely if no tracker action was requested.`
 
+const CV_GENERATION_RULES = `
+
+CV GENERATION:
+When the user asks you to generate, create, tailor, or draft a CV/resume for a specific role, propose the generation at the very end of your response:
+SUGGESTED_CV_GENERATION_JSON:{"target_role":"Product Manager","application_id":"<uuid-or-null>","job_description":"<optional raw JD text>"}
+
+Rules:
+- target_role: REQUIRED. Use the exact role title the user is targeting (e.g. "Senior Data Analyst"). If unclear, ask first — do not emit the block.
+- application_id: match to one of their ACTIVE APPLICATIONS above. Use the EXACT UUID shown in parentheses after each application. Omit (or set null) if the user isn't targeting a tracked application yet.
+- job_description: include only if the user pasted one into the conversation, or the TARGET APPLICATION block already has one — do not fabricate.
+- Always describe what you're about to generate in the reply text before the JSON block (role, which application if any) so the user can confirm.
+- Emit only one CV generation block per response.
+- Omit the block entirely if the user is asking a general CV question (e.g. "how do I write a good summary?") rather than asking you to generate a CV.`
+
+const CV_AGENT_REDIRECT_RULES = `
+
+AGENT REDIRECT:
+If the user's question is more suited to a different specialist agent, give a brief helpful answer first, then append at the very end:
+SUGGESTED_AGENT_JSON:{"agent":"...","label":"...","page":"...","reason":"..."}
+
+Available redirects (use exact values):
+- Interview prep / mock interviews / interview questions: {"agent":"interview_coach","label":"Interview Coach","page":"InterviewCoach","reason":"..."}
+- Skill gaps / courses / learning plans / how to learn a skill: {"agent":"skill_development_agent","label":"Skill Development Advisor","page":"SkillDevelopmentAdvisor","reason":"..."}
+- Career strategy / tier classification / which role to target next: {"agent":"career_agent","label":"Career Agent","page":"CareerAgent","reason":"..."}
+
+Rules:
+- Always give at least a brief helpful answer before redirecting — never redirect without answering
+- Only redirect when the specialist agent would add significantly more value
+- Never include more than one redirect per response`
+
 const CAREER_AGENT_REDIRECT_RULES = `
 
 AGENT REDIRECT:
@@ -197,8 +227,22 @@ Role tier definitions (use these when discussing or proposing tier changes):
 - Tier 3 = Work Toward: 6+ months away, requires significant development
 
 Tone: direct, honest, analytical — like a mentor who tells you what you need to hear, not what you want to hear. No motivational fluff.`,
-  'cv-helper': `You are a CV & Resume Expert in the "Get A Job" Career Operating System. You help users craft, improve, and tailor their CVs. Focus on: action verbs, quantified achievements, ATS optimisation, and role-specific tailoring. Be direct and specific.`,
-  'application_cv_success_agent': `You are a CV & Resume Expert in the "Get A Job" Career Operating System. You help users craft, improve, and tailor their CVs. Focus on: action verbs, quantified achievements, ATS optimisation, and role-specific tailoring. Be direct and specific.`,
+  'cv-helper': `You are the CV Agent in the "Get A Job" Career Operating System. You help users craft, improve, and tailor their CVs for specific roles and applications.
+
+Your capabilities:
+- Generate a fully tailored CV as a PDF for a specific role (via the CV GENERATION block below). Use this when the user asks you to "generate", "create", "tailor", "draft", or "build" a CV for a role.
+- Review, critique, and rewrite individual CV sections (summary, bullets, experience blocks). Focus on strong action verbs, quantified achievements, ATS keywords from the target JD, and role-specific positioning.
+- Reference the user's ACTIVE APPLICATIONS so you can suggest which tracked role to tailor the CV for.
+
+Tone: direct, specific, practical. Reference the user's actual profile and target role whenever possible — never give generic CV advice.`,
+  'application_cv_success_agent': `You are the CV Agent in the "Get A Job" Career Operating System. You help users craft, improve, and tailor their CVs for specific roles and applications.
+
+Your capabilities:
+- Generate a fully tailored CV as a PDF for a specific role (via the CV GENERATION block below). Use this when the user asks you to "generate", "create", "tailor", "draft", or "build" a CV for a role.
+- Review, critique, and rewrite individual CV sections (summary, bullets, experience blocks). Focus on strong action verbs, quantified achievements, ATS keywords from the target JD, and role-specific positioning.
+- Reference the user's ACTIVE APPLICATIONS so you can suggest which tracked role to tailor the CV for.
+
+Tone: direct, specific, practical. Reference the user's actual profile and target role whenever possible — never give generic CV advice.`,
   'interview_coach': `You are an Interview Coach in the "Get A Job" Career Operating System. You help users prepare for specific job interviews.
 
 Your approach:
@@ -331,7 +375,12 @@ Deno.serve(async (req) => {
     }
 
     // Fetch tasks for agents that support task suggestions and the career agent
-    const agentSupportsTasks = agent === 'interview_coach' || agent === 'skill_development_agent' || agent === 'career_agent'
+    const agentSupportsTasks =
+      agent === 'interview_coach' ||
+      agent === 'skill_development_agent' ||
+      agent === 'career_agent' ||
+      agent === 'application_cv_success_agent' ||
+      agent === 'cv-helper'
     if (agentSupportsTasks) {
       const { data: allTasks } = await supabase
         .from('tasks').select('title, is_complete').eq('user_id', user.id).limit(100)
@@ -347,15 +396,21 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Fetch active applications for career agent context
-    if (agent === 'career_agent') {
+    // Fetch active applications for the career agent and the CV agent. The CV
+    // agent needs the application_id so it can match its CV generation proposals
+    // to a specific tracked application; the career agent doesn't use the id.
+    const agentWantsApplications =
+      agent === 'career_agent' ||
+      agent === 'application_cv_success_agent' ||
+      agent === 'cv-helper'
+    if (agentWantsApplications) {
       const { data: apps } = await supabase
         .from('applications')
-        .select('role_title, company, status, tier')
+        .select('id, role_title, company, status, tier')
         .eq('user_id', user.id)
         .limit(20)
       if (apps?.length) {
-        userContext += `\n\nACTIVE APPLICATIONS:\n${apps.map((a: { role_title: string; company: string; status: string; tier: string }) => `- ${a.role_title}${a.company ? ` at ${a.company}` : ''} (${a.status}${a.tier ? `, ${a.tier}` : ''})`).join('\n')}`
+        userContext += `\n\nACTIVE APPLICATIONS:\n${apps.map((a: { id: string; role_title: string; company: string; status: string; tier: string }) => `- ${a.role_title}${a.company ? ` at ${a.company}` : ''} (${a.status}${a.tier ? `, ${a.tier}` : ''}) [id: ${a.id}]`).join('\n')}`
       }
     }
 
@@ -386,6 +441,8 @@ Deno.serve(async (req) => {
       systemPrompt = basePrompt + TASK_SUGGESTION_RULES + INTERVIEW_COACH_REDIRECT_RULES + SCOPE_GUARD + userContext
     } else if (agent === 'skill_development_agent') {
       systemPrompt = basePrompt + TASK_SUGGESTION_RULES + SKILL_DEV_REDIRECT_RULES + SCOPE_GUARD + userContext
+    } else if (agent === 'application_cv_success_agent' || agent === 'cv-helper') {
+      systemPrompt = basePrompt + CV_GENERATION_RULES + TASK_SUGGESTION_RULES + CV_AGENT_REDIRECT_RULES + SCOPE_GUARD + userContext
     } else {
       systemPrompt = basePrompt + SCOPE_GUARD + userContext
     }
@@ -490,6 +547,28 @@ Deno.serve(async (req) => {
       new_notes?: string
       new_tier?: string
     }
+    // CV generation proposal (CV agent only). The client uses this to render a
+    // CVGenerationCard with a "Generate CV" button that calls the
+    // generate-tailored-cv edge function when the user confirms.
+    type CVGen = { target_role: string; application_id?: string | null; job_description?: string }
+    let suggested_cv_generation: CVGen | null = null
+    const cvGenResult = extractJsonBlock(reply, 'SUGGESTED_CV_GENERATION_JSON:')
+    if (cvGenResult) {
+      reply = cvGenResult.cleaned
+      const parsed = cvGenResult.parsed as CVGen | null
+      if (parsed && typeof parsed === 'object' && typeof parsed.target_role === 'string' && parsed.target_role.trim()) {
+        suggested_cv_generation = {
+          target_role: String(parsed.target_role).slice(0, 200).trim(),
+          ...(typeof parsed.application_id === 'string' && parsed.application_id.trim()
+            ? { application_id: parsed.application_id.trim() }
+            : {}),
+          ...(typeof parsed.job_description === 'string' && parsed.job_description.trim()
+            ? { job_description: String(parsed.job_description).slice(0, 5000) }
+            : {}),
+        }
+      }
+    }
+
     let suggested_application_actions: AppAction[] | null = null
     const appActionsResult = extractJsonBlock(reply, 'SUGGESTED_APPLICATION_ACTIONS_JSON:')
     if (appActionsResult) {
@@ -544,6 +623,7 @@ Deno.serve(async (req) => {
       'SUGGESTED_ROADMAP_CHANGES_JSON:',
       'SUGGESTED_AGENT_JSON:',
       'SUGGESTED_APPLICATION_ACTIONS_JSON:',
+      'SUGGESTED_CV_GENERATION_JSON:',
     ]
     for (const marker of STRUCTURED_MARKERS) {
       const idx = reply.indexOf(marker)
@@ -560,6 +640,7 @@ Deno.serve(async (req) => {
       ...(suggested_agent && { suggested_agent }),
       ...(suggested_roadmap_changes && { suggested_roadmap_changes }),
       ...(suggested_application_actions && { suggested_application_actions }),
+      ...(suggested_cv_generation && { suggested_cv_generation }),
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 
   } catch (error) {
