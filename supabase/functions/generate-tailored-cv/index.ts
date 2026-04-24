@@ -408,6 +408,7 @@ B. Preservation (don't drop, don't paraphrase identifiers — BUT fix obvious ty
 
 C. Surfacing awards and honors:
 8. If a responsibility line mentions an award (e.g. "Awarded Presidential Award for Excellence"), keep it in the bullet AND surface the award in honors_and_awards[] so it appears in a dedicated Honors & Awards section.
+9. CAPITALIZATION — all degree names, specializations, field-of-study strings, and institution names must use TITLE CASE. "bachelor's degree in business administration-specialization in digital innovation" becomes "Bachelor's Degree in Business Administration - Specialization in Digital Innovation". Small connector words like "in", "of", "and", "the", "a", "at" stay lowercase unless they're the first word. Apply this silently during the typo-correction step (rule 6) — the reader should never see a sentence-case or lower-case degree.
 
 D. What you MAY do:
 9. MAY rephrase and tighten bullets for stronger action verbs, ATS keywords, and role alignment — while preserving facts.
@@ -433,14 +434,23 @@ D. What you MAY do:
 - Never keyword-stuff. JD keywords appear only where they genuinely apply to real experience.
 `;
 
-    const TAILORING_RULES = `TAILORING RULES:
-- If TARGET COMPANY is provided, you MAY reference it by name in About Me when it fits naturally, and lightly echo its domain (e.g. "trade finance", "B2B fintech") if the JD signals it. Do NOT add filler like "eager to contribute" or "strong candidate" — keep descriptions factual.
-- If JOB DESCRIPTION is provided, reorder experience bullets so those demonstrating JD-relevant skills come first within each role.
-- If the JD names specific tools/skills, surface the user's matching tools/skills prominently in the Skills section — but only if they are actually in the user's profile.
-- If the JD requires a qualification the user lacks (e.g. a specific degree), do NOT pretend they have it. The Fit Analysis section will honestly flag this.
+    const TAILORING_RULES = `JOB DESCRIPTION TAILORING RULES:
+When a job_description is provided, you are NOT just reformatting the user's resume — you are creating a TAILORED version that highlights why THIS specific person is a fit for THIS specific role. Do the following explicitly:
+
+1. Identify the top 5 keywords / skills / responsibilities from the job description. Keep them in mind for every output decision.
+2. REPHRASE bullet points across ALL experiences to naturally incorporate the JD's language — where the fact is truly present in the user's responsibilities. Example:
+     Original: "Resolve complex user issues efficiently while maintaining strict service-level expectations."
+     JD mentions "translating business needs into structured requirements."
+     Tailored: "Translated complex user issues into structured requirements and actionable solutions while maintaining service-level expectations."
+   The factual content stays true — only the framing shifts to echo JD terminology. NEVER change what happened; only how it's described.
+3. REORDER bullets within each experience so the bullet that most clearly demonstrates a JD requirement is FIRST. The top bullet is prime real estate.
+4. REORDER the experiences list itself so the role most relevant to the target comes first within its bucket (e.g. a Customer Success role before a Volunteer Coordinator role when applying for a PM position).
+5. REORDER and REFRAME the skills list to put JD-relevant capabilities first. If the JD emphasises "cross-functional collaboration with engineering and design", surface matching skills the user has ("Cross-functional coordination", "Stakeholder management") at the top of domain[].
+6. Write the About Me to bridge the user's actual background to THIS role at THIS company. Reference the company's domain (e.g. "trade finance", "B2B fintech") and pick up key JD terminology — but keep the "no pronouns, no candidate-speak" rule from the About Me section.
+7. NEVER invent experiences, skills, tools, certifications, or metrics. Rephrasing is allowed; fabrication is not. "Managed multiple cases" can become "Prioritised and managed a backlog of concurrent cases" if that's what actually happened, but CANNOT become "Managed a product backlog" if the user didn't work on a product backlog.
 
 STRONG ACTION VERBS TO USE:
-Led, Built, Managed, Owned, Delivered, Launched, Developed, Implemented, Drove, Executed, Designed, Analyzed, Coordinated, Streamlined, Improved, Reduced, Increased, Generated, Negotiated, Trained, Supported, Collaborated
+Led, Built, Managed, Owned, Delivered, Launched, Developed, Implemented, Drove, Executed, Designed, Analyzed, Coordinated, Streamlined, Improved, Reduced, Increased, Generated, Negotiated, Trained, Supported, Collaborated, Translated, Prioritised, Facilitated.
 `;
 
     const LIBRARY_CONTEXT = library_match ? `ROLE-LIBRARY CONTEXT (controlled vocabulary — use to pick which of the user's real skills to emphasize; DO NOT use to invent skills the user doesn't have):
@@ -481,7 +491,7 @@ OUTPUT SCHEMA (JSON):
 {
   "header": {
     "name": "string — exact full name from USER DATA",
-    "title": "string — the target role title",
+    "subtitle": "string — the user's CURRENT identity, NOT the target role. Rules: (a) if the user is an active student (education.dates contains 'Present' or similar), use '<Field of Study> Student | <Specialization>' e.g. 'Business Administration Student | Digital Innovation'. (b) else if the user has a current professional experience (is_current=true or end_date='Present'), use '<Title> | <Company>' e.g. 'Customer Success Specialist | Guardio'. (c) else use '<Most recent title> | <Most recent company>'. The target role connection belongs in About Me only — the subtitle is about who the candidate IS today.",
     "email": "string",
     "phone": "string — only if USER DATA.phone_number is non-empty",
     "location": "string",
@@ -634,6 +644,92 @@ SPECIFIC OUTPUT RULES:
     reconcile(cvData.volunteering_experiences, volunteeringExperiences, "title", "organization", "volunteering");
     reconcile(cvData.leadership_experiences, leadershipExperiences, "title", "organization", "leadership");
 
+    // ─── Title-case pass on education degree + institution strings ───
+    // The LLM is told to title-case these, but a server-side safety net makes
+    // this deterministic for every user. Small connector words stay lowercase
+    // unless they're the first word.
+    const SMALL_WORDS = new Set(["a", "an", "and", "as", "at", "but", "by", "for", "in", "nor", "of", "on", "or", "per", "the", "to", "vs", "via", "with"]);
+    const toTitleCase = (raw: string): string => {
+      if (!raw) return raw;
+      // Tokenize on whitespace but keep punctuation-adjacent words intact.
+      // Then, for each token, title-case the leading alphabetic run.
+      return raw.split(/(\s+)/).map((tok, idx) => {
+        if (/^\s+$/.test(tok)) return tok;
+        // Preserve trailing/leading punctuation around the word body.
+        const m = tok.match(/^([^a-zA-Z]*)([a-zA-Z][a-zA-Z'\-]*)(.*)$/);
+        if (!m) return tok;
+        const [, lead, word, trail] = m;
+        const lower = word.toLowerCase();
+        const isFirst = idx === 0 || raw.slice(0, raw.indexOf(tok)).trim() === "";
+        // Keep words that look like ALL-CAPS acronyms (IDF, SQL, IBM) as-is if
+        // the user typed them that way — don't clobber.
+        if (word.length >= 2 && word === word.toUpperCase()) {
+          return `${lead}${word}${trail}`;
+        }
+        if (!isFirst && SMALL_WORDS.has(lower)) {
+          return `${lead}${lower}${trail}`;
+        }
+        // Title case: first char upper, rest lower — but preserve internal
+        // apostrophe-s (e.g. Bachelor's).
+        const titled = word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+        return `${lead}${titled}${trail}`;
+      }).join("");
+    };
+
+    if (Array.isArray(cvData.education)) {
+      for (const edu of cvData.education) {
+        if (edu && typeof edu === "object") {
+          if (edu.degree) edu.degree = toTitleCase(String(edu.degree));
+          if (edu.institution) edu.institution = toTitleCase(String(edu.institution));
+        }
+      }
+    }
+
+    // ─── Derive a safe current-identity subtitle ───
+    // The LLM is instructed to emit header.subtitle in the right shape, but
+    // when it falls back to the target role (or leaves it empty) we compute a
+    // deterministic identity from the DB. Priority:
+    //   1. Active student with a current degree → "<Field> Student | <specialization>"
+    //   2. Current professional experience → "<title> | <company>"
+    //   3. Most recent professional experience
+    //   4. Fall back to target role (last resort)
+    const hasActiveStudent =
+      /present/i.test(String(profile.education_dates || "")) ||
+      /\b(student)\b/i.test(String(profile.education_level || ""));
+    const currentProfessional = professionalExperiences.find((e: any) => {
+      if (e?.is_current) return true;
+      const end = String(e?.end_date || "").toLowerCase();
+      return end === "present" || end === "current" || end === "";
+    });
+    const mostRecentProfessional = professionalExperiences[0];
+
+    let derivedSubtitle = "";
+    if (hasActiveStudent && profile.field_of_study) {
+      // Split the field_of_study around a hyphen to split degree + specialization
+      // when the user typed them together ("Business Administration - Specialization in Digital Innovation").
+      const fieldStr = toTitleCase(String(profile.field_of_study).trim());
+      const parts = fieldStr.split(/\s*[-–—]\s*/, 2);
+      const mainField = parts[0] || fieldStr;
+      const spec = parts[1] ? parts[1].replace(/^specialization in\s*/i, "") : "";
+      derivedSubtitle = spec ? `${mainField} Student | ${spec}` : `${mainField} Student`;
+    } else if (currentProfessional?.title && currentProfessional?.company) {
+      derivedSubtitle = `${currentProfessional.title} | ${currentProfessional.company}`;
+    } else if (mostRecentProfessional?.title && mostRecentProfessional?.company) {
+      derivedSubtitle = `${mostRecentProfessional.title} | ${mostRecentProfessional.company}`;
+    } else {
+      derivedSubtitle = safeTargetRole;
+    }
+
+    const llmSubtitle = String((cvData.header as any)?.subtitle || "").trim();
+    // If the LLM returned the target role verbatim (clear sign it mis-applied
+    // the rule), swap in the derived identity. Otherwise trust the LLM.
+    const useDerived =
+      !llmSubtitle ||
+      llmSubtitle.toLowerCase() === safeTargetRole.toLowerCase() ||
+      llmSubtitle.toLowerCase() === `${safeTargetRole.toLowerCase()} candidate`;
+    const finalSubtitle = useDerived ? derivedSubtitle : llmSubtitle;
+    cvData.header = { ...(cvData.header || {}), subtitle: finalSubtitle };
+
     // Sanity-floor the fit percentage. The LLM very occasionally returns 0
     // for a candidate who does have overlap — we floor at a low but non-zero
     // value and recompute alignment bucket from the number. This never
@@ -667,18 +763,29 @@ SPECIFIC OUTPUT RULES:
     const FONT = "Calibri";
     const BLACK = "000000";
     const MUTED_COLOR = "555555";
-    const BODY_SIZE = 21; // 10.5pt, matches document default
-    const BULLET_SIZE = 20; // 10pt for entry bullets
+    // Font sizes are in half-points. Sizes tightened vs. earlier iterations
+    // so a 4-role entry-level CV fits on a single A4 page.
+    const BODY_SIZE = 20; // 10pt — document default + About Me
+    const BULLET_SIZE = 19; // 9.5pt for entry bullets
     const HEADING_SIZE = 26; // 13pt section heading
     const SUBHEADING_SIZE = 22; // 11pt sub-section heading
-    const ENTRY_TITLE_SIZE = 22; // 11pt bold role/degree line
-    const CONTACT_SIZE = 20; // 10pt contact line
-    const DATE_SIZE = 20; // 10pt dates, muted
-    const NAME_SIZE = 56; // 28pt uppercase name
-    const ROLE_SUBTITLE_SIZE = 28; // 14pt subtitle under the name
-    // Right tab stop at ~9000 twips sits just inside the right margin for an
-    // A4 page with 25mm margins.
-    const RIGHT_TAB = 9000;
+    const ENTRY_TITLE_SIZE = 21; // 10.5pt bold role/degree line
+    const CONTACT_SIZE = 19; // 9.5pt contact line
+    const DATE_SIZE = 19; // 9.5pt dates, muted
+    const NAME_SIZE = 52; // 26pt uppercase name (was 28pt — small trim saves ~6mm)
+    const ROLE_SUBTITLE_SIZE = 24; // 12pt subtitle under the name
+    // Right tab stop at ~9700 twips sits just inside the right margin for an
+    // A4 page with 22mm margins (page 11906 twips wide - 1247 each side).
+    const RIGHT_TAB = 9400;
+
+    // Spacing constants in twips (1pt = 20 twips). 1.0 line = 240.
+    const SP_AFTER_BULLET = 20; // 1pt — Word default is ~8pt which wastes vertical space
+    const SP_AFTER_ENTRY = 80; // 4pt between experience/education entries
+    const SP_BEFORE_SECTION = 160; // 8pt before section heading
+    const SP_AFTER_SECTION = 40; // 2pt after the heading rule (before first child)
+    const SP_AFTER_SUBHEAD = 40; // 2pt after sub-heading
+    const LINE_SINGLE = 240; // 1.0 line spacing
+    const LINE_ABOUT = 259; // 1.08 for About Me (hair of extra breathing room)
 
     const paragraphs: Array<Paragraph | Table> = [];
 
@@ -687,13 +794,13 @@ SPECIFIC OUTPUT RULES:
       new TextRun({ text: s, font: FONT, size: BODY_SIZE, ...opts });
 
     const sectionHeading = (label: string) => new Paragraph({
-      spacing: { before: 240, after: 80 },
+      spacing: { before: SP_BEFORE_SECTION, after: SP_AFTER_SECTION },
       border: { bottom: { color: "BFBFBF", style: BorderStyle.SINGLE, size: 6, space: 1 } },
       children: [new TextRun({ text: label.toUpperCase(), bold: true, size: HEADING_SIZE, font: FONT })],
     });
 
     const subsectionHeading = (label: string) => new Paragraph({
-      spacing: { before: 120, after: 60 },
+      spacing: { before: 60, after: SP_AFTER_SUBHEAD },
       children: [new TextRun({ text: label, bold: true, size: SUBHEADING_SIZE, font: FONT })],
     });
 
@@ -712,7 +819,7 @@ SPECIFIC OUTPUT RULES:
       }
       return new Paragraph({
         tabStops: [{ type: TabStopType.RIGHT, position: RIGHT_TAB }],
-        spacing: { after: 40 },
+        spacing: { after: SP_AFTER_BULLET },
         children,
       });
     };
@@ -737,24 +844,24 @@ SPECIFIC OUTPUT RULES:
       const subText = String(subtitle || "").trim();
       if (subText) {
         out.push(new Paragraph({
-          spacing: { after: 40 },
+          spacing: { after: SP_AFTER_BULLET },
           children: [new TextRun({ text: subText, size: BULLET_SIZE, color: MUTED_COLOR, font: FONT })],
         }));
       }
       return out;
     };
 
-    // Bulleted list item — Word's default bullet list style.
+    // Bulleted list item — Word's default bullet list style, tight spacing.
     const bulletParagraph = (s: string) => new Paragraph({
       bullet: { level: 0 },
-      spacing: { after: 40, line: 276, lineRule: LineRuleType.AUTO },
+      spacing: { after: SP_AFTER_BULLET, line: LINE_SINGLE, lineRule: LineRuleType.AUTO },
       children: [new TextRun({ text: String(s || ""), size: BULLET_SIZE, font: FONT })],
     });
 
-    // Single paragraph of body text (used for About Me).
+    // Single paragraph of body text (used for About Me). Justified, 1.08 line.
     const bodyParagraph = (s: string) => new Paragraph({
       alignment: AlignmentType.JUSTIFIED,
-      spacing: { after: 80, line: 276, lineRule: LineRuleType.AUTO },
+      spacing: { after: 40, line: LINE_ABOUT, lineRule: LineRuleType.AUTO },
       children: [new TextRun({ text: String(s || ""), size: BODY_SIZE, font: FONT })],
     });
 
@@ -763,7 +870,7 @@ SPECIFIC OUTPUT RULES:
       if (!values || (Array.isArray(values) && values.length === 0)) return null;
       const valueText = Array.isArray(values) ? values.join(", ") : String(values);
       return new Paragraph({
-        spacing: { after: 40 },
+        spacing: { after: SP_AFTER_BULLET },
         children: [
           new TextRun({ text: `${label}: `, bold: true, size: BULLET_SIZE, font: FONT }),
           new TextRun({ text: valueText, size: BULLET_SIZE, font: FONT }),
@@ -771,21 +878,32 @@ SPECIFIC OUTPUT RULES:
       });
     };
 
-    // ─── Header (centered name / role / contact line) ───
+    // Plain single-line paragraph (no label) — used for Languages so the
+    // section heading doesn't double up with a redundant "Languages:" prefix.
+    const plainLine = (s: string) => new Paragraph({
+      spacing: { after: SP_AFTER_BULLET },
+      children: [new TextRun({ text: s, size: BULLET_SIZE, font: FONT })],
+    });
+
+    // ─── Header (centered name / current-identity subtitle / contact line) ───
+    // The subtitle describes who the candidate IS today (e.g. "Business
+    // Administration Student | Digital Innovation"), NOT the target role —
+    // the target role connection is made in About Me. Computed server-side
+    // in the reconcile block above.
     const header = (cvData.header || {}) as any;
     const nameText = String(header.name || userContext.full_name || "").toUpperCase();
     paragraphs.push(new Paragraph({
       alignment: AlignmentType.CENTER,
-      spacing: { after: 40 },
+      spacing: { after: 20 },
       children: [new TextRun({ text: nameText, bold: true, size: NAME_SIZE, font: FONT })],
     }));
 
-    const roleText = String(header.title || "").trim();
-    if (roleText) {
+    const subtitleText = String(header.subtitle || "").trim();
+    if (subtitleText) {
       paragraphs.push(new Paragraph({
         alignment: AlignmentType.CENTER,
-        spacing: { after: 80 },
-        children: [new TextRun({ text: roleText, size: ROLE_SUBTITLE_SIZE, color: MUTED_COLOR, font: FONT })],
+        spacing: { after: 40 },
+        children: [new TextRun({ text: subtitleText, size: ROLE_SUBTITLE_SIZE, color: MUTED_COLOR, font: FONT })],
       }));
     }
 
@@ -801,7 +919,7 @@ SPECIFIC OUTPUT RULES:
     if (contactBits.length > 0) {
       paragraphs.push(new Paragraph({
         alignment: AlignmentType.CENTER,
-        spacing: { after: 120 },
+        spacing: { after: 60 },
         children: [new TextRun({ text: contactBits.join("  \u00B7  "), size: CONTACT_SIZE, font: FONT })],
       }));
     }
@@ -964,8 +1082,8 @@ SPECIFIC OUTPUT RULES:
     }
     if (languageLines.length > 0) {
       paragraphs.push(sectionHeading("Languages"));
-      const p = labelledLine("Languages", languageLines);
-      if (p) paragraphs.push(p);
+      // Heading already says "LANGUAGES" — don't repeat it as a label.
+      paragraphs.push(plainLine(languageLines.join(", ")));
     }
 
     // ─── Honors & Awards ───
@@ -1017,7 +1135,8 @@ SPECIFIC OUTPUT RULES:
       sections: [{
         properties: {
           page: {
-            margin: { top: 1134, bottom: 1134, left: 1417, right: 1417 },
+            // 18mm top/bottom, 22mm left/right (1mm ≈ 56.7 twips)
+            margin: { top: 1020, bottom: 1020, left: 1247, right: 1247 },
           },
         },
         children: paragraphs,
