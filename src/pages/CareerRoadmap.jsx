@@ -298,7 +298,7 @@ export default function CareerRoadmap() {
         <div className="mb-8">
           <h2 className="text-xs uppercase tracking-wider text-[#059669] font-semibold mb-3 flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-500" />
-            Tier 1 -- Qualified Today
+            Tier 1 — Your Move
           </h2>
           <div className="space-y-3">
             {tier1.map((role) => (
@@ -312,7 +312,7 @@ export default function CareerRoadmap() {
         <div className="mb-8">
           <h2 className="text-xs uppercase tracking-wider text-[#D97706] font-semibold mb-3 flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-amber-500" />
-            Tier 2 -- Slight Stretch
+            Tier 2 — Plan B
           </h2>
           <div className="space-y-3">
             {tier2.map((role) => (
@@ -326,7 +326,7 @@ export default function CareerRoadmap() {
         <div className="mb-8">
           <h2 className="text-xs uppercase tracking-wider text-[#6366F1] font-semibold mb-3 flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-indigo-500" />
-            Tier 3 -- Future Path
+            Tier 3 — Work Toward
           </h2>
           <div className="space-y-3">
             {tier3.map((role) => (

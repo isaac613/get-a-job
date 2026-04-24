@@ -93,7 +93,7 @@ Each change must use one of these shapes:
 - {"action":"add_role","title":"Role Title","tier":"tier_2","reason":"short explanation"}
 - {"action":"remove_role","role_title":"EXACT role title from their roadmap","reason":"short explanation"}
 
-Valid tiers: "tier_1" (Qualified Today), "tier_2" (Slight Stretch), "tier_3" (Future Path)
+Valid tiers: "tier_1" (Your Move), "tier_2" (Plan B), "tier_3" (Work Toward)
 Rules:
 - Use the EXACT role title from their CAREER ROADMAP — do not paraphrase or rename
 - Only propose changes the user explicitly requested OR that are clearly justified by their actual skill data
@@ -192,9 +192,9 @@ When asked "what should I focus on this week?" or similar priority questions:
 - Rank by immediate impact on getting hired
 
 Role tier definitions (use these when discussing or proposing tier changes):
-- Tier 1 = Qualified Today: they have the core skills and should be actively applying
-- Tier 2 = Slight Stretch: 1–6 months of targeted work to qualify
-- Tier 3 = Future Path: 6+ months away, requires significant development
+- Tier 1 = Your Move: they have the core skills and should be actively applying
+- Tier 2 = Plan B: 1–6 months of targeted work to qualify
+- Tier 3 = Work Toward: 6+ months away, requires significant development
 
 Tone: direct, honest, analytical — like a mentor who tells you what you need to hear, not what you want to hear. No motivational fluff.`,
   'cv-helper': `You are a CV & Resume Expert in the "Get A Job" Career Operating System. You help users craft, improve, and tailor their CVs. Focus on: action verbs, quantified achievements, ATS optimisation, and role-specific tailoring. Be direct and specific.`,
@@ -309,7 +309,7 @@ Deno.serve(async (req) => {
           group.push(r)
         }
         userContext += '\n\nCAREER ROADMAP:'
-        const tierLabels: Record<string, string> = { tier_1: 'Tier 1 (Qualified Today)', tier_2: 'Tier 2 (Slight Stretch)', tier_3: 'Tier 3 (Future Path)', other: 'Uncategorised' }
+        const tierLabels: Record<string, string> = { tier_1: 'Tier 1 (Your Move)', tier_2: 'Tier 2 (Plan B)', tier_3: 'Tier 3 (Work Toward)', other: 'Uncategorised' }
         for (const [tier, label] of Object.entries(tierLabels)) {
           const roles = byTier[tier]
           if (!roles?.length) continue

@@ -84,7 +84,7 @@ export default function ProgressVisualization({ profile, roles, experiences, cou
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                  <span className="text-sm text-[#525252]">Tier 1 (Qualified Today)</span>
+                  <span className="text-sm text-[#525252]">Tier 1 (Your Move)</span>
                 </div>
                 <span className="text-sm font-semibold text-[#059669]">{tier1Readiness}%</span>
               </div>
@@ -96,7 +96,7 @@ export default function ProgressVisualization({ profile, roles, experiences, cou
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-amber-500" />
-                  <span className="text-sm text-[#525252]">Tier 2 (Slight Stretch)</span>
+                  <span className="text-sm text-[#525252]">Tier 2 (Plan B)</span>
                 </div>
                 <span className="text-sm font-semibold text-[#D97706]">{tier2Readiness}%</span>
               </div>
@@ -108,7 +108,7 @@ export default function ProgressVisualization({ profile, roles, experiences, cou
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-indigo-500" />
-                  <span className="text-sm text-[#525252]">Tier 3 (Future Path)</span>
+                  <span className="text-sm text-[#525252]">Tier 3 (Work Toward)</span>
                 </div>
                 <span className="text-sm font-semibold text-[#6366F1]">{tier3Readiness}%</span>
               </div>

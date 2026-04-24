@@ -17,9 +17,9 @@ import { createPageUrl } from "@/utils";
 import MessageBubble from "./MessageBubble";
 
 const TIER_LABELS = {
-  tier_1: "Tier 1 — Qualified Today",
-  tier_2: "Tier 2 — Slight Stretch",
-  tier_3: "Tier 3 — Future Path",
+  tier_1: "Tier 1 — Your Move",
+  tier_2: "Tier 2 — Plan B",
+  tier_3: "Tier 3 — Work Toward",
 };
 
 function TaskSuggestionCard({ messageId, tasks, addedTaskSets, onAdd }) {

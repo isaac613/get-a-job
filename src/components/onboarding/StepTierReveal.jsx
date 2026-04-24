@@ -4,21 +4,21 @@ import { Loader2, CheckCircle2, XCircle, TrendingUp } from "lucide-react";
 
 const TIER_CONFIG = {
   tier_1: {
-    label: "Tier 1 — Qualify Today",
+    label: "Tier 1 — Your Move",
     color: "text-emerald-700",
     bg: "bg-emerald-50",
     border: "border-emerald-200",
     badge: "bg-emerald-100 text-emerald-700",
   },
   tier_2: {
-    label: "Tier 2 — Slight Stretch",
+    label: "Tier 2 — Plan B",
     color: "text-amber-700",
     bg: "bg-amber-50",
     border: "border-amber-200",
     badge: "bg-amber-100 text-amber-700",
   },
   tier_3: {
-    label: "Tier 3 — Future Path",
+    label: "Tier 3 — Work Toward",
     color: "text-indigo-700",
     bg: "bg-indigo-50",
     border: "border-indigo-200",
