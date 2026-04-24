@@ -14,7 +14,8 @@ import {
   CheckSquare,
   Layers,
   Calendar as CalendarIcon,
-  Linkedin
+  Linkedin,
+  User
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -27,7 +28,7 @@ const NAV_ITEMS = [
   { name: "Tasks", page: "Tasks", icon: CheckSquare },
   { name: "AI Agents", page: "Subagents", icon: Layers },
   { name: "Resources", page: "Resources", icon: BookOpen },
-  { name: "Add Information", page: "AddInformation", icon: PlusCircle },
+  { name: "Profile", page: "AddInformation", icon: User },
 ];
 
 const ONBOARDING_PAGE = "Onboarding";

@@ -160,6 +160,24 @@ export default function StepResumeUpload({ onNext, onExtracted, profileData, onC
 
       const extractionPrompt = `Extract structured information from this resume text. Return ONLY a raw JSON object (no markdown, no code blocks) with these fields: full_name, phone_number, location, linkedin_url, summary, degree, field_of_study, education_level, skills (array of ALL skills combined), tools_software (array: apps/platforms/tools like Excel, Figma, Salesforce, Python, AWS), hard_skills (array: domain knowledge like Financial modeling, Market research, Contract law), technical_skills (array: engineering/programming skills like React, SQL, Machine learning — leave empty if not applicable), analytical_skills (array: data/problem-solving skills like Data analysis, Forecasting, A/B testing), communication_skills (array: written/verbal skills like Presentations, Technical writing, Public speaking), leadership_skills (array: people/management skills like Project management, Mentoring, Stakeholder management), experiences (array of {title, company, type, start_date, end_date, responsibilities}).
 
+PHONE NUMBER — scan the full document, not just the header:
+- Search the ENTIRE resume text for a phone number, including the header, "Contact" section, email signature area, and anywhere near the email/LinkedIn.
+- Accept any of these formats and keep the original formatting:
+  • Israeli mobile: "054-3000613", "050 123 4567", "+972-54-300-0613", "+972 54 300 0613"
+  • US: "(212) 555-0100", "212-555-0100", "+1 212 555 0100"
+  • International: "+44 20 7946 0958", "+49 30 12345678"
+- Strip any labels ("Phone:", "Mobile:", "M:", "Tel:") from the value.
+- If no phone number is present in the resume, leave phone_number as an empty string — do NOT fabricate.
+
+JOB TITLE RULES — applies to EVERY experience (professional, military, volunteering, leadership):
+- The title field is a SHORT NOUN PHRASE, typically 2–5 words (e.g. "Senior Product Manager", "Sergeant First Class", "Marketing Intern", "President of Debate Club").
+- NEVER put a responsibility sentence or action-verb statement in the title field. "Supervised and trained teams of soldiers" is NOT a title — it is a responsibility bullet. If the resume shows a block like:
+    Nahal Brigade | 2020–2022
+    • Supervised and trained teams of up to 30 soldiers...
+  then the title is a RANK (see MILITARY section below), NOT the bullet text.
+- Titles never start with verbs like Supervised / Managed / Led / Coordinated / Trained / Oversaw / Delivered / Assisted / Designed. If you see one of these starting a candidate-title, it's a responsibility — route it into the responsibilities array, not title.
+- Never leave the title blank. If the resume doesn't state a title explicitly, infer the most likely short title from context (see MILITARY defaults below for military roles). For non-military roles without a clear title, use the closest standard role name (e.g. "Marketing Intern", "Research Assistant", "Program Coordinator").
+
 EXPERIENCE TYPE CLASSIFICATION (required for every experience):
 Set the "type" field on each experience to EXACTLY ONE of these values:
 - "military"    — any military service. See military section below.
@@ -177,8 +195,13 @@ Treat any of the following as MILITARY experience (type="military"):
 - Specific units/corps (any of these → military): Givati, Golani, Nahal, Nachal, Paratroopers, Tzanhanim, Sayeret, Sayeret Matkal, Shaldag, Duvdevan, Kfir, Egoz, Maglan, Unit 8200, 8200, Mamram, Talpiot, Havatzalot, Intelligence Corps, Modi'in, Cyber Defense, IAF, Israeli Air Force, Navy, Shayetet, Home Front Command, Pikud Haoref, Combat Engineering, Artillery Corps, Armored Corps, Gaza Division, Officer's School, Bahad 1
 
 When you classify an experience as military:
-- Set company to "Israel Defense Forces (IDF)" unless a more specific unit is named (e.g. "IDF — Unit 8200", "IDF Paratroopers Brigade", "IDF Nahal Brigade")
-- Set title to a meaningful English role, not just "Soldier". Prefer: "Combat Soldier", "Team Commander", "Squad Commander", "Platoon Commander", "Intelligence Officer", "Intelligence Analyst", "Signals Intelligence Analyst", "Software Developer (IDF)", "Cyber Analyst", "Instructor", "NCO", "Officer", "Sergeant", "Lieutenant" based on what the resume describes. If unclear, use "Combat Soldier" or "Military Service Member".
+- Set company to the specific unit if named ("Nahal Brigade", "Unit 8200", "Golani Brigade", etc.), otherwise "Israel Defense Forces (IDF)".
+- Title MUST be a rank or a short role name — NEVER a responsibility sentence. Prefer, in this priority order:
+    1. An explicit rank named in the resume: "Sergeant First Class", "Staff Sergeant", "First Sergeant", "Lieutenant", "Captain", "Major", "Samal Rishon", "Samal", "Segen", "Seren", etc.
+    2. An explicit role named in the resume: "Squad Commander", "Team Commander", "Platoon Commander", "Company Commander", "Intelligence Officer", "Intelligence Analyst", "Signals Intelligence Analyst", "Cyber Analyst", "Software Developer (IDF)", "Combat Medic", "Instructor", "Drill Sergeant".
+    3. If the resume says the person was a commander/team lead but gives no explicit rank or role, use "Team Commander".
+    4. If the resume shows only combat service with no rank or role named, use "Combat Soldier".
+    5. Absolute last resort: "Military Service Member". Never leave title blank and never use a bullet-point sentence.
 - Keep awards/commendations (Presidential Award for Excellence, unit citations, excellence commendations) in the responsibilities text — do not drop them.
 - Translate Hebrew responsibility bullets to concise English.
 
