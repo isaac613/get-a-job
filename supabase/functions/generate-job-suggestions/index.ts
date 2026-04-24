@@ -173,24 +173,34 @@ Deno.serve(async (req) => {
       })
     }
 
-    // Parse body defensively — currently only used for force_refresh from the frontend
+    // Parse body defensively — supports force_refresh and role_filter from the frontend.
+    // role_filter lets the user target a specific career-roadmap role instead of
+    // defaulting to the top Tier 1 role.
     const rawBody = await req.text()
     if (rawBody.length > 10_000) {
       return new Response(JSON.stringify({ error: 'Request payload too large.' }), {
         status: 413, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
+    let parsedBody: { role_filter?: string; force_refresh?: boolean } = {}
     if (rawBody.trim().length > 0) {
-      try { JSON.parse(rawBody) } catch {
+      try { parsedBody = JSON.parse(rawBody) } catch {
         return new Response(JSON.stringify({ error: 'Invalid JSON body.' }), {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })
       }
     }
+    const roleFilterParam = typeof parsedBody?.role_filter === 'string'
+      ? parsedBody.role_filter.trim().slice(0, 200)
+      : ''
 
     // 1. Fetch user data
     const { data: profiles } = await supabase.from('profiles').select('*').eq('id', user.id)
     const { data: experiences } = await supabase.from('experiences').select('*').eq('user_id', user.id)
+    const { data: careerRoles } = await supabase
+      .from('career_roles')
+      .select('title, tier, readiness_score, goal_alignment_score')
+      .eq('user_id', user.id)
     const profile = profiles?.[0]
 
     if (!profile) {
@@ -206,12 +216,27 @@ Deno.serve(async (req) => {
     const targetTitles: string[] = profile.target_job_titles || []
     const fallbackTitle: string = profile.five_year_role || profile.field_of_study || 'Software Developer'
 
-    // Primary role term — prefer first explicit target, fall back to five_year_role.
-    // If it's a single very short word like "product", pad it so it reads like a job title.
-    const rawRoleTerm = (targetTitles[0] || fallbackTitle).trim()
+    // Role-term priority:
+    //   1. Explicit role_filter from the request body (user picked from dropdown)
+    //   2. Top Tier 1 role from career_roles (best immediate move per analysis)
+    //   3. First profile.target_job_titles entry
+    //   4. profile.five_year_role / field_of_study fallback
+    // Career roles reflect the two-axis tier analysis the user already ran —
+    // those are the titles they're actually qualified for or working toward,
+    // which are a far better search target than a raw 5-year-goal string.
+    const sortedRoles = (careerRoles || []).slice().sort((a, b) => {
+      const rank = (t: string | null | undefined) =>
+        t === 'tier_1' ? 0 : t === 'tier_2' ? 1 : t === 'tier_3' ? 2 : 3;
+      const rd = rank(a?.tier) - rank(b?.tier);
+      if (rd !== 0) return rd;
+      return (Number(b?.readiness_score) || 0) - (Number(a?.readiness_score) || 0);
+    });
+    const topCareerRole = sortedRoles[0]?.title || '';
+    const rawRoleTerm = (roleFilterParam || topCareerRole || targetTitles[0] || fallbackTitle).trim();
     const roleTerm = (rawRoleTerm.length > 0 && rawRoleTerm.split(/\s+/).length === 1 && rawRoleTerm.length <= 10)
       ? `${rawRoleTerm} manager`
       : rawRoleTerm
+    console.log("[JOBS] roleTerm source:", roleFilterParam ? 'role_filter' : topCareerRole ? 'career_roles[top]' : targetTitles[0] ? 'target_job_titles[0]' : 'fallback', "→", rawRoleTerm)
 
     // Resolve to a metro/region hub so the query uses a name JSearch actually indexes.
     // For Israel: Herzliya → "Tel Aviv". For other countries, keep the raw location.

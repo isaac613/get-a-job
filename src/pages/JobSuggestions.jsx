@@ -1,9 +1,25 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Loader2, RefreshCw, ExternalLink, Briefcase, MapPin, CheckCircle2, PlusCircle, Sparkles } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+
+const TIER_LABELS = {
+  tier_1: "Your Move",
+  tier_2: "Plan B",
+  tier_3: "Work Toward",
+};
+const TIER_ORDER = ["tier_1", "tier_2", "tier_3"];
 
 function formatSalary(min, max) {
   if (!min && !max) return null;
@@ -158,6 +174,53 @@ export default function JobSuggestions() {
     enabled: !!user?.id,
   });
 
+  // Career roadmap tiers — source of the role dropdown. Matching the
+  // CareerRoadmap page's query key keeps the cache shared.
+  const { data: careerRoles = [] } = useQuery({
+    queryKey: ["careerRoles", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const { data, error } = await supabase
+        .from("career_roles")
+        .select("title, tier, readiness_score, goal_alignment_score")
+        .eq("user_id", user.id);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id,
+  });
+
+  // Group + sort by tier for the dropdown. Dedupe by title (some users have
+  // duplicate entries across regenerations) and sort within a tier by readiness.
+  const rolesByTier = useMemo(() => {
+    const seen = new Set();
+    const groups = { tier_1: [], tier_2: [], tier_3: [] };
+    for (const r of careerRoles) {
+      if (!r?.title || !groups[r.tier]) continue;
+      const key = r.title.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      groups[r.tier].push(r);
+    }
+    for (const t of TIER_ORDER) {
+      groups[t].sort((a, b) => (Number(b.readiness_score) || 0) - (Number(a.readiness_score) || 0));
+    }
+    return groups;
+  }, [careerRoles]);
+
+  const [selectedRole, setSelectedRole] = useState(null);
+
+  // Default the dropdown to the top Tier 1 role (fall back to T2 → T3 if none).
+  useEffect(() => {
+    if (selectedRole) return;
+    for (const t of TIER_ORDER) {
+      if (rolesByTier[t].length > 0) {
+        setSelectedRole(rolesByTier[t][0].title);
+        return;
+      }
+    }
+  }, [rolesByTier, selectedRole]);
+
   // Auto-load cached suggestions from DB on mount
   useEffect(() => {
     if (!user?.id || !profile) return;
@@ -203,7 +266,10 @@ export default function JobSuggestions() {
 
     try {
       const { data, error } = await supabase.functions.invoke("generate-job-suggestions", {
-        body: { force_refresh: true },
+        body: {
+          force_refresh: true,
+          ...(selectedRole && { role_filter: selectedRole }),
+        },
       });
 
       if (error) throw error;
@@ -249,7 +315,7 @@ export default function JobSuggestions() {
         </div>
       )}
 
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
         <div>
           {lastGenerated && (
             <p className="text-xs text-[#A3A3A3]">
@@ -257,19 +323,42 @@ export default function JobSuggestions() {
             </p>
           )}
         </div>
-        <Button
-          onClick={() => generateSuggestions()}
-          disabled={loading || !profile}
-          className="bg-[#0A0A0A] hover:bg-[#262626]"
-        >
-          {loading ? (
-            <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Finding Jobs...</>
-          ) : jobs.length > 0 ? (
-            <><RefreshCw className="w-4 h-4 mr-2" />Refresh Matches</>
-          ) : (
-            <><Sparkles className="w-4 h-4 mr-2" />Find Job Matches</>
+        <div className="flex items-center gap-2">
+          {careerRoles.length > 0 && (
+            <Select value={selectedRole || ""} onValueChange={setSelectedRole}>
+              <SelectTrigger className="w-[260px] text-sm" aria-label="Role to search for">
+                <SelectValue placeholder="Pick a role to search" />
+              </SelectTrigger>
+              <SelectContent>
+                {TIER_ORDER.map((t) =>
+                  rolesByTier[t].length > 0 ? (
+                    <SelectGroup key={t}>
+                      <SelectLabel>{TIER_LABELS[t]}</SelectLabel>
+                      {rolesByTier[t].map((r) => (
+                        <SelectItem key={`${t}:${r.title}`} value={r.title}>
+                          {r.title}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  ) : null
+                )}
+              </SelectContent>
+            </Select>
           )}
-        </Button>
+          <Button
+            onClick={() => generateSuggestions()}
+            disabled={loading || !profile}
+            className="bg-[#0A0A0A] hover:bg-[#262626]"
+          >
+            {loading ? (
+              <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Finding Jobs...</>
+            ) : jobs.length > 0 ? (
+              <><RefreshCw className="w-4 h-4 mr-2" />Refresh Matches</>
+            ) : (
+              <><Sparkles className="w-4 h-4 mr-2" />Find Job Matches</>
+            )}
+          </Button>
+        </div>
       </div>
 
       {error && (
