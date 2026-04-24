@@ -10,6 +10,17 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('cvs', 'cvs', false)
 ON CONFLICT (id) DO NOTHING;
 
+-- Widen the MIME whitelist to accept .docx (primary output format) and
+-- .doc for legacy Word. PDF stays in the list so any older CVs already in
+-- storage remain downloadable.
+UPDATE storage.buckets
+SET allowed_mime_types = ARRAY[
+  'application/pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/msword'
+]
+WHERE id = 'cvs';
+
 -- Owner-only CRUD, keyed by the first path segment being the user's UUID
 -- (matches the path shape used by generate-tailored-cv).
 DROP POLICY IF EXISTS cvs_select_own ON storage.objects;

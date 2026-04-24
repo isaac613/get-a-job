@@ -1,5 +1,23 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { jsPDF } from "npm:jspdf@2.5.2";
+// docx package produces a real .docx file the user can edit in Word/Google
+// Docs and export to PDF themselves. Imported via esm.sh so Deno's edge
+// runtime can resolve the full dependency tree. Version pinned for stability.
+import {
+  AlignmentType,
+  BorderStyle,
+  Document,
+  HeadingLevel,
+  LineRuleType,
+  Packer,
+  Paragraph,
+  Table,
+  TableCell,
+  TableRow,
+  TabStopPosition,
+  TabStopType,
+  TextRun,
+  WidthType,
+} from "https://esm.sh/docx@8.5.0";
 
 // --- Load JSON Libraries ---
 import { roleLibrary } from "./shared/libraries/00_role_library.ts";
@@ -405,7 +423,7 @@ D. What you MAY do:
     • bucket === "military"     → military_experiences[]
     • bucket === "volunteering" → volunteering_experiences[]
     • bucket === "leadership"   → leadership_experiences[]
-- About Me: 2-3 sentences. Tailored to the target role; if a company name is given, reference it by name. Third person is fine.
+- About Me: 2-3 descriptive sentences. Write in FACTUAL style with no pronouns (no "he", "she", "his", "her") and no candidate-speak ("strong candidate", "well-suited", "eager to", "making him/her a great fit"). Describe the user's actual skills and current work as facts and tie them to the target role through CONTENT, not self-promotion. Example to emulate: "Business Administration student specializing in Digital Innovation with hands-on experience in VIP customer success, operational leadership, and cross-functional coordination. Currently supporting high-value users at a cybersecurity startup while leading educational programs. Strong ability to understand user needs through direct interaction and communicate insights across teams." Referencing the target company by name is fine where it fits naturally, but do NOT say "strong candidate for X role at Y".
 - Experience bullets: action verb + what you did. Factual, concrete. No invented metrics.
 - Skills & Tools: categorize as Domain (role-specific capabilities) and Tools (software/platforms/systems). Languages do NOT go here.
 - Languages: human spoken/written languages only. Draw them from the user's skills list if language-like entries are there; draw also from language_hints[] which flags likely languages based on location. Include a proficiency level (Native | Fluent | Professional | Conversational | Basic) when the source or hint supports it, otherwise omit level.
@@ -416,7 +434,7 @@ D. What you MAY do:
 `;
 
     const TAILORING_RULES = `TAILORING RULES:
-- If TARGET COMPANY is provided, reference it by name in About Me and lightly echo its domain (e.g. "trade finance", "B2B fintech") if the JD signals it.
+- If TARGET COMPANY is provided, you MAY reference it by name in About Me when it fits naturally, and lightly echo its domain (e.g. "trade finance", "B2B fintech") if the JD signals it. Do NOT add filler like "eager to contribute" or "strong candidate" — keep descriptions factual.
 - If JOB DESCRIPTION is provided, reorder experience bullets so those demonstrating JD-relevant skills come first within each role.
 - If the JD names specific tools/skills, surface the user's matching tools/skills prominently in the Skills section — but only if they are actually in the user's profile.
 - If the JD requires a qualification the user lacks (e.g. a specific degree), do NOT pretend they have it. The Fit Analysis section will honestly flag this.
@@ -469,7 +487,7 @@ OUTPUT SCHEMA (JSON):
     "location": "string",
     "linkedin": "string — linkedin URL or handle"
   },
-  "summary": "string — 2-3 sentences, tailored to the target role and (if given) target company. No invented metrics.",
+  "summary": "string — 2-3 FACTUAL descriptive sentences. No pronouns (he/she/his/her). No candidate-speak (no 'strong candidate', 'eager to', 'well-suited'). Describe skills and current work as facts; let content speak for fit.",
   "professional_experiences": [
     { "title": "string — EXACT title from USER DATA", "company": "string — EXACT company from USER DATA", "dates": "string — e.g. Oct 2025 - Present", "bullets": ["concrete factual action-verb statement"] }
   ],
@@ -634,180 +652,143 @@ SPECIFIC OUTPUT RULES:
     }
     cvData.fit_analysis = fa;
 
-    // --- Generate PDF (professional, single-page layout) ---
-    // Typography is tuned so an entry-level CV (4-5 experiences + military +
-    // volunteering + honors + languages) fits on one A4 page. If a user has
-    // significantly more content the renderer will still paginate cleanly,
-    // but the target is one page for the common case.
-    const doc = new jsPDF();
-    const leftMargin = 14;
-    const rightMargin = 196;
-    const pageWidth = rightMargin - leftMargin;
-    const pageBottom = 285;
-    const ACCENT: [number, number, number] = [37, 99, 235];
-    const MUTED: [number, number, number] = [90, 90, 95];
-    const SUBTLE: [number, number, number] = [130, 130, 135];
-    // Rules are neutral gray — no accent color on lines, per spec. The accent
-    // blue only shows on section-header text to keep the document readable.
-    const RULE_GRAY: [number, number, number] = [212, 212, 212]; // #D4D4D4
-    const RULE_WEIGHT = 0.3;
-    const TOP_Y = 14;
-    let y = TOP_Y;
+    // --- Build DOCX (professional single-column CV) ---
+    // Users can open the generated file in Word or Google Docs, tweak it
+    // further, and export to PDF themselves. This eliminates every jsPDF
+    // layout problem we had (font, margins, overflow, styling) in exchange
+    // for a slightly larger payload.
+    //
+    // docx units:
+    //   - font size is in half-points (20 = 10pt, 26 = 13pt, 56 = 28pt)
+    //   - twips: 1 inch = 1440 twips, 1 mm ≈ 56.7 twips
+    //   - margins 20mm top/bottom ≈ 1134 twips, 25mm left/right ≈ 1417 twips
+    //   - tab stop max ≈ 9072 twips (inside a 21cm page with 25mm margins)
+    //   - line: 240 = single, 276 = 1.15x, 288 = 1.2x, 360 = 1.5x
+    const FONT = "Calibri";
+    const BLACK = "000000";
+    const MUTED_COLOR = "555555";
+    const BODY_SIZE = 21; // 10.5pt, matches document default
+    const BULLET_SIZE = 20; // 10pt for entry bullets
+    const HEADING_SIZE = 26; // 13pt section heading
+    const SUBHEADING_SIZE = 22; // 11pt sub-section heading
+    const ENTRY_TITLE_SIZE = 22; // 11pt bold role/degree line
+    const CONTACT_SIZE = 20; // 10pt contact line
+    const DATE_SIZE = 20; // 10pt dates, muted
+    const NAME_SIZE = 56; // 28pt uppercase name
+    const ROLE_SUBTITLE_SIZE = 28; // 14pt subtitle under the name
+    // Right tab stop at ~9000 twips sits just inside the right margin for an
+    // A4 page with 25mm margins.
+    const RIGHT_TAB = 9000;
 
-    const ensureSpace = (needed: number) => {
-      if (y + needed > pageBottom) {
-        doc.addPage();
-        y = TOP_Y;
-      }
-    };
-    const addSpace = (space = 1) => { y += space; };
+    const paragraphs: Array<Paragraph | Table> = [];
 
-    const setFont = (weight: "bold" | "normal", size: number, color: [number, number, number]) => {
-      doc.setFont("helvetica", weight);
-      doc.setFontSize(size);
-      doc.setTextColor(color[0], color[1], color[2]);
-    };
+    // Small helpers — each returns a Paragraph pushed into `paragraphs`.
+    const text = (s: string, opts: Record<string, unknown> = {}) =>
+      new TextRun({ text: s, font: FONT, size: BODY_SIZE, ...opts });
 
-    const addSectionHeader = (title: string) => {
-      ensureSpace(9);
-      // The visual gap between the last bullet of the previous section and
-      // this heading is pre-padding + the bullet's trailing advance (~1mm).
-      // 3mm here gives ~4mm visible gap — plenty of breathing room without
-      // wasting vertical space on a single-page CV.
-      y += 3;
-      setFont("bold", 12, ACCENT);
-      doc.text(title.toUpperCase(), leftMargin, y);
-      y += 1.3;
-      doc.setDrawColor(RULE_GRAY[0], RULE_GRAY[1], RULE_GRAY[2]);
-      doc.setLineWidth(RULE_WEIGHT);
-      doc.line(leftMargin, y, rightMargin, y);
-      // Gap between underline and first entry.
-      y += 3;
-    };
+    const sectionHeading = (label: string) => new Paragraph({
+      spacing: { before: 240, after: 80 },
+      border: { bottom: { color: "BFBFBF", style: BorderStyle.SINGLE, size: 6, space: 1 } },
+      children: [new TextRun({ text: label.toUpperCase(), bold: true, size: HEADING_SIZE, font: FONT })],
+    });
 
-    // Education entries keep the two-line format: bold title + right-aligned
-    // dates on line 1, lighter subtitle (institution / location) on line 2.
-    const addEntryHeader = (title: string, dates?: string, subtitle?: string) => {
-      ensureSpace(subtitle ? 9.5 : 5.5);
-      setFont("bold", 10, [0, 0, 0]);
-      doc.text(String(title || ""), leftMargin, y);
-      if (dates) {
-        setFont("normal", 9, SUBTLE);
-        doc.text(String(dates), rightMargin, y, { align: "right" });
-      }
-      y += 4.3;
-      if (subtitle) {
-        setFont("normal", 9, MUTED);
-        doc.text(String(subtitle), leftMargin, y);
-        y += 4.0;
-      }
-    };
+    const subsectionHeading = (label: string) => new Paragraph({
+      spacing: { before: 120, after: 60 },
+      children: [new TextRun({ text: label, bold: true, size: SUBHEADING_SIZE, font: FONT })],
+    });
 
-    // Experience entries use the single-line "Role Title, Company" format with
-    // dates right-aligned. Matches the Deloitte-style target layout.
-    const addExperienceEntry = (title: string, org?: string, dates?: string) => {
-      ensureSpace(6);
-      setFont("bold", 10, [0, 0, 0]);
+    // Experience-style entry: "Role, Organization" bold on the left, dates
+    // muted and right-aligned on the same line via a right tab stop.
+    const experienceEntryLine = (title: string, org: string | undefined, dates: string | undefined) => {
       const titleText = String(title || "").trim();
       const orgText = String(org || "").trim();
       const combined = orgText ? `${titleText}, ${orgText}` : titleText;
-      // Reserve space on the right for the dates string so long titles don't
-      // collide with the date column.
-      const reservedRight = 45;
-      const maxTitleWidth = pageWidth - reservedRight;
-      const titleLines = doc.splitTextToSize(combined, maxTitleWidth);
-      // First title line gets the dates right-aligned alongside it.
-      doc.text(titleLines[0] || "", leftMargin, y);
-      if (dates) {
-        setFont("normal", 9, SUBTLE);
-        doc.text(String(dates), rightMargin, y, { align: "right" });
+      const children: TextRun[] = [
+        new TextRun({ text: combined, bold: true, size: ENTRY_TITLE_SIZE, font: FONT }),
+      ];
+      if (dates && String(dates).trim()) {
+        children.push(new TextRun({ text: "\t", size: ENTRY_TITLE_SIZE }));
+        children.push(new TextRun({ text: String(dates).trim(), size: DATE_SIZE, color: MUTED_COLOR, font: FONT }));
       }
-      y += 4.3;
-      // If title wrapped, continue on subsequent lines (still bold).
-      if (titleLines.length > 1) {
-        setFont("bold", 10, [0, 0, 0]);
-        for (let i = 1; i < titleLines.length; i++) {
-          ensureSpace(4.3);
-          doc.text(titleLines[i], leftMargin, y);
-          y += 4.3;
-        }
-      }
-    };
-
-    const addBullet = (text: string) => {
-      // ~6mm indent from the left margin, with a visible bullet glyph. The
-      // text wraps back under itself (not under the bullet) for readability.
-      const bulletX = leftMargin + 4;
-      const textX = leftMargin + 8;
-      setFont("normal", 9, [20, 20, 20]);
-      const lines = doc.splitTextToSize(String(text || ""), pageWidth - 8);
-      lines.forEach((line: string, i: number) => {
-        ensureSpace(4);
-        if (i === 0) doc.text("\u2022", bulletX, y);
-        doc.text(line, textX, y);
-        y += 3.9;
+      return new Paragraph({
+        tabStops: [{ type: TabStopType.RIGHT, position: RIGHT_TAB }],
+        spacing: { after: 40 },
+        children,
       });
     };
 
-    const addParagraph = (text: string, fontSize = 9.5, color: [number, number, number] = [25, 25, 25]) => {
-      setFont("normal", fontSize, color);
-      const lines = doc.splitTextToSize(String(text || ""), pageWidth);
-      lines.forEach((line: string) => {
-        ensureSpace(fontSize * 0.5 + 0.5);
-        doc.text(line, leftMargin, y);
-        y += fontSize * 0.5;
-      });
+    // Education-style entry: bold degree + right-aligned dates on line 1,
+    // plain institution / location on line 2. Mirrors the previous two-line
+    // PDF layout.
+    const educationEntryLines = (title: string, subtitle: string | undefined, dates: string | undefined) => {
+      const out: Paragraph[] = [];
+      const titleChildren: TextRun[] = [
+        new TextRun({ text: String(title || "").trim(), bold: true, size: ENTRY_TITLE_SIZE, font: FONT }),
+      ];
+      if (dates && String(dates).trim()) {
+        titleChildren.push(new TextRun({ text: "\t", size: ENTRY_TITLE_SIZE }));
+        titleChildren.push(new TextRun({ text: String(dates).trim(), size: DATE_SIZE, color: MUTED_COLOR, font: FONT }));
+      }
+      out.push(new Paragraph({
+        tabStops: [{ type: TabStopType.RIGHT, position: RIGHT_TAB }],
+        spacing: { after: 0 },
+        children: titleChildren,
+      }));
+      const subText = String(subtitle || "").trim();
+      if (subText) {
+        out.push(new Paragraph({
+          spacing: { after: 40 },
+          children: [new TextRun({ text: subText, size: BULLET_SIZE, color: MUTED_COLOR, font: FONT })],
+        }));
+      }
+      return out;
     };
 
-    // Label: value — wraps values onto continuation lines aligned after the label.
-    const addLabelledLine = (label: string, values: string[] | string) => {
-      if (!values || (Array.isArray(values) && values.length === 0)) return;
-      ensureSpace(5);
-      setFont("bold", 9, [0, 0, 0]);
-      const labelText = `${label}: `;
-      doc.text(labelText, leftMargin, y);
-      const labelWidth = doc.getTextWidth(labelText);
-      setFont("normal", 9, [25, 25, 25]);
+    // Bulleted list item — Word's default bullet list style.
+    const bulletParagraph = (s: string) => new Paragraph({
+      bullet: { level: 0 },
+      spacing: { after: 40, line: 276, lineRule: LineRuleType.AUTO },
+      children: [new TextRun({ text: String(s || ""), size: BULLET_SIZE, font: FONT })],
+    });
+
+    // Single paragraph of body text (used for About Me).
+    const bodyParagraph = (s: string) => new Paragraph({
+      alignment: AlignmentType.JUSTIFIED,
+      spacing: { after: 80, line: 276, lineRule: LineRuleType.AUTO },
+      children: [new TextRun({ text: String(s || ""), size: BODY_SIZE, font: FONT })],
+    });
+
+    // Bold label + value paragraph, e.g. "Domain: X, Y, Z".
+    const labelledLine = (label: string, values: string[] | string) => {
+      if (!values || (Array.isArray(values) && values.length === 0)) return null;
       const valueText = Array.isArray(values) ? values.join(", ") : String(values);
-      const lines = doc.splitTextToSize(valueText, pageWidth - labelWidth);
-      lines.forEach((line: string, i: number) => {
-        ensureSpace(4);
-        doc.text(line, i === 0 ? leftMargin + labelWidth : leftMargin + labelWidth, y);
-        y += 3.8;
+      return new Paragraph({
+        spacing: { after: 40 },
+        children: [
+          new TextRun({ text: `${label}: `, bold: true, size: BULLET_SIZE, font: FONT }),
+          new TextRun({ text: valueText, size: BULLET_SIZE, font: FONT }),
+        ],
       });
     };
 
-    // Sub-section heading inside a top-level section (e.g. "Professional
-    // Experience" inside "EXPERIENCE"). Bold black at 10pt, no underline.
-    const addSubsectionHeading = (text: string) => {
-      ensureSpace(6);
-      y += 0.5;
-      setFont("bold", 10, [0, 0, 0]);
-      doc.text(String(text), leftMargin, y);
-      y += 3.8;
-    };
-
-    // --- Header (centered, Deloitte-style) ---
-    // Layout: NAME (uppercase, 20pt bold, centered) → target role (11pt,
-    // centered, below name) → thin rule → contact line (9pt, centered) →
-    // thin rule. Two rules bracket the contact line and separate the header
-    // from the body.
+    // ─── Header (centered name / role / contact line) ───
     const header = (cvData.header || {}) as any;
-    const pageCenter = leftMargin + pageWidth / 2;
     const nameText = String(header.name || userContext.full_name || "").toUpperCase();
-    setFont("bold", 20, [0, 0, 0]);
-    doc.text(nameText, pageCenter, y, { align: "center" });
-    y += 7.5;
+    paragraphs.push(new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 40 },
+      children: [new TextRun({ text: nameText, bold: true, size: NAME_SIZE, font: FONT })],
+    }));
 
     const roleText = String(header.title || "").trim();
     if (roleText) {
-      setFont("normal", 11, ACCENT);
-      doc.text(roleText, pageCenter, y, { align: "center" });
-      y += 4.5;
+      paragraphs.push(new Paragraph({
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 80 },
+        children: [new TextRun({ text: roleText, size: ROLE_SUBTITLE_SIZE, color: MUTED_COLOR, font: FONT })],
+      }));
     }
 
-    // Only include contact bits that actually have a value — don't create
-    // gaps. Each entry is trimmed and skipped if empty.
     const contactBits: string[] = [];
     const pushBit = (v: string | null | undefined) => {
       const s = (v ?? "").toString().trim();
@@ -818,36 +799,21 @@ SPECIFIC OUTPUT RULES:
     pushBit(header.location || userContext.location);
     pushBit(header.linkedin || userContext.linkedin_url);
     if (contactBits.length > 0) {
-      setFont("normal", 9, MUTED);
-      const contactLine = contactBits.join("  \u00B7  ");
-      const lines = doc.splitTextToSize(contactLine, pageWidth);
-      lines.forEach((line: string) => {
-        doc.text(line, pageCenter, y, { align: "center" });
-        y += 3.8;
-      });
+      paragraphs.push(new Paragraph({
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 120 },
+        children: [new TextRun({ text: contactBits.join("  \u00B7  "), size: CONTACT_SIZE, font: FONT })],
+      }));
     }
 
-    // Single subtle gray rule separating the header from the body. No blue
-    // accent bar above the contact line — cleaner, less templated feel.
-    y += 1.5;
-    doc.setDrawColor(RULE_GRAY[0], RULE_GRAY[1], RULE_GRAY[2]);
-    doc.setLineWidth(RULE_WEIGHT);
-    doc.line(leftMargin, y, rightMargin, y);
-    y += 0.5; // small buffer before first section's own pre-header padding
-
-    // --- About Me ---
-    // Accept either `summary` (new schema) or `about_me` (legacy schema).
+    // ─── About Me ───
     const aboutText = String(cvData.summary || cvData.about_me || "").trim();
     if (aboutText) {
-      addSectionHeader("About Me");
-      addParagraph(aboutText, 9.5);
+      paragraphs.push(sectionHeading("About Me"));
+      paragraphs.push(bodyParagraph(aboutText));
     }
 
-    // --- EXPERIENCE (umbrella section with sub-headings) ---
-    // Pulls from four possible buckets. Each sub-heading is rendered only if
-    // its bucket has at least one entry. Older schema variants are accepted
-    // as fallbacks (e.g. military_service{} single-object, experiences[] as
-    // "professional"), so older in-flight responses don't produce blanks.
+    // ─── EXPERIENCE (umbrella with sub-headings) ───
     const professional: any[] = Array.isArray(cvData.professional_experiences)
       ? cvData.professional_experiences
       : (Array.isArray(cvData.experiences) ? cvData.experiences : []);
@@ -864,44 +830,34 @@ SPECIFIC OUTPUT RULES:
     const hasAnyExperience =
       professional.length + militaryList.length + volunteeringList.length + leadershipList.length > 0;
 
+    const renderEntryBlock = (entries: any[], orgKey: string) => {
+      entries.forEach((exp: any) => {
+        paragraphs.push(experienceEntryLine(exp.title || "", exp[orgKey], exp.dates));
+        (exp.bullets || []).forEach((b: string) => paragraphs.push(bulletParagraph(b)));
+      });
+    };
+
     if (hasAnyExperience) {
-      addSectionHeader("Experience");
-
-      // Experience entries use the "Role, Organization" single-line format.
-      const renderEntries = (entries: any[], orgKey: string) => {
-        entries.forEach((exp: any, idx: number) => {
-          addExperienceEntry(exp.title || "", exp[orgKey], exp.dates);
-          (exp.bullets || []).forEach((bullet: string) => addBullet(bullet));
-          if (idx < entries.length - 1) addSpace(3);
-        });
-      };
-
+      paragraphs.push(sectionHeading("Experience"));
       if (professional.length > 0) {
-        addSubsectionHeading("Professional Experience");
-        renderEntries(professional, "company");
+        paragraphs.push(subsectionHeading("Professional Experience"));
+        renderEntryBlock(professional, "company");
       }
       if (militaryList.length > 0) {
-        if (professional.length > 0) addSpace(3);
-        addSubsectionHeading("Military Service");
-        renderEntries(militaryList, "unit");
+        paragraphs.push(subsectionHeading("Military Service"));
+        renderEntryBlock(militaryList, "unit");
       }
       if (volunteeringList.length > 0) {
-        if (professional.length + militaryList.length > 0) addSpace(3);
-        addSubsectionHeading("Volunteering");
-        renderEntries(volunteeringList, "organization");
+        paragraphs.push(subsectionHeading("Volunteering"));
+        renderEntryBlock(volunteeringList, "organization");
       }
       if (leadershipList.length > 0) {
-        if (professional.length + militaryList.length + volunteeringList.length > 0) addSpace(3);
-        addSubsectionHeading("Leadership");
-        renderEntries(leadershipList, "organization");
+        paragraphs.push(subsectionHeading("Leadership"));
+        renderEntryBlock(leadershipList, "organization");
       }
     }
 
-    // --- Education (university + secondary, rendered top-down) ---
-    // The LLM emits education[] — we append the pre-university slot as a
-    // second entry so any user who filled secondary_education in their
-    // profile gets it on the CV. If the LLM already included it we'd have
-    // duplicates, so we dedupe loosely by institution.
+    // ─── Education (university + optional secondary) ───
     const llmEducation: any[] = Array.isArray(cvData.education) ? cvData.education : [];
     const secondary = (userContext as any).secondary_education;
     const normInst = (s: unknown) => String(s || "").replace(/\s+/g, " ").trim().toLowerCase();
@@ -912,7 +868,7 @@ SPECIFIC OUTPUT RULES:
       if (!already) {
         mergedEducation.push({
           institution: secondary.institution,
-          degree: "", // secondary ed has no degree field
+          degree: "",
           dates: secondary.dates,
           coursework: [],
           highlights: secondary.highlights || [],
@@ -922,10 +878,8 @@ SPECIFIC OUTPUT RULES:
     }
 
     if (mergedEducation.length > 0) {
-      addSectionHeader("Education");
-      // Pre-compute a normalized set of honors so we can dedupe any detail
-      // that's really an award — the LLM sometimes puts honors in both places.
-      // Handles both legacy string[] and new [{name, description}] shapes.
+      paragraphs.push(sectionHeading("Education"));
+      // Honors set for deduping — accepts legacy string[] or {name, description}[].
       const honorsSet = new Set(
         safeArray(cvData.honors_and_awards)
           .map((h: any) => {
@@ -936,18 +890,13 @@ SPECIFIC OUTPUT RULES:
           .map((s) => String(s).replace(/\s+/g, " ").trim().toLowerCase())
           .filter(Boolean),
       );
-      mergedEducation.forEach((edu: any, idx: number) => {
-        // Institution is the primary identifier for an education entry; the
-        // degree + specialization sits below (or is empty for secondary ed).
+
+      mergedEducation.forEach((edu: any) => {
         const topLine = edu.degree?.trim() ? edu.degree : edu.institution;
         const subLine = edu.degree?.trim() ? edu.institution : (edu._secondary_location || "");
-        addEntryHeader(topLine || "", edu.dates, subLine);
-        if (edu.gpa) addBullet(`GPA: ${edu.gpa}`);
+        educationEntryLines(topLine || "", subLine, edu.dates).forEach((p) => paragraphs.push(p));
+        if (edu.gpa) paragraphs.push(bulletParagraph(`GPA: ${edu.gpa}`));
 
-        // Prefer the new {coursework[], activities[]} split; fall back to the
-        // legacy {details[] / highlights[]} fields. If only details[] is
-        // present, short items (no punctuation, <30 chars) are treated as
-        // coursework and collapsed into one line; longer items as activities.
         let coursework = safeArray(edu.coursework || edu.relevant_coursework).map(String);
         let activities = safeArray(edu.activities).map(String);
         if (coursework.length === 0 && activities.length === 0) {
@@ -964,9 +913,8 @@ SPECIFIC OUTPUT RULES:
         }
 
         if (coursework.length > 0) {
-          addBullet(`Relevant coursework: ${coursework.join(", ")}`);
+          paragraphs.push(bulletParagraph(`Relevant coursework: ${coursework.join(", ")}`));
         }
-        // Dedupe activities and skip anything that duplicates an award.
         const seen = new Set<string>();
         activities.forEach((a) => {
           const raw = String(a || "").trim();
@@ -975,28 +923,31 @@ SPECIFIC OUTPUT RULES:
           if (seen.has(key)) return;
           seen.add(key);
           if (honorsSet.has(key)) return;
-          addBullet(raw);
+          paragraphs.push(bulletParagraph(raw));
         });
-        if (idx < mergedEducation.length - 1) addSpace(3);
       });
     }
 
-    // --- Skills & Tools ---
-    // Supports Domain, Tools, and Technical categories. Only renders labels
-    // that have at least one entry.
+    // ─── Skills & Tools ───
     const skills = (cvData.skills || {}) as any;
     const hasSkills = (skills.domain?.length || skills.tools?.length || skills.technical?.length);
     if (hasSkills) {
-      addSectionHeader("Skills & Tools");
-      if (skills.domain?.length > 0) addLabelledLine("Domain", skills.domain);
-      if (skills.tools?.length > 0) addLabelledLine("Tools", skills.tools);
-      if (skills.technical?.length > 0) addLabelledLine("Technical", skills.technical);
+      paragraphs.push(sectionHeading("Skills & Tools"));
+      if (skills.domain?.length > 0) {
+        const p = labelledLine("Domain", skills.domain);
+        if (p) paragraphs.push(p);
+      }
+      if (skills.tools?.length > 0) {
+        const p = labelledLine("Tools", skills.tools);
+        if (p) paragraphs.push(p);
+      }
+      if (skills.technical?.length > 0) {
+        const p = labelledLine("Technical", skills.technical);
+        if (p) paragraphs.push(p);
+      }
     }
 
-    // --- Languages ---
-    // Accepts any of: [{language, proficiency}], [{language, level}], string[],
-    // or a legacy skills.languages string[]. Proficiency/level are rendered
-    // in parentheses when present.
+    // ─── Languages ───
     let languageLines: string[] = [];
     if (Array.isArray(cvData.languages)) {
       languageLines = (cvData.languages as any[])
@@ -1012,14 +963,12 @@ SPECIFIC OUTPUT RULES:
       languageLines = (skills.languages as any[]).map((s) => String(s)).filter(Boolean);
     }
     if (languageLines.length > 0) {
-      addSectionHeader("Languages");
-      addLabelledLine("Languages", languageLines);
+      paragraphs.push(sectionHeading("Languages"));
+      const p = labelledLine("Languages", languageLines);
+      if (p) paragraphs.push(p);
     }
 
-    // --- Honors & Awards ---
-    // Accepts string[] (legacy) or [{name, description}] (new). Rendered as
-    // "Award Name — description" when description is present, otherwise just
-    // the name.
+    // ─── Honors & Awards ───
     const honorsRaw = safeArray(cvData.honors_and_awards);
     const honorLines: string[] = honorsRaw
       .map((h: any) => {
@@ -1031,45 +980,66 @@ SPECIFIC OUTPUT RULES:
       })
       .filter((s) => s.length > 0);
     if (honorLines.length > 0) {
-      addSectionHeader("Honors & Awards");
-      honorLines.forEach((h) => addBullet(h));
+      paragraphs.push(sectionHeading("Honors & Awards"));
+      honorLines.forEach((h) => paragraphs.push(bulletParagraph(h)));
     }
 
-    // --- Certifications ---
-    // Rendered as bullets: "Cert Name, Issuer (date)" — one line per cert.
+    // ─── Certifications ───
     const certs = Array.isArray(cvData.certifications) ? cvData.certifications : [];
     if (certs.length > 0) {
-      addSectionHeader("Certifications");
+      paragraphs.push(sectionHeading("Certifications"));
       certs.forEach((cert: any) => {
         const parts: string[] = [];
         if (cert.name) parts.push(String(cert.name));
         if (cert.issuer) parts.push(String(cert.issuer));
         const line = parts.join(", ") + (cert.date ? `  (${cert.date})` : "");
-        if (line.trim()) addBullet(line);
+        if (line.trim()) paragraphs.push(bulletParagraph(line));
       });
     }
 
-    // --- Projects ---
+    // ─── Projects ───
     const projectsOut = Array.isArray(cvData.projects) ? cvData.projects : [];
     if (projectsOut.length > 0) {
-      addSectionHeader("Projects");
-      projectsOut.forEach((proj: any, idx: number) => {
-        addExperienceEntry(proj.name || "", undefined, undefined);
-        (proj.bullets || []).forEach((bullet: string) => addBullet(bullet));
-        if (idx < projectsOut.length - 1) addSpace(3);
+      paragraphs.push(sectionHeading("Projects"));
+      projectsOut.forEach((proj: any) => {
+        paragraphs.push(experienceEntryLine(proj.name || "", undefined, undefined));
+        (proj.bullets || []).forEach((b: string) => paragraphs.push(bulletParagraph(b)));
       });
     }
 
-    const pdfBuffer = doc.output("arraybuffer");
+    // Assemble the document. Top/bottom 20mm, left/right 25mm per spec.
+    const docFile = new Document({
+      styles: {
+        default: {
+          document: { run: { font: FONT, size: BODY_SIZE } },
+        },
+      },
+      sections: [{
+        properties: {
+          page: {
+            margin: { top: 1134, bottom: 1134, left: 1417, right: 1417 },
+          },
+        },
+        children: paragraphs,
+      }],
+    });
+
+    // Packer.toBase64String is the most portable in Deno edge runtime —
+    // toBlob / toBuffer rely on host APIs that aren't always available. We
+    // decode the base64 into a Uint8Array for Supabase storage.
+    const docBase64 = await Packer.toBase64String(docFile);
+    const docBytes = Uint8Array.from(atob(docBase64), (c) => c.charCodeAt(0));
+
     const safeRole = safeTargetRole.replace(/[^a-zA-Z0-9_\-]/g, "_");
-    const fileName = `${user.id}/${safeRole}_CV_${Date.now()}.pdf`;
+    const fileName = `${user.id}/${safeRole}_CV_${Date.now()}.docx`;
+    const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
     const { error: uploadError } = await serviceClient.storage
       .from("cvs")
-      .upload(fileName, pdfBuffer, { contentType: "application/pdf", upsert: true });
+      .upload(fileName, docBytes, { contentType: DOCX_MIME, upsert: true });
 
     if (uploadError) {
-      return json({ error: `PDF upload failed: ${uploadError.message}` }, 500);
+      return json({ error: `CV upload failed: ${uploadError.message}` }, 500);
     }
 
     const { data: signedUrlData, error: signedUrlError } = await serviceClient.storage
