@@ -426,9 +426,9 @@ OUTPUT SCHEMA (JSON):
     "location": "string",
     "linkedin": "string — linkedin URL or handle"
   },
-  "about_me": "string — 2-3 sentences, tailored to the target role and (if given) target company. No invented metrics.",
+  "summary": "string — 2-3 sentences, tailored to the target role and (if given) target company. No invented metrics.",
   "professional_experiences": [
-    { "title": "string — EXACT title from USER DATA", "company": "string — EXACT company from USER DATA", "dates": "string", "bullets": ["concrete factual action-verb statement"] }
+    { "title": "string — EXACT title from USER DATA", "company": "string — EXACT company from USER DATA", "dates": "string — e.g. Oct 2025 - Present", "bullets": ["concrete factual action-verb statement"] }
   ],
   "military_experiences": [
     { "title": "string — EXACT role/rank from USER DATA", "unit": "string — EXACT unit from USER DATA", "dates": "string", "bullets": ["civilian-readable bullet"] }
@@ -440,16 +440,19 @@ OUTPUT SCHEMA (JSON):
     { "title": "string — EXACT title", "organization": "string — EXACT org", "dates": "string", "bullets": ["factual statement"] }
   ],
   "education": [
-    { "institution": "string — EXACT institution", "degree": "string — EXACT degree/field", "dates": "string", "gpa": "string — only if explicitly in USER DATA and strong", "coursework": ["course1", "course2"], "highlights": ["leadership role, club, or position held DURING this education — NOT awards. Awards belong in honors_and_awards[] only."] }
+    { "degree": "string — EXACT degree/field from USER DATA", "institution": "string — EXACT institution", "dates": "string", "gpa": "string — only if explicitly in USER DATA and strong", "coursework": ["short course name", "short course name"], "activities": ["leadership role / club / notable activity — one per entry, NOT awards"] }
   ],
   "skills": {
     "domain": ["role-specific capability 1", "role-specific capability 2"],
-    "tools": ["software/platform 1", "software/platform 2"]
+    "tools": ["software/platform 1", "software/platform 2"],
+    "technical": ["programming language or technical stack 1", "stack 2"]
   },
   "languages": [
-    { "language": "English", "level": "Native | Fluent | Professional | Conversational | Basic" }
+    { "language": "English", "proficiency": "Native | Fluent | Professional | Conversational | Basic" }
   ],
-  "honors_and_awards": ["verbatim award string"],
+  "honors_and_awards": [
+    { "name": "Award name exactly as in source", "description": "one short line of context — omit if none" }
+  ],
   "certifications": [
     { "name": "string", "issuer": "string", "date": "string" }
   ],
@@ -468,9 +471,11 @@ SPECIFIC OUTPUT RULES:
 - "professional_experiences" contains ONLY entries whose \`bucket\` in USER DATA is "professional". Military → military_experiences[]. Volunteering → volunteering_experiences[]. Leadership → leadership_experiences[].
 - Every experience title and company/unit/organization must be COPIED VERBATIM from USER DATA. Do not shorten, generalize, or paraphrase them. If the source title is "Supervised and trained teams of soldiers", that is the title you output.
 - Every bullet must trace to something in the user's responsibilities text. Rephrase, don't invent.
-- If a responsibility line mentions an award (e.g. "Awarded Presidential Award for Excellence"), keep the mention AND add the award to honors_and_awards[].
-- If USER DATA.secondary_education is non-null, add it as a SECOND entry in education[] (institution, the secondary_education object's dates/highlights). Do not drop it because it's pre-university.
-- Languages: include every language signal from USER DATA.skills, USER DATA.summary, and USER DATA.language_hints. A user based in Israel (language_hints will show this) should include Hebrew at a reasonable level. English is essentially always applicable for professional roles; infer a sensible level from the rest of the data.
+- If a responsibility line mentions an award (e.g. "Awarded Presidential Award for Excellence"), keep the mention AND add the award to honors_and_awards[] as an object {name, description?}.
+- If USER DATA.secondary_education is non-null, add it as a SECOND entry in education[] (institution, dates from secondary_education.dates, details[] containing the highlights strings). Do not drop it because it's pre-university.
+- education[].coursework[] is a list of SHORT course names (e.g. "SQL", "Python", "Data Science") — the renderer joins them into a single "Relevant coursework: X, Y, Z" line. education[].activities[] is for leadership roles, clubs, or notable activities held DURING the education, each rendered as its own bullet. Do NOT duplicate awards here — awards only appear in honors_and_awards[].
+- skills.technical[] is for programming languages or technical stacks (Python, SQL, React, AWS, etc.) — include only if the user actually has them. Non-technical roles can omit this category entirely.
+- Languages: include every language signal from USER DATA.skills, USER DATA.summary, and USER DATA.language_hints. Use the "proficiency" field (not "level") with one of Native | Fluent | Professional | Conversational | Basic. A user based in Israel (language_hints will flag this) should include Hebrew at a reasonable proficiency. English is essentially always applicable for professional roles; infer a sensible proficiency from the rest of the data.
 - fit_analysis.skill_match_percentage is an integer 0-100. Compute honestly: how many of the JD's core requirements does this candidate actually meet? An entry-level candidate with clearly-transferable experience should score 40-70%. A perfect match should score 80-95%. Never output 0% unless the candidate has no overlap at all — 0% is almost never correct for a real candidate.
 - Return ONLY valid JSON. No markdown, no prose outside the JSON object.`;
 
@@ -596,42 +601,78 @@ SPECIFIC OUTPUT RULES:
     };
 
     const addSectionHeader = (title: string) => {
-      ensureSpace(8);
-      y += 1.5;
-      setFont("bold", 9, ACCENT);
+      ensureSpace(9);
+      y += 1.2;
+      setFont("bold", 12, ACCENT);
       doc.text(title.toUpperCase(), leftMargin, y);
       y += 1.3;
       doc.setDrawColor(ACCENT[0], ACCENT[1], ACCENT[2]);
       doc.setLineWidth(0.35);
       doc.line(leftMargin, y, rightMargin, y);
-      y += 3.5;
+      y += 3;
     };
 
+    // Education entries keep the two-line format: bold title + right-aligned
+    // dates on line 1, lighter subtitle (institution / location) on line 2.
     const addEntryHeader = (title: string, dates?: string, subtitle?: string) => {
-      ensureSpace(subtitle ? 8.5 : 5);
+      ensureSpace(subtitle ? 9.5 : 5.5);
       setFont("bold", 10, [0, 0, 0]);
       doc.text(String(title || ""), leftMargin, y);
       if (dates) {
-        setFont("normal", 8.5, SUBTLE);
+        setFont("normal", 9, SUBTLE);
         doc.text(String(dates), rightMargin, y, { align: "right" });
       }
-      y += 4.0;
+      y += 4.3;
       if (subtitle) {
         setFont("normal", 9, MUTED);
         doc.text(String(subtitle), leftMargin, y);
-        y += 3.8;
+        y += 4.0;
+      }
+    };
+
+    // Experience entries use the single-line "Role Title, Company" format with
+    // dates right-aligned. Matches the Deloitte-style target layout.
+    const addExperienceEntry = (title: string, org?: string, dates?: string) => {
+      ensureSpace(6);
+      setFont("bold", 10, [0, 0, 0]);
+      const titleText = String(title || "").trim();
+      const orgText = String(org || "").trim();
+      const combined = orgText ? `${titleText}, ${orgText}` : titleText;
+      // Reserve space on the right for the dates string so long titles don't
+      // collide with the date column.
+      const reservedRight = 45;
+      const maxTitleWidth = pageWidth - reservedRight;
+      const titleLines = doc.splitTextToSize(combined, maxTitleWidth);
+      // First title line gets the dates right-aligned alongside it.
+      doc.text(titleLines[0] || "", leftMargin, y);
+      if (dates) {
+        setFont("normal", 9, SUBTLE);
+        doc.text(String(dates), rightMargin, y, { align: "right" });
+      }
+      y += 4.3;
+      // If title wrapped, continue on subsequent lines (still bold).
+      if (titleLines.length > 1) {
+        setFont("bold", 10, [0, 0, 0]);
+        for (let i = 1; i < titleLines.length; i++) {
+          ensureSpace(4.3);
+          doc.text(titleLines[i], leftMargin, y);
+          y += 4.3;
+        }
       }
     };
 
     const addBullet = (text: string) => {
-      const indent = 3.5;
+      // ~6mm indent from the left margin, with a visible bullet glyph. The
+      // text wraps back under itself (not under the bullet) for readability.
+      const bulletX = leftMargin + 4;
+      const textX = leftMargin + 8;
       setFont("normal", 9, [20, 20, 20]);
-      const lines = doc.splitTextToSize(String(text || ""), pageWidth - indent);
+      const lines = doc.splitTextToSize(String(text || ""), pageWidth - 8);
       lines.forEach((line: string, i: number) => {
         ensureSpace(4);
-        const prefix = i === 0 ? "\u2022  " : "   ";
-        doc.text(prefix + line, leftMargin + indent, y);
-        y += 3.8;
+        if (i === 0) doc.text("\u2022", bulletX, y);
+        doc.text(line, textX, y);
+        y += 3.9;
       });
     };
 
@@ -664,26 +705,40 @@ SPECIFIC OUTPUT RULES:
     };
 
     // Sub-section heading inside a top-level section (e.g. "Professional
-    // Experience" inside "EXPERIENCE"). Smaller + bold in black, no rule.
+    // Experience" inside "EXPERIENCE"). Bold black at 10pt, no underline.
     const addSubsectionHeading = (text: string) => {
-      ensureSpace(7);
-      y += 1;
-      setFont("bold", 9.5, [0, 0, 0]);
+      ensureSpace(6);
+      y += 0.5;
+      setFont("bold", 10, [0, 0, 0]);
       doc.text(String(text), leftMargin, y);
-      y += 3.6;
+      y += 3.8;
     };
 
-    // --- Header (name / target role / contact) ---
+    // --- Header (centered, Deloitte-style) ---
+    // Layout: NAME (uppercase, 20pt bold, centered) → target role (11pt,
+    // centered, below name) → thin rule → contact line (9pt, centered) →
+    // thin rule. Two rules bracket the contact line and separate the header
+    // from the body.
     const header = (cvData.header || {}) as any;
-    setFont("bold", 18, [0, 0, 0]);
-    doc.text(String(header.name || userContext.full_name || ""), leftMargin, y);
-    y += 6.5;
+    const pageCenter = leftMargin + pageWidth / 2;
+    const nameText = String(header.name || userContext.full_name || "").toUpperCase();
+    setFont("bold", 20, [0, 0, 0]);
+    doc.text(nameText, pageCenter, y, { align: "center" });
+    y += 7.5;
 
-    if (header.title) {
+    const roleText = String(header.title || "").trim();
+    if (roleText) {
       setFont("normal", 11, ACCENT);
-      doc.text(String(header.title), leftMargin, y);
-      y += 4.5;
+      doc.text(roleText, pageCenter, y, { align: "center" });
+      y += 4.8;
     }
+
+    // Rule #1 between name/role and the contact line.
+    y += 0.8;
+    doc.setDrawColor(ACCENT[0], ACCENT[1], ACCENT[2]);
+    doc.setLineWidth(0.5);
+    doc.line(leftMargin, y, rightMargin, y);
+    y += 3.5;
 
     // Only include contact bits that actually have a value — don't create
     // gaps. Each entry is trimmed and skipped if empty.
@@ -692,27 +747,35 @@ SPECIFIC OUTPUT RULES:
       const s = (v ?? "").toString().trim();
       if (s) contactBits.push(s);
     };
-    pushBit(header.location || userContext.location);
-    pushBit(header.email || userContext.email);
     pushBit(header.phone || userContext.phone_number);
+    pushBit(header.email || userContext.email);
+    pushBit(header.location || userContext.location);
     pushBit(header.linkedin || userContext.linkedin_url);
     if (contactBits.length > 0) {
-      setFont("normal", 8.5, MUTED);
+      setFont("normal", 9, MUTED);
       const contactLine = contactBits.join("  \u00B7  ");
+      // If the contact line is wider than the page it wraps onto a second
+      // centered line; keep both centered for consistency.
       const lines = doc.splitTextToSize(contactLine, pageWidth);
-      lines.forEach((line: string) => { doc.text(line, leftMargin, y); y += 3.6; });
+      lines.forEach((line: string) => {
+        doc.text(line, pageCenter, y, { align: "center" });
+        y += 4.0;
+      });
     }
 
+    // Rule #2 below contact info.
     y += 0.5;
     doc.setDrawColor(ACCENT[0], ACCENT[1], ACCENT[2]);
-    doc.setLineWidth(0.8);
+    doc.setLineWidth(0.5);
     doc.line(leftMargin, y, rightMargin, y);
-    y += 2.5;
+    y += 3;
 
     // --- About Me ---
-    if (cvData.about_me) {
+    // Accept either `summary` (new schema) or `about_me` (legacy schema).
+    const aboutText = String(cvData.summary || cvData.about_me || "").trim();
+    if (aboutText) {
       addSectionHeader("About Me");
-      addParagraph(String(cvData.about_me), 9.5);
+      addParagraph(aboutText, 9.5);
     }
 
     // --- EXPERIENCE (umbrella section with sub-headings) ---
@@ -739,13 +802,10 @@ SPECIFIC OUTPUT RULES:
     if (hasAnyExperience) {
       addSectionHeader("Experience");
 
-      const renderEntries = (
-        entries: any[],
-        titleKey: string,
-        subtitleKey: string,
-      ) => {
+      // Experience entries use the "Role, Organization" single-line format.
+      const renderEntries = (entries: any[], orgKey: string) => {
         entries.forEach((exp: any, idx: number) => {
-          addEntryHeader(exp[titleKey] || "", exp.dates, exp[subtitleKey]);
+          addExperienceEntry(exp.title || "", exp[orgKey], exp.dates);
           (exp.bullets || []).forEach((bullet: string) => addBullet(bullet));
           if (idx < entries.length - 1) addSpace(1.2);
         });
@@ -753,24 +813,22 @@ SPECIFIC OUTPUT RULES:
 
       if (professional.length > 0) {
         addSubsectionHeading("Professional Experience");
-        renderEntries(professional, "title", "company");
+        renderEntries(professional, "company");
       }
       if (militaryList.length > 0) {
         if (professional.length > 0) addSpace(1.2);
         addSubsectionHeading("Military Service");
-        // Military entries use "unit" as the sub-line; the reconcile step
-        // already wrote the DB company into .unit.
-        renderEntries(militaryList, "title", "unit");
+        renderEntries(militaryList, "unit");
       }
       if (volunteeringList.length > 0) {
         if (professional.length + militaryList.length > 0) addSpace(1.2);
         addSubsectionHeading("Volunteering");
-        renderEntries(volunteeringList, "title", "organization");
+        renderEntries(volunteeringList, "organization");
       }
       if (leadershipList.length > 0) {
         if (professional.length + militaryList.length + volunteeringList.length > 0) addSpace(1.2);
         addSubsectionHeading("Leadership");
-        renderEntries(leadershipList, "title", "organization");
+        renderEntries(leadershipList, "organization");
       }
     }
 
@@ -800,11 +858,17 @@ SPECIFIC OUTPUT RULES:
 
     if (mergedEducation.length > 0) {
       addSectionHeader("Education");
-      // Pre-compute a normalized set of honors so we can dedupe any highlight
+      // Pre-compute a normalized set of honors so we can dedupe any detail
       // that's really an award — the LLM sometimes puts honors in both places.
+      // Handles both legacy string[] and new [{name, description}] shapes.
       const honorsSet = new Set(
         safeArray(cvData.honors_and_awards)
-          .map((s) => String(s || "").replace(/\s+/g, " ").trim().toLowerCase())
+          .map((h: any) => {
+            if (!h) return "";
+            if (typeof h === "string") return h;
+            return String(h.name || "").trim();
+          })
+          .map((s) => String(s).replace(/\s+/g, " ").trim().toLowerCase())
           .filter(Boolean),
       );
       mergedEducation.forEach((edu: any, idx: number) => {
@@ -814,37 +878,60 @@ SPECIFIC OUTPUT RULES:
         const subLine = edu.degree?.trim() ? edu.institution : (edu._secondary_location || "");
         addEntryHeader(topLine || "", edu.dates, subLine);
         if (edu.gpa) addBullet(`GPA: ${edu.gpa}`);
-        const coursework = safeArray(edu.coursework || edu.relevant_coursework);
+
+        // Prefer the new {coursework[], activities[]} split; fall back to the
+        // legacy {details[] / highlights[]} fields. If only details[] is
+        // present, short items (no punctuation, <30 chars) are treated as
+        // coursework and collapsed into one line; longer items as activities.
+        let coursework = safeArray(edu.coursework || edu.relevant_coursework).map(String);
+        let activities = safeArray(edu.activities).map(String);
+        if (coursework.length === 0 && activities.length === 0) {
+          const loose = [...safeArray(edu.details), ...safeArray(edu.highlights)].map(String);
+          for (const item of loose) {
+            const t = item.trim();
+            if (!t) continue;
+            if (t.length < 30 && !/[.!?:;]/.test(t) && !/\b(club|president|editor|captain|volunteer|led|managed|organized|mentor)\b/i.test(t)) {
+              coursework.push(t);
+            } else {
+              activities.push(t);
+            }
+          }
+        }
+
         if (coursework.length > 0) {
           addBullet(`Relevant coursework: ${coursework.join(", ")}`);
         }
-        // Skip any highlight that duplicates an entry in honors_and_awards[]
-        // — those render in the dedicated Honors & Awards section below.
-        safeArray(edu.highlights).forEach((h) => {
-          const key = String(h || "").replace(/\s+/g, " ").trim().toLowerCase();
-          if (key && !honorsSet.has(key)) addBullet(String(h));
+        // Dedupe activities and skip anything that duplicates an award.
+        const seen = new Set<string>();
+        activities.forEach((a) => {
+          const raw = String(a || "").trim();
+          if (!raw) return;
+          const key = raw.replace(/\s+/g, " ").toLowerCase();
+          if (seen.has(key)) return;
+          seen.add(key);
+          if (honorsSet.has(key)) return;
+          addBullet(raw);
         });
-        // Legacy shape — render any loose details strings if present.
-        safeArray(edu.details).forEach((d) => {
-          const key = String(d || "").replace(/\s+/g, " ").trim().toLowerCase();
-          if (key && !honorsSet.has(key)) addBullet(String(d));
-        });
-        if (idx < mergedEducation.length - 1) addSpace(1.2);
+        if (idx < mergedEducation.length - 1) addSpace(1.5);
       });
     }
 
     // --- Skills & Tools ---
+    // Supports Domain, Tools, and Technical categories. Only renders labels
+    // that have at least one entry.
     const skills = (cvData.skills || {}) as any;
-    const hasSkills = (skills.domain?.length || skills.tools?.length);
+    const hasSkills = (skills.domain?.length || skills.tools?.length || skills.technical?.length);
     if (hasSkills) {
       addSectionHeader("Skills & Tools");
       if (skills.domain?.length > 0) addLabelledLine("Domain", skills.domain);
       if (skills.tools?.length > 0) addLabelledLine("Tools", skills.tools);
+      if (skills.technical?.length > 0) addLabelledLine("Technical", skills.technical);
     }
 
-    // --- Languages (own section so they don't get lost inside Skills) ---
-    // Accept both the new languages[{language, level}] shape and the legacy
-    // skills.languages string[] shape.
+    // --- Languages ---
+    // Accepts any of: [{language, proficiency}], [{language, level}], string[],
+    // or a legacy skills.languages string[]. Proficiency/level are rendered
+    // in parentheses when present.
     let languageLines: string[] = [];
     if (Array.isArray(cvData.languages)) {
       languageLines = (cvData.languages as any[])
@@ -852,7 +939,7 @@ SPECIFIC OUTPUT RULES:
           if (!l) return "";
           if (typeof l === "string") return l;
           const lang = String(l.language || "").trim();
-          const level = String(l.level || "").trim();
+          const level = String(l.proficiency || l.level || "").trim();
           return lang && level ? `${lang} (${level})` : lang;
         })
         .filter((s) => s.length > 0);
@@ -865,13 +952,26 @@ SPECIFIC OUTPUT RULES:
     }
 
     // --- Honors & Awards ---
-    const honors = safeArray(cvData.honors_and_awards);
-    if (honors.length > 0) {
+    // Accepts string[] (legacy) or [{name, description}] (new). Rendered as
+    // "Award Name — description" when description is present, otherwise just
+    // the name.
+    const honorsRaw = safeArray(cvData.honors_and_awards);
+    const honorLines: string[] = honorsRaw
+      .map((h: any) => {
+        if (!h) return "";
+        if (typeof h === "string") return h;
+        const name = String(h.name || "").trim();
+        const desc = String(h.description || "").trim();
+        return name && desc ? `${name} \u2014 ${desc}` : name;
+      })
+      .filter((s) => s.length > 0);
+    if (honorLines.length > 0) {
       addSectionHeader("Honors & Awards");
-      honors.forEach((h) => addBullet(String(h)));
+      honorLines.forEach((h) => addBullet(h));
     }
 
     // --- Certifications ---
+    // Rendered as bullets: "Cert Name, Issuer (date)" — one line per cert.
     const certs = Array.isArray(cvData.certifications) ? cvData.certifications : [];
     if (certs.length > 0) {
       addSectionHeader("Certifications");
@@ -879,8 +979,8 @@ SPECIFIC OUTPUT RULES:
         const parts: string[] = [];
         if (cert.name) parts.push(String(cert.name));
         if (cert.issuer) parts.push(String(cert.issuer));
-        const line = parts.join(" \u2014 ") + (cert.date ? `  (${cert.date})` : "");
-        addParagraph(line, 9);
+        const line = parts.join(", ") + (cert.date ? `  (${cert.date})` : "");
+        if (line.trim()) addBullet(line);
       });
     }
 
@@ -889,9 +989,9 @@ SPECIFIC OUTPUT RULES:
     if (projectsOut.length > 0) {
       addSectionHeader("Projects");
       projectsOut.forEach((proj: any, idx: number) => {
-        addEntryHeader(proj.name || "", undefined, undefined);
+        addExperienceEntry(proj.name || "", undefined, undefined);
         (proj.bullets || []).forEach((bullet: string) => addBullet(bullet));
-        if (idx < projectsOut.length - 1) addSpace(1.2);
+        if (idx < projectsOut.length - 1) addSpace(2);
       });
     }
 
