@@ -763,29 +763,28 @@ SPECIFIC OUTPUT RULES:
     const FONT = "Calibri";
     const BLACK = "000000";
     const MUTED_COLOR = "555555";
-    // Font sizes are in half-points. Sizes tightened vs. earlier iterations
-    // so a 4-role entry-level CV fits on a single A4 page.
-    const BODY_SIZE = 20; // 10pt — document default + About Me
-    const BULLET_SIZE = 19; // 9.5pt for entry bullets
-    const HEADING_SIZE = 26; // 13pt section heading
-    const SUBHEADING_SIZE = 22; // 11pt sub-section heading
-    const ENTRY_TITLE_SIZE = 21; // 10.5pt bold role/degree line
+    // Font sizes in half-points. Final squeeze to guarantee single-page fit.
+    const BODY_SIZE = 19; // 9.5pt — About Me and default
+    const BULLET_SIZE = 18; // 9pt for entry bullets
+    const HEADING_SIZE = 22; // 11pt section heading
+    const SUBHEADING_SIZE = 19; // 9.5pt sub-section heading
+    const ENTRY_TITLE_SIZE = 20; // 10pt bold role/degree line
     const CONTACT_SIZE = 19; // 9.5pt contact line
     const DATE_SIZE = 19; // 9.5pt dates, muted
-    const NAME_SIZE = 52; // 26pt uppercase name (was 28pt — small trim saves ~6mm)
-    const ROLE_SUBTITLE_SIZE = 24; // 12pt subtitle under the name
-    // Right tab stop at ~9700 twips sits just inside the right margin for an
-    // A4 page with 22mm margins (page 11906 twips wide - 1247 each side).
-    const RIGHT_TAB = 9400;
+    const NAME_SIZE = 48; // 24pt uppercase name
+    const ROLE_SUBTITLE_SIZE = 22; // 11pt subtitle under the name
+    // Right tab stop just inside the right margin on an A4 page with 20mm
+    // L/R margins (page 11906 twips wide, margin 1134 each side → 9638).
+    const RIGHT_TAB = 9600;
 
     // Spacing constants in twips (1pt = 20 twips). 1.0 line = 240.
-    const SP_AFTER_BULLET = 20; // 1pt — Word default is ~8pt which wastes vertical space
-    const SP_AFTER_ENTRY = 80; // 4pt between experience/education entries
-    const SP_BEFORE_SECTION = 160; // 8pt before section heading
-    const SP_AFTER_SECTION = 40; // 2pt after the heading rule (before first child)
-    const SP_AFTER_SUBHEAD = 40; // 2pt after sub-heading
+    // All block spacing is expressed as `before` on the NEXT element; every
+    // paragraph's `after` is 0 so stacking is deterministic.
+    const SP_BEFORE_SECTION = 120; // 6pt breathing room above a section heading
+    const SP_BEFORE_SUBHEAD = 60;  // 3pt above a sub-section heading
+    const SP_BEFORE_ENTRY = 80;    // 4pt between entries within a section
     const LINE_SINGLE = 240; // 1.0 line spacing
-    const LINE_ABOUT = 259; // 1.08 for About Me (hair of extra breathing room)
+    const LINE_ABOUT = 259;  // 1.08 for About Me
 
     const paragraphs: Array<Paragraph | Table> = [];
 
@@ -794,19 +793,21 @@ SPECIFIC OUTPUT RULES:
       new TextRun({ text: s, font: FONT, size: BODY_SIZE, ...opts });
 
     const sectionHeading = (label: string) => new Paragraph({
-      spacing: { before: SP_BEFORE_SECTION, after: SP_AFTER_SECTION },
+      spacing: { before: SP_BEFORE_SECTION, after: 0 },
       border: { bottom: { color: "BFBFBF", style: BorderStyle.SINGLE, size: 6, space: 1 } },
       children: [new TextRun({ text: label.toUpperCase(), bold: true, size: HEADING_SIZE, font: FONT })],
     });
 
     const subsectionHeading = (label: string) => new Paragraph({
-      spacing: { before: 60, after: SP_AFTER_SUBHEAD },
+      spacing: { before: SP_BEFORE_SUBHEAD, after: 0 },
       children: [new TextRun({ text: label, bold: true, size: SUBHEADING_SIZE, font: FONT })],
     });
 
     // Experience-style entry: "Role, Organization" bold on the left, dates
     // muted and right-aligned on the same line via a right tab stop.
-    const experienceEntryLine = (title: string, org: string | undefined, dates: string | undefined) => {
+    // `withGap` = whether to add 4pt breathing room above this entry (true
+    // for every entry except the first inside a section).
+    const experienceEntryLine = (title: string, org: string | undefined, dates: string | undefined, withGap = false) => {
       const titleText = String(title || "").trim();
       const orgText = String(org || "").trim();
       const combined = orgText ? `${titleText}, ${orgText}` : titleText;
@@ -819,15 +820,14 @@ SPECIFIC OUTPUT RULES:
       }
       return new Paragraph({
         tabStops: [{ type: TabStopType.RIGHT, position: RIGHT_TAB }],
-        spacing: { after: SP_AFTER_BULLET },
+        spacing: { before: withGap ? SP_BEFORE_ENTRY : 0, after: 0 },
         children,
       });
     };
 
     // Education-style entry: bold degree + right-aligned dates on line 1,
-    // plain institution / location on line 2. Mirrors the previous two-line
-    // PDF layout.
-    const educationEntryLines = (title: string, subtitle: string | undefined, dates: string | undefined) => {
+    // plain institution / location on line 2.
+    const educationEntryLines = (title: string, subtitle: string | undefined, dates: string | undefined, withGap = false) => {
       const out: Paragraph[] = [];
       const titleChildren: TextRun[] = [
         new TextRun({ text: String(title || "").trim(), bold: true, size: ENTRY_TITLE_SIZE, font: FONT }),
@@ -838,30 +838,31 @@ SPECIFIC OUTPUT RULES:
       }
       out.push(new Paragraph({
         tabStops: [{ type: TabStopType.RIGHT, position: RIGHT_TAB }],
-        spacing: { after: 0 },
+        spacing: { before: withGap ? SP_BEFORE_ENTRY : 0, after: 0 },
         children: titleChildren,
       }));
       const subText = String(subtitle || "").trim();
       if (subText) {
         out.push(new Paragraph({
-          spacing: { after: SP_AFTER_BULLET },
+          spacing: { before: 0, after: 0 },
           children: [new TextRun({ text: subText, size: BULLET_SIZE, color: MUTED_COLOR, font: FONT })],
         }));
       }
       return out;
     };
 
-    // Bulleted list item — Word's default bullet list style, tight spacing.
+    // Bulleted list item — Word's default bullet list style, zero spacing
+    // after so subsequent bullets stack tight.
     const bulletParagraph = (s: string) => new Paragraph({
       bullet: { level: 0 },
-      spacing: { after: SP_AFTER_BULLET, line: LINE_SINGLE, lineRule: LineRuleType.AUTO },
+      spacing: { before: 0, after: 0, line: LINE_SINGLE, lineRule: LineRuleType.AUTO },
       children: [new TextRun({ text: String(s || ""), size: BULLET_SIZE, font: FONT })],
     });
 
-    // Single paragraph of body text (used for About Me). Justified, 1.08 line.
+    // About Me body paragraph. Justified, 1.08 line, no after-spacing.
     const bodyParagraph = (s: string) => new Paragraph({
       alignment: AlignmentType.JUSTIFIED,
-      spacing: { after: 40, line: LINE_ABOUT, lineRule: LineRuleType.AUTO },
+      spacing: { before: 0, after: 0, line: LINE_ABOUT, lineRule: LineRuleType.AUTO },
       children: [new TextRun({ text: String(s || ""), size: BODY_SIZE, font: FONT })],
     });
 
@@ -870,7 +871,7 @@ SPECIFIC OUTPUT RULES:
       if (!values || (Array.isArray(values) && values.length === 0)) return null;
       const valueText = Array.isArray(values) ? values.join(", ") : String(values);
       return new Paragraph({
-        spacing: { after: SP_AFTER_BULLET },
+        spacing: { before: 0, after: 0 },
         children: [
           new TextRun({ text: `${label}: `, bold: true, size: BULLET_SIZE, font: FONT }),
           new TextRun({ text: valueText, size: BULLET_SIZE, font: FONT }),
@@ -878,10 +879,10 @@ SPECIFIC OUTPUT RULES:
       });
     };
 
-    // Plain single-line paragraph (no label) — used for Languages so the
-    // section heading doesn't double up with a redundant "Languages:" prefix.
+    // Plain single-line paragraph — used for Languages so the section
+    // heading doesn't double up with a redundant "Languages:" prefix.
     const plainLine = (s: string) => new Paragraph({
-      spacing: { after: SP_AFTER_BULLET },
+      spacing: { before: 0, after: 0 },
       children: [new TextRun({ text: s, size: BULLET_SIZE, font: FONT })],
     });
 
@@ -894,15 +895,17 @@ SPECIFIC OUTPUT RULES:
     const nameText = String(header.name || userContext.full_name || "").toUpperCase();
     paragraphs.push(new Paragraph({
       alignment: AlignmentType.CENTER,
-      spacing: { after: 20 },
+      spacing: { before: 0, after: 0 },
       children: [new TextRun({ text: nameText, bold: true, size: NAME_SIZE, font: FONT })],
     }));
 
     const subtitleText = String(header.subtitle || "").trim();
     if (subtitleText) {
+      // Flush to the contact line below — no "after" spacing, so there's no
+      // visible blank line between subtitle and contact.
       paragraphs.push(new Paragraph({
         alignment: AlignmentType.CENTER,
-        spacing: { after: 40 },
+        spacing: { before: 0, after: 0 },
         children: [new TextRun({ text: subtitleText, size: ROLE_SUBTITLE_SIZE, color: MUTED_COLOR, font: FONT })],
       }));
     }
@@ -919,7 +922,7 @@ SPECIFIC OUTPUT RULES:
     if (contactBits.length > 0) {
       paragraphs.push(new Paragraph({
         alignment: AlignmentType.CENTER,
-        spacing: { after: 60 },
+        spacing: { before: 0, after: 0 },
         children: [new TextRun({ text: contactBits.join("  \u00B7  "), size: CONTACT_SIZE, font: FONT })],
       }));
     }
@@ -949,8 +952,10 @@ SPECIFIC OUTPUT RULES:
       professional.length + militaryList.length + volunteeringList.length + leadershipList.length > 0;
 
     const renderEntryBlock = (entries: any[], orgKey: string) => {
-      entries.forEach((exp: any) => {
-        paragraphs.push(experienceEntryLine(exp.title || "", exp[orgKey], exp.dates));
+      entries.forEach((exp: any, idx: number) => {
+        // First entry has no leading gap — flush under the sub-section
+        // heading. Subsequent entries get 4pt of breathing room above.
+        paragraphs.push(experienceEntryLine(exp.title || "", exp[orgKey], exp.dates, idx > 0));
         (exp.bullets || []).forEach((b: string) => paragraphs.push(bulletParagraph(b)));
       });
     };
@@ -1009,10 +1014,10 @@ SPECIFIC OUTPUT RULES:
           .filter(Boolean),
       );
 
-      mergedEducation.forEach((edu: any) => {
+      mergedEducation.forEach((edu: any, idx: number) => {
         const topLine = edu.degree?.trim() ? edu.degree : edu.institution;
         const subLine = edu.degree?.trim() ? edu.institution : (edu._secondary_location || "");
-        educationEntryLines(topLine || "", subLine, edu.dates).forEach((p) => paragraphs.push(p));
+        educationEntryLines(topLine || "", subLine, edu.dates, idx > 0).forEach((p) => paragraphs.push(p));
         if (edu.gpa) paragraphs.push(bulletParagraph(`GPA: ${edu.gpa}`));
 
         let coursework = safeArray(edu.coursework || edu.relevant_coursework).map(String);
@@ -1119,8 +1124,8 @@ SPECIFIC OUTPUT RULES:
     const projectsOut = Array.isArray(cvData.projects) ? cvData.projects : [];
     if (projectsOut.length > 0) {
       paragraphs.push(sectionHeading("Projects"));
-      projectsOut.forEach((proj: any) => {
-        paragraphs.push(experienceEntryLine(proj.name || "", undefined, undefined));
+      projectsOut.forEach((proj: any, idx: number) => {
+        paragraphs.push(experienceEntryLine(proj.name || "", undefined, undefined, idx > 0));
         (proj.bullets || []).forEach((b: string) => paragraphs.push(bulletParagraph(b)));
       });
     }
@@ -1135,8 +1140,8 @@ SPECIFIC OUTPUT RULES:
       sections: [{
         properties: {
           page: {
-            // 18mm top/bottom, 22mm left/right (1mm ≈ 56.7 twips)
-            margin: { top: 1020, bottom: 1020, left: 1247, right: 1247 },
+            // 15mm top/bottom, 20mm left/right (1mm ≈ 56.7 twips)
+            margin: { top: 850, bottom: 850, left: 1134, right: 1134 },
           },
         },
         children: paragraphs,
