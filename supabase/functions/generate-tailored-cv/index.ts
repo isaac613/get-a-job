@@ -44,44 +44,44 @@ const CV_TEMPLATES: Record<string, CVTemplate> = {
   classic: {
     name: "Classic",
     font: "Calibri",
-    nameSize: 48,
-    headingSize: 22,
-    bodySize: 20,
-    bulletSize: 18,
-    entryTitleSize: 20,
+    nameSize: 48,  // 24pt
+    headingSize: 22, // 11pt
+    bodySize: 20,  // 10pt
+    bulletSize: 18, // 9pt
+    entryTitleSize: 20, // 10pt
     accentColor: "444444",
     headingStyle: "uppercase-underline",
   },
   modern: {
     name: "Modern",
     font: "Aptos",
-    nameSize: 44,
-    headingSize: 24,
-    bodySize: 20,
-    bulletSize: 18,
-    entryTitleSize: 20,
+    nameSize: 44,  // 22pt
+    headingSize: 24, // 12pt
+    bodySize: 20,  // 10pt
+    bulletSize: 18, // 9pt
+    entryTitleSize: 20, // 10pt
     accentColor: "2B579A",
     headingStyle: "bold-accent-line",
   },
   compact: {
     name: "Compact",
     font: "Arial Narrow",
-    nameSize: 40,
-    headingSize: 20,
-    bodySize: 18,
-    bulletSize: 16,
-    entryTitleSize: 18,
+    nameSize: 40,  // 20pt
+    headingSize: 20, // 10pt
+    bodySize: 18,  // 9pt
+    bulletSize: 17, // 8.5pt
+    entryTitleSize: 18, // 9pt
     accentColor: "333333",
     headingStyle: "small-caps-line",
   },
   executive: {
     name: "Executive",
     font: "Georgia",
-    nameSize: 52,
-    headingSize: 24,
-    bodySize: 22,
-    bulletSize: 20,
-    entryTitleSize: 22,
+    nameSize: 52,  // 26pt
+    headingSize: 24, // 12pt
+    bodySize: 21,  // 10.5pt
+    bulletSize: 19, // 9.5pt
+    entryTitleSize: 22, // 11pt
     accentColor: "1A1A1A",
     headingStyle: "serif-elegant",
   },
@@ -581,6 +581,24 @@ Deno.serve(async (req) => {
     //      to the target role / JD / company.
     //   3) Role-library context (only when a library match exists) — gives the
     //      LLM a controlled vocabulary of skills and proof signals.
+    const ONE_PAGE_RULE = `ONE PAGE RULE (HIGHEST PRIORITY — OVERRIDES ALL OTHER FORMATTING RULES):
+The generated CV MUST fit on exactly ONE A4 page when rendered. This is a hard constraint.
+
+You must DYNAMICALLY manage content density based on how much data the user has. More experiences and sections = shorter bullets and tighter descriptions. Fewer experiences = you can be more detailed.
+
+Guidelines for fitting on one page:
+- Count the user's total number of experience entries, education entries, certifications, projects, and honors. This is their "content volume."
+- HIGH VOLUME (6+ experience entries OR 8+ total sections with content): Use 2-3 bullets per role, keep bullets to 10-12 words each, About Me should be 2-3 sentences, honors as name + year only with no descriptions.
+- MEDIUM VOLUME (3-5 experience entries, 5-7 total sections): Use 3-4 bullets per role, bullets can be 12-18 words, About Me can be 3-4 sentences, honors can have brief context.
+- LOW VOLUME (1-2 experience entries, under 5 sections): Use 4-5 bullets per role, bullets can be more detailed, About Me can be longer, include more detail in education and honors.
+
+The goal is: everything the user has done should appear on the CV, but the level of detail per item scales inversely with the total amount of content. NEVER drop entries — compress them.
+
+If the user has many roles, prefer shorter bullets over dropping roles entirely. If the user has few roles, give each one more space.
+
+NEVER generate content that would exceed approximately 45 lines of rendered text (including headings, spacing, and contact info). When in doubt, be more concise.
+`;
+
     const TRUTHFULNESS_RULES = `ABSOLUTE TRUTHFULNESS & PRESERVATION RULES — THESE OVERRIDE EVERY OTHER RULE:
 
 A. Factual integrity (no invention):
@@ -613,7 +631,7 @@ D. What you MAY do:
     • bucket === "military"     → military_experiences[]
     • bucket === "volunteering" → volunteering_experiences[]
     • bucket === "leadership"   → leadership_experiences[]
-- About Me: 2-3 descriptive sentences. Write in FACTUAL style with no pronouns (no "he", "she", "his", "her") and no candidate-speak ("strong candidate", "well-suited", "eager to", "making him/her a great fit"). Describe the user's actual skills and current work as facts and tie them to the target role through CONTENT, not self-promotion. Example to emulate: "Business Administration student specializing in Digital Innovation with hands-on experience in VIP customer success, operational leadership, and cross-functional coordination. Currently supporting high-value users at a cybersecurity startup while leading educational programs. Strong ability to understand user needs through direct interaction and communicate insights across teams." Referencing the target company by name is fine where it fits naturally, but do NOT say "strong candidate for X role at Y".
+- About Me: variable length based on content volume (see ONE PAGE RULE above). Write in FACTUAL style with no pronouns (no "he", "she", "his", "her") and no candidate-speak ("strong candidate", "well-suited", "eager to", "making him/her a great fit"). Describe the user's actual skills and current work as facts and tie them to the target role through CONTENT, not self-promotion. Example to emulate: "Business Administration student specializing in Digital Innovation with hands-on experience in VIP customer success, operational leadership, and cross-functional coordination. Currently supporting high-value users at a cybersecurity startup while leading educational programs. Strong ability to understand user needs through direct interaction and communicate insights across teams." Referencing the target company by name is fine where it fits naturally, but do NOT say "strong candidate for X role at Y".
 - Experience bullets: action verb + what you did. Factual, concrete. No invented metrics.
 - Skills & Tools: categorize as Domain (role-specific capabilities) and Tools (software/platforms/systems). Languages do NOT go here.
 - Languages: human spoken/written languages only. Draw them from the user's skills list if language-like entries are there; draw also from language_hints[] which flags likely languages based on location. Include a proficiency level (Native | Fluent | Professional | Conversational | Basic) when the source or hint supports it, otherwise omit level.
@@ -690,18 +708,20 @@ ${JSON.stringify(relevantSignals, null, 2)}
 
     const CUSTOM_TEMPLATE_BLOCK = customSectionOrder && customSectionOrder.length > 0
       ? `\nCUSTOM TEMPLATE SECTION ORDER (user uploaded a template PDF — match it):
-Structure the CV in this section order: ${customSectionOrder.join(", ")}. Skip any section the user has no data for.\n`
+Structure the CV in this section order: ${customSectionOrder.join(", ")}. Skip any section the user has no data for.
+CRITICAL: The CV must fit on exactly ONE A4 page regardless of template. Apply the same dynamic content density rules from ONE PAGE RULE above — scale detail inversely with content volume.\n`
       : "";
 
     const systemPrompt =
       `You are a CV Generation Engine for the "Get A Job" Career Operating System. Your job is to produce a tailored, one-page, truthful CV as JSON. The CV WILL be sent to real employers — so every word must be grounded in the user's actual data.\n\n` +
+      ONE_PAGE_RULE + `\n` +
       TRUTHFULNESS_RULES + `\n` +
       STRUCTURE_RULES + `\n` +
       TAILORING_RULES + `\n` +
       LIBRARY_CONTEXT + `\n` +
       KEYWORD_INJECTION_BLOCK + `\n` +
       CUSTOM_TEMPLATE_BLOCK + `\n` +
-      `REMINDER: Truthfulness beats polish. If a bullet needs a metric to sound impressive but you have no metric in the source, leave it without. Do not invent.`;
+      `REMINDER: Truthfulness beats polish AND one-page fit is non-negotiable. If a bullet needs a metric to sound impressive but you have no metric in the source, leave it without. Do not invent. If content is overflowing, shorten bullets rather than dropping entries.`;
 
     const userPrompt = `TARGET ROLE: ${safeTargetRole}
 ${targetCompany ? `TARGET COMPANY: ${targetCompany}` : ""}
@@ -724,7 +744,7 @@ OUTPUT SCHEMA (JSON):
     "location": "string",
     "linkedin": "string — linkedin URL or handle"
   },
-  "summary": "string — 2-3 FACTUAL descriptive sentences. No pronouns (he/she/his/her). No candidate-speak (no 'strong candidate', 'eager to', 'well-suited'). Describe skills and current work as facts; let content speak for fit.",
+  "summary": "string — FACTUAL descriptive sentences scaled to content volume per ONE PAGE RULE (high volume → 2-3 sentences; low volume → 3-5). No pronouns (he/she/his/her). No candidate-speak (no 'strong candidate', 'eager to', 'well-suited'). Describe skills and current work as facts; let content speak for fit.",
   "professional_experiences": [
     { "title": "string — EXACT title from USER DATA", "company": "string — EXACT company from USER DATA", "dates": "string — e.g. Oct 2025 - Present", "bullets": ["concrete factual action-verb statement"] }
   ],
@@ -1007,6 +1027,144 @@ SPECIFIC OUTPUT RULES:
     }
     cvData.fit_analysis = fa;
 
+    // ─── Rough content length estimator + auto-trim ───
+    // The LLM is told to respect the ONE PAGE RULE, but we run a cheap
+    // safety net to catch cases where it overshoots. One "line" ≈ one
+    // visible rendered line at baseline typography. The estimator is
+    // deliberately conservative; the trim order below targets content the
+    // user is least likely to miss (volunteering bullets → leadership
+    // bullets → professional bullets → military bullets → honor descs).
+    const estimatePageLines = (cv: any): number => {
+      let lines = 0;
+      lines += 3; // name + subtitle + contact
+      lines += 1; // rule / spacing buffer
+
+      // About Me
+      const aboutWords = String(cv.summary || cv.about_me || "").split(/\s+/).filter(Boolean).length;
+      if (aboutWords > 0) {
+        lines += Math.ceil(aboutWords / 12) + 1; // ~12 words per line + heading
+      }
+
+      // Experience buckets
+      const buckets: Array<[string, any[]]> = [
+        ["professional_experiences", cv.professional_experiences || []],
+        ["military_experiences", cv.military_experiences || []],
+        ["volunteering_experiences", cv.volunteering_experiences || []],
+        ["leadership_experiences", cv.leadership_experiences || []],
+      ];
+      const hasAnyExp = buckets.some(([, arr]) => arr.length > 0);
+      if (hasAnyExp) {
+        lines += 1; // EXPERIENCE heading
+        for (const [, entries] of buckets) {
+          if (!Array.isArray(entries) || entries.length === 0) continue;
+          lines += 1; // sub-heading
+          for (const entry of entries) {
+            lines += 1; // title + dates row
+            const bullets = Array.isArray(entry?.bullets) ? entry.bullets : [];
+            // Long bullets wrap to a second line; add 1 for each bullet that
+            // exceeds ~18 words so the estimate matches reality.
+            for (const b of bullets) {
+              // At 9-9.5pt body type with ~170mm content width, a line holds
+              // about 14 words. Count an extra line for each bullet that
+              // clearly wraps, and a second extra line for very long bullets.
+              const w = String(b).split(/\s+/).filter(Boolean).length;
+              lines += 1 + (w > 14 ? 1 : 0) + (w > 28 ? 1 : 0);
+            }
+          }
+        }
+      }
+
+      // Education
+      const edu = Array.isArray(cv.education) ? cv.education : [];
+      if (edu.length > 0) {
+        lines += 1; // heading
+        for (const e of edu) {
+          lines += 2; // degree line + institution line
+          const cw = Array.isArray(e?.coursework) ? e.coursework : [];
+          if (cw.length > 0) lines += 1; // relevant coursework line
+          const act = Array.isArray(e?.activities) ? e.activities : [];
+          lines += act.length;
+        }
+      }
+
+      // Skills (Domain / Tools / Technical — each a wrapped line)
+      const sk = (cv.skills || {}) as any;
+      const skCount = [sk.domain, sk.tools, sk.technical].filter((v) => Array.isArray(v) && v.length > 0).length;
+      if (skCount > 0) lines += 1 + skCount;
+
+      // Languages
+      if (Array.isArray(cv.languages) && cv.languages.length > 0) lines += 2;
+
+      // Honors
+      const honors = Array.isArray(cv.honors_and_awards) ? cv.honors_and_awards : [];
+      if (honors.length > 0) lines += 1 + honors.length;
+
+      // Certifications
+      const certs = Array.isArray(cv.certifications) ? cv.certifications : [];
+      if (certs.length > 0) lines += 1 + certs.length;
+
+      // Projects
+      const projs = Array.isArray(cv.projects) ? cv.projects : [];
+      if (projs.length > 0) {
+        lines += 1;
+        for (const p of projs) {
+          lines += 1; // name
+          lines += Array.isArray(p?.bullets) ? p.bullets.length : 0;
+        }
+      }
+
+      return lines;
+    };
+
+    // Rendered lines at 500-twip top/bottom margins on A4:
+    //  - Classic / Modern @ 10pt body: ~46 lines fit
+    //  - Compact          @ 9pt body:  ~52 lines fit
+    //  - Executive        @ 10.5pt body + bigger spacing: ~42 lines fit
+    // Thresholds here trigger auto-trim slightly before the real limit so
+    // we have a safety cushion.
+    const maxLines = templateId === "compact" ? 50
+      : templateId === "executive" ? 40
+      : 44;
+
+    let estimatedLines = estimatePageLines(cvData);
+    if (estimatedLines > maxLines) {
+      console.warn(`[CV] Estimated ${estimatedLines} lines (max ${maxLines}) — trimming`);
+
+      // 1. Shorten bullets in the least-prominent buckets first. Keep at
+      //    least 2 bullets per role so the experience stays legible.
+      const trimOrder = ["volunteering_experiences", "leadership_experiences", "professional_experiences", "military_experiences"];
+      for (const bucket of trimOrder) {
+        if (estimatedLines <= maxLines) break;
+        const entries = (cvData[bucket] || []) as any[];
+        for (const entry of entries) {
+          if (estimatedLines <= maxLines) break;
+          while (Array.isArray(entry.bullets) && entry.bullets.length > 2 && estimatedLines > maxLines) {
+            entry.bullets.pop();
+            estimatedLines -= 1;
+          }
+        }
+      }
+
+      // 2. If still over, strip honor descriptions ("Name — description" → "Name").
+      if (estimatedLines > maxLines && Array.isArray(cvData.honors_and_awards)) {
+        cvData.honors_and_awards = cvData.honors_and_awards.map((h: any) => {
+          if (!h) return h;
+          if (typeof h === "string") {
+            const dash = h.indexOf(" \u2014 ");
+            return dash > 0 ? h.slice(0, dash) : h;
+          }
+          if (typeof h === "object") {
+            return { name: h.name };
+          }
+          return h;
+        });
+      }
+
+      // 3. Re-estimate for the log only.
+      const finalEstimate = estimatePageLines(cvData);
+      console.log(`[CV] Post-trim estimate: ${finalEstimate} lines`);
+    }
+
     // --- Build DOCX (professional single-column CV) ---
     // Users can open the generated file in Word or Google Docs, tweak it
     // further, and export to PDF themselves. This eliminates every jsPDF
@@ -1040,13 +1198,25 @@ SPECIFIC OUTPUT RULES:
     const RIGHT_TAB = 9600;
 
     // Spacing constants in twips (1pt = 20 twips). 1.0 line = 240.
-    // All block spacing is expressed as `before` on the NEXT element; every
-    // paragraph's `after` is 0 so stacking is deterministic.
-    const SP_BEFORE_SECTION = 120; // 6pt breathing room above a section heading
-    const SP_BEFORE_SUBHEAD = 60;  // 3pt above a sub-section heading
-    const SP_BEFORE_ENTRY = 80;    // 4pt between entries within a section
-    const LINE_SINGLE = 240; // 1.0 line spacing
-    const LINE_ABOUT = 259;  // 1.08 for About Me
+    // Baseline spec values are per the one-page enforcement pass. Compact
+    // templates multiply by 0.7; executive by 1.15; classic/modern use
+    // baseline. `_s(v)` applies the template scale and rounds.
+    const _spaceScale = templateId === "compact" ? 0.7
+      : templateId === "executive" ? 1.15
+      : 1.0;
+    const _s = (v: number) => Math.round(v * _spaceScale);
+    const SP_AFTER_NAME = _s(0);
+    const SP_AFTER_SUBTITLE = _s(20);
+    const SP_AFTER_CONTACT = _s(80);
+    const SP_BEFORE_SECTION = _s(140);
+    const SP_AFTER_SECTION = _s(40);
+    const SP_BEFORE_ENTRY = _s(60);
+    const SP_AFTER_BULLET = _s(10);
+    const SP_BEFORE_EDU = _s(40);
+    const SP_AFTER_SKILL = _s(10);
+    const SP_AFTER_HONOR = _s(10);
+    const LINE_SINGLE = 240; // 1.0 line spacing (don't scale line height)
+    const LINE_ABOUT = 252;  // 1.05 for About Me — slightly looser than bullets
 
     const paragraphs: Array<Paragraph | Table> = [];
 
@@ -1054,35 +1224,32 @@ SPECIFIC OUTPUT RULES:
     const text = (s: string, opts: Record<string, unknown> = {}) =>
       new TextRun({ text: s, font: FONT, size: BODY_SIZE, ...opts });
 
-    // Section heading styling varies by template.
-    //  - uppercase-underline (Classic): UPPERCASE text, thin gray rule
-    //  - bold-accent-line    (Modern):  mixed case, thicker colored rule
-    //  - small-caps-line     (Compact): small caps (faked by uppercase +
-    //    slightly smaller), letter-spacing, thin rule
-    //  - serif-elegant       (Executive): extra before-spacing, bold, no rule
+    // Section heading styling varies by template. Spacing pulls from the
+    // template-scaled constants so compact templates sit tighter and
+    // executive templates breathe a touch more.
     const sectionHeading = (label: string): Paragraph => {
       switch (template.headingStyle) {
         case "bold-accent-line":
           return new Paragraph({
-            spacing: { before: SP_BEFORE_SECTION, after: 0 },
+            spacing: { before: SP_BEFORE_SECTION, after: SP_AFTER_SECTION },
             border: { bottom: { color: ACCENT_COLOR, style: BorderStyle.SINGLE, size: 10, space: 1 } },
             children: [new TextRun({ text: label, bold: true, size: HEADING_SIZE, font: FONT, color: ACCENT_COLOR })],
           });
         case "small-caps-line":
           return new Paragraph({
-            spacing: { before: SP_BEFORE_SECTION, after: 0 },
+            spacing: { before: SP_BEFORE_SECTION, after: SP_AFTER_SECTION },
             border: { bottom: { color: "BFBFBF", style: BorderStyle.SINGLE, size: 4, space: 1 } },
             children: [new TextRun({ text: label.toUpperCase(), bold: true, size: HEADING_SIZE - 1, font: FONT, characterSpacing: 60 })],
           });
         case "serif-elegant":
           return new Paragraph({
-            spacing: { before: SP_BEFORE_SECTION + 40, after: 0 },
+            spacing: { before: SP_BEFORE_SECTION, after: SP_AFTER_SECTION },
             children: [new TextRun({ text: label, bold: true, size: HEADING_SIZE, font: FONT, color: ACCENT_COLOR })],
           });
         case "uppercase-underline":
         default:
           return new Paragraph({
-            spacing: { before: SP_BEFORE_SECTION, after: 0 },
+            spacing: { before: SP_BEFORE_SECTION, after: SP_AFTER_SECTION },
             border: { bottom: { color: "BFBFBF", style: BorderStyle.SINGLE, size: 6, space: 1 } },
             children: [new TextRun({ text: label.toUpperCase(), bold: true, size: HEADING_SIZE, font: FONT })],
           });
@@ -1090,7 +1257,7 @@ SPECIFIC OUTPUT RULES:
     };
 
     const subsectionHeading = (label: string) => new Paragraph({
-      spacing: { before: SP_BEFORE_SUBHEAD, after: 0 },
+      spacing: { before: SP_BEFORE_ENTRY, after: 0 },
       children: [new TextRun({ text: label, bold: true, size: SUBHEADING_SIZE, font: FONT })],
     });
 
@@ -1129,7 +1296,7 @@ SPECIFIC OUTPUT RULES:
       }
       out.push(new Paragraph({
         tabStops: [{ type: TabStopType.RIGHT, position: RIGHT_TAB }],
-        spacing: { before: withGap ? SP_BEFORE_ENTRY : 0, after: 0 },
+        spacing: { before: withGap ? SP_BEFORE_EDU : 0, after: 0 },
         children: titleChildren,
       }));
       const subText = String(subtitle || "").trim();
@@ -1142,15 +1309,15 @@ SPECIFIC OUTPUT RULES:
       return out;
     };
 
-    // Bulleted list item — Word's default bullet list style, zero spacing
-    // after so subsequent bullets stack tight.
+    // Bulleted list item — Word bullet list style, tiny after-spacing so
+    // bullets are visibly distinct without ballooning page length.
     const bulletParagraph = (s: string) => new Paragraph({
       bullet: { level: 0 },
-      spacing: { before: 0, after: 0, line: LINE_SINGLE, lineRule: LineRuleType.AUTO },
+      spacing: { before: 0, after: SP_AFTER_BULLET, line: LINE_SINGLE, lineRule: LineRuleType.AUTO },
       children: [new TextRun({ text: String(s || ""), size: BULLET_SIZE, font: FONT })],
     });
 
-    // About Me body paragraph. Justified, 1.08 line, no after-spacing.
+    // About Me body paragraph. Justified, 1.05 line.
     const bodyParagraph = (s: string) => new Paragraph({
       alignment: AlignmentType.JUSTIFIED,
       spacing: { before: 0, after: 0, line: LINE_ABOUT, lineRule: LineRuleType.AUTO },
@@ -1162,7 +1329,7 @@ SPECIFIC OUTPUT RULES:
       if (!values || (Array.isArray(values) && values.length === 0)) return null;
       const valueText = Array.isArray(values) ? values.join(", ") : String(values);
       return new Paragraph({
-        spacing: { before: 0, after: 0 },
+        spacing: { before: 0, after: SP_AFTER_SKILL },
         children: [
           new TextRun({ text: `${label}: `, bold: true, size: BULLET_SIZE, font: FONT }),
           new TextRun({ text: valueText, size: BULLET_SIZE, font: FONT }),
@@ -1170,10 +1337,9 @@ SPECIFIC OUTPUT RULES:
       });
     };
 
-    // Plain single-line paragraph — used for Languages so the section
-    // heading doesn't double up with a redundant "Languages:" prefix.
+    // Plain single-line paragraph — used for Languages.
     const plainLine = (s: string) => new Paragraph({
-      spacing: { before: 0, after: 0 },
+      spacing: { before: 0, after: SP_AFTER_SKILL },
       children: [new TextRun({ text: s, size: BULLET_SIZE, font: FONT })],
     });
 
@@ -1186,17 +1352,15 @@ SPECIFIC OUTPUT RULES:
     const nameText = String(header.name || userContext.full_name || "").toUpperCase();
     paragraphs.push(new Paragraph({
       alignment: AlignmentType.CENTER,
-      spacing: { before: 0, after: 0 },
+      spacing: { before: 0, after: SP_AFTER_NAME },
       children: [new TextRun({ text: nameText, bold: true, size: NAME_SIZE, font: FONT })],
     }));
 
     const subtitleText = String(header.subtitle || "").trim();
     if (subtitleText) {
-      // Flush to the contact line below — no "after" spacing, so there's no
-      // visible blank line between subtitle and contact.
       paragraphs.push(new Paragraph({
         alignment: AlignmentType.CENTER,
-        spacing: { before: 0, after: 0 },
+        spacing: { before: 0, after: SP_AFTER_SUBTITLE },
         children: [new TextRun({ text: subtitleText, size: ROLE_SUBTITLE_SIZE, color: MUTED_COLOR, font: FONT })],
       }));
     }
@@ -1213,7 +1377,7 @@ SPECIFIC OUTPUT RULES:
     if (contactBits.length > 0) {
       paragraphs.push(new Paragraph({
         alignment: AlignmentType.CENTER,
-        spacing: { before: 0, after: 0 },
+        spacing: { before: 0, after: SP_AFTER_CONTACT },
         children: [new TextRun({ text: contactBits.join("  \u00B7  "), size: CONTACT_SIZE, font: FONT })],
       }));
     }
@@ -1431,8 +1595,9 @@ SPECIFIC OUTPUT RULES:
       sections: [{
         properties: {
           page: {
-            // 15mm top/bottom, 20mm left/right (1mm ≈ 56.7 twips)
-            margin: { top: 850, bottom: 850, left: 1134, right: 1134 },
+            // Tight margins for one-page enforcement: ~0.35" top/bottom,
+            // ~0.49" left/right. A4 size is the docx default (11906×16838).
+            margin: { top: 500, bottom: 500, left: 700, right: 700 },
           },
         },
         children: paragraphs,
