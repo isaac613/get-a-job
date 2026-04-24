@@ -17,6 +17,60 @@ const MODEL = 'gpt-4o-mini'
 const RATE_LIMIT_CALLS = 10
 const RATE_LIMIT_WINDOW = 3600
 
+// Normalise a free-text role title (e.g. a user's 5-year goal with typos) into
+// the closest standardized_title from the role library. LinkedIn's title_filter
+// is a strict phrase match — "Product managment" (typo) finds zero jobs even
+// though "Product Manager" matches hundreds. We map via Jaccard-over-tokens
+// with 5-char stem folding so misspellings still resolve cleanly.
+const ROLE_TITLE_STOPWORDS = new Set([
+  "the","a","an","of","to","and","or","in","on","for","with","at","by","from",
+  "as","is","and","or","role"
+]);
+function _titleTokens(s: string): string[] {
+  return (s || '').toLowerCase().match(/[a-z][a-z-]{2,}/g) || [];
+}
+function canonicalizeRoleTitle(raw: string): string {
+  const input = String(raw || '').trim();
+  if (!input) return input;
+  const goalTokens = _titleTokens(input).filter(t => !ROLE_TITLE_STOPWORDS.has(t));
+  if (goalTokens.length === 0) return input;
+
+  const stemMatch = (a: string, b: string): boolean => {
+    if (a === b) return true;
+    const minLen = Math.min(a.length, b.length);
+    return minLen >= 5 && a.slice(0, 5) === b.slice(0, 5);
+  };
+
+  let best: { title: string; score: number; stdHit: boolean } | null = null;
+  const tryTitle = (title: string, isStd: boolean) => {
+    const titleTokens = _titleTokens(title).filter(t => !ROLE_TITLE_STOPWORDS.has(t));
+    if (titleTokens.length === 0) return;
+    let overlap = 0;
+    const used = new Set<number>();
+    for (const gt of goalTokens) {
+      for (let i = 0; i < titleTokens.length; i++) {
+        if (used.has(i)) continue;
+        if (stemMatch(gt, titleTokens[i])) { overlap++; used.add(i); break; }
+      }
+    }
+    const denom = goalTokens.length + titleTokens.length - overlap;
+    const score = denom > 0 ? overlap / denom : 0;
+    if (score > 0 && (!best || score > best.score ||
+        (score === best.score && isStd && !best.stdHit))) {
+      best = { title, score, stdHit: isStd };
+    }
+  };
+
+  for (const r of (roleLibrary as any).roles) {
+    if (r.standardized_title) tryTitle(String(r.standardized_title), true);
+    for (const alt of (r.alternate_titles || [])) {
+      const a = String(alt);
+      if (a.length >= 5) tryTitle(a, false);
+    }
+  }
+  return best && best.score >= 0.30 ? best.title : input;
+}
+
 // Map a free-text location string to a JSearch ISO country code.
 // JSearch defaults to the US when no country is given — wrong for non-US users.
 function locationToCountryCode(loc: string | null | undefined): string {
@@ -284,10 +338,16 @@ Deno.serve(async (req) => {
 
     // --- Cascade: LinkedIn for IL first, then JSearch, then remote fallback ---
     if (countryCode === 'il') {
+      // LinkedIn's title_filter is strict phrase match — a user's typo'd
+      // five_year_role like "Product managment" returns zero hits. Canonicalise
+      // against the library so typos map to real titles.
+      const liRoleTerm = canonicalizeRoleTitle(roleTerm)
+      console.log("[JOBS] Entering LinkedIn cascade, metro:", locHub, "apiKey present:", !!linkedinKey, "roleTerm:", roleTerm, "canonicalised:", liRoleTerm);
       // A. LinkedIn: metro (Tel Aviv) — best local match
       if (locHub) {
-        const jobs = await fetchLinkedInJobs(roleTerm, locHub)
-        console.log(`[job-suggestions] linkedin metro title="${roleTerm}" loc="${locHub}" → ${jobs.length}`)
+        const jobs = await fetchLinkedInJobs(liRoleTerm, locHub)
+        console.log("[JOBS] LinkedIn returned:", jobs?.length || 0, "jobs")
+        console.log(`[job-suggestions] linkedin metro title="${liRoleTerm}" loc="${locHub}" → ${jobs.length}`)
         if (jobs.length > 0) {
           // Prioritise user's metro, then include other IL districts
           const metroFirst = jobs.sort((a: any, b: any) => {
@@ -304,8 +364,8 @@ Deno.serve(async (req) => {
       }
       // B. LinkedIn: broader Israel query if metro came back empty
       if (liveJobs.length === 0) {
-        const jobs = await fetchLinkedInJobs(roleTerm, 'Israel')
-        console.log(`[job-suggestions] linkedin country title="${roleTerm}" loc="Israel" → ${jobs.length}`)
+        const jobs = await fetchLinkedInJobs(liRoleTerm, 'Israel')
+        console.log(`[job-suggestions] linkedin country title="${liRoleTerm}" loc="Israel" → ${jobs.length}`)
         if (jobs.length > 0) {
           liveJobs = jobs.slice(0, 10).map(mapLinkedInJob)
           usedQuery = 'linkedin-israel'
@@ -541,8 +601,15 @@ Return ONLY valid JSON:
       console.error('Cache write error:', e)
     }
 
+    const finalResults = result.live_suggestions || []
+    console.log("[JOBS] Final results:", finalResults?.length, "source breakdown:",
+      JSON.stringify(finalResults?.map((r: any) => {
+        const orig = liveJobs.find(j => j.id === r.id || j.title === r.title)
+        return orig?.source || r.source || "unknown"
+      }).reduce((acc: Record<string, number>, s: string) => { acc[s] = (acc[s] || 0) + 1; return acc }, {})))
+
     return new Response(JSON.stringify({
-      suggestions: result.live_suggestions || [],
+      suggestions: finalResults,
       generic_suggestions: result.generic_suggestions || [],
       message: result.message || null,
     }), {
