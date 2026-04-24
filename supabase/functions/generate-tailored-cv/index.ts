@@ -25,68 +25,6 @@ import { skillLibrary } from "./shared/libraries/01_skill_library.ts";
 import { proofSignalLibrary } from "./shared/libraries/02_proof_signal_library.ts";
 import { roleSkillMapping } from "./shared/libraries/04_role_skill_mapping.ts";
 
-// Built-in CV template library. Each template is a style bundle — the same
-// docx structure is rendered with different font / size / accent / heading
-// style. Custom uploaded templates (see cv_templates table) resolve to a
-// base built-in via their extracted_structure before rendering.
-type CVTemplate = {
-  name: string;
-  font: string;
-  nameSize: number;       // half-points (48 = 24pt)
-  headingSize: number;
-  bodySize: number;
-  bulletSize: number;
-  entryTitleSize: number;
-  accentColor: string;    // hex without #
-  headingStyle: "uppercase-underline" | "bold-accent-line" | "small-caps-line" | "serif-elegant";
-};
-const CV_TEMPLATES: Record<string, CVTemplate> = {
-  classic: {
-    name: "Classic",
-    font: "Calibri",
-    nameSize: 48,  // 24pt
-    headingSize: 22, // 11pt
-    bodySize: 20,  // 10pt
-    bulletSize: 18, // 9pt
-    entryTitleSize: 20, // 10pt
-    accentColor: "444444",
-    headingStyle: "uppercase-underline",
-  },
-  modern: {
-    name: "Modern",
-    font: "Aptos",
-    nameSize: 44,  // 22pt
-    headingSize: 24, // 12pt
-    bodySize: 20,  // 10pt
-    bulletSize: 18, // 9pt
-    entryTitleSize: 20, // 10pt
-    accentColor: "2B579A",
-    headingStyle: "bold-accent-line",
-  },
-  compact: {
-    name: "Compact",
-    font: "Arial Narrow",
-    nameSize: 40,  // 20pt
-    headingSize: 20, // 10pt
-    bodySize: 18,  // 9pt
-    bulletSize: 17, // 8.5pt
-    entryTitleSize: 18, // 9pt
-    accentColor: "333333",
-    headingStyle: "small-caps-line",
-  },
-  executive: {
-    name: "Executive",
-    font: "Georgia",
-    nameSize: 52,  // 26pt
-    headingSize: 24, // 12pt
-    bodySize: 21,  // 10.5pt
-    bulletSize: 19, // 9.5pt
-    entryTitleSize: 22, // 11pt
-    accentColor: "1A1A1A",
-    headingStyle: "serif-elegant",
-  },
-};
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -238,17 +176,6 @@ Deno.serve(async (req) => {
     let safeJobDescription = String(job_description ?? '').slice(0, 5000);
     let targetCompany = ""; // populated from the linked application when available
 
-    // Built-in template selection. Falls back to "classic" for unknown ids.
-    const requestedTemplateId = typeof body.template_id === "string" ? body.template_id : "classic";
-    const templateId: string = CV_TEMPLATES[requestedTemplateId] ? requestedTemplateId : "classic";
-    let template: CVTemplate = CV_TEMPLATES[templateId];
-
-    // Custom template (user-uploaded PDF). If present, overrides the built-in
-    // style resolution further down based on the row's extracted_structure.
-    const requestedCustomTemplateId = typeof body.custom_template_id === "string"
-      ? body.custom_template_id
-      : null;
-
     if (!safeTargetRole) {
       return json({ error: "target_role is required" }, 400);
     }
@@ -323,33 +250,6 @@ Deno.serve(async (req) => {
         if (!safeJobDescription && app.notes) {
           safeJobDescription = String(app.notes).slice(0, 5000);
         }
-      }
-    }
-
-    // ─── Custom template resolution ───
-    // If custom_template_id was passed, fetch the row and use its cached
-    // extracted_structure. Map font_style → built-in template so the
-    // renderer still has a consistent style config to follow. Section order
-    // is injected into the prompt so the LLM emits sections in the order
-    // the user's uploaded template shows them.
-    let customSectionOrder: string[] | null = null;
-    if (requestedCustomTemplateId) {
-      const { data: tpl } = await supabase
-        .from("cv_templates")
-        .select("id, extracted_structure")
-        .eq("id", requestedCustomTemplateId)
-        .eq("user_id", user.id)
-        .single();
-      if (tpl?.extracted_structure) {
-        const es = tpl.extracted_structure as any;
-        if (Array.isArray(es.sections)) customSectionOrder = es.sections.slice(0, 12);
-        // Pick base style from font + density hints
-        const fontStyle = String(es.font_style || "").toLowerCase();
-        const density = String(es.density || "").toLowerCase();
-        if (fontStyle.includes("serif")) template = CV_TEMPLATES.executive;
-        else if (density === "compact") template = CV_TEMPLATES.compact;
-        else if (density === "spacious") template = CV_TEMPLATES.executive;
-        else template = CV_TEMPLATES.modern;
       }
     }
 
@@ -653,8 +553,10 @@ TAILORING (apply aggressively — this is the most important part of your job):
 - NEVER invent experiences, skills, tools, certifications, or metrics. Rephrasing is allowed; fabrication is not. "Managed multiple cases" can become "Prioritised and managed a backlog of concurrent cases" if that's what actually happened, but CANNOT become "Managed a product backlog" if the user didn't work on one.
 `;
 
-    // Extracted keywords are the single most effective lever for forcing
-    // tailoring. Without them the generic TAILORING_RULES gets largely ignored.
+    // Extracted keywords — the single most effective lever for forcing
+    // tailoring. Appended to the END of the user prompt (not the system
+    // prompt) because GPT-4o-mini weights the tail of the user message
+    // most heavily when the response is structured JSON.
     const KEYWORD_INJECTION_BLOCK = jdKeywords && (
       jdKeywords.must_include_phrases.length +
       jdKeywords.action_verbs.length +
@@ -663,31 +565,30 @@ TAILORING (apply aggressively — this is the most important part of your job):
       jdKeywords.soft_skill_keywords.length
     ) > 0
       ? `
-=== MANDATORY KEYWORD TAILORING ===
-The following keywords were extracted from the job description. You MUST weave these into the CV naturally:
+=== MANDATORY — YOUR CV WILL BE REJECTED IF THESE ARE MISSING ===
 
-${jdKeywords.must_include_phrases.length > 0 ? `MUST-INCLUDE PHRASES (use at least 6 of these verbatim or near-verbatim in bullet points and About Me):
-${jdKeywords.must_include_phrases.map((p) => `- "${p}"`).join("\n")}
+You MUST use the following keywords from the job description. This is not optional.
+
+${jdKeywords.must_include_phrases.length > 0 ? `USE THESE EXACT PHRASES in the About Me and bullet points (at least 6 of them):
+${jdKeywords.must_include_phrases.map((p) => `"${p}"`).join(", ")}
 ` : ""}
-${jdKeywords.action_verbs.length > 0 ? `ACTION VERBS (prefer these over generic verbs):
+${jdKeywords.action_verbs.length > 0 ? `USE THESE ACTION VERBS instead of generic ones:
 ${jdKeywords.action_verbs.join(", ")}
 ` : ""}
-${jdKeywords.tools_and_platforms.length > 0 ? `TOOLS & PLATFORMS (include in Skills section AND mention in relevant bullets where truthful):
+${jdKeywords.tools_and_platforms.length > 0 ? `MENTION THESE TOOLS in Skills section (only if the user could reasonably claim familiarity):
 ${jdKeywords.tools_and_platforms.join(", ")}
 ` : ""}
-${jdKeywords.domain_terms.length > 0 ? `DOMAIN TERMS (weave into About Me and experience descriptions):
+${jdKeywords.domain_terms.length > 0 ? `USE THESE DOMAIN TERMS in About Me and descriptions:
 ${jdKeywords.domain_terms.join(", ")}
 ` : ""}
-${jdKeywords.soft_skill_keywords.length > 0 ? `SOFT SKILLS (reflect in bullet phrasing):
-${jdKeywords.soft_skill_keywords.join(", ")}
-` : ""}
 
-RULES:
-1. The About Me section MUST use at least 3 must-include phrases and 2 domain terms.
-2. Experience bullet points MUST be rewritten to use JD action verbs and incorporate must-include phrases WHERE TRUTHFUL. Do not invent new responsibilities — rephrase existing ones using JD language.
-3. The Skills section MUST include tools from the JD that the user actually knows or could reasonably claim from their existing skills/experience. If the user's profile doesn't mention a JD tool at all, do NOT add it.
-4. If the user has NO experience with a JD tool/platform, do NOT add it. Truthfulness is still non-negotiable.
-5. Reorder experience bullets so the most JD-relevant ones come first within each role.
+REWRITE RULES:
+- "Managed customer cases" → "Owned customer relationships and drove adoption metrics" (if JD uses those terms)
+- "Led a team" → "Led cross-functional initiatives" (if JD uses "cross-functional")
+- "Tracked attendance" → "Monitored adoption dashboards and engagement metrics" (if JD uses those terms)
+- Every bullet point must be REWRITTEN to incorporate at least one JD keyword. Do not just copy the user's original bullet text.
+- The About Me must mention the target company's domain and use at least 3 must-include phrases.
+- Truthfulness still applies: never invent experiences or tools the user doesn't have. Rephrasing what they DID do in JD language is mandatory; fabricating new responsibilities is forbidden.
 `
       : "";
 
@@ -706,30 +607,25 @@ RELEVANT PROOF SIGNALS (map user experiences to these signals when possible):
 ${JSON.stringify(relevantSignals, null, 2)}
 ` : `NOTE: The target role was not found in the standardized role library. Tailor strictly using the job description and the user's actual profile data.\n`;
 
-    const CUSTOM_TEMPLATE_BLOCK = customSectionOrder && customSectionOrder.length > 0
-      ? `\nCUSTOM TEMPLATE SECTION ORDER (user uploaded a template PDF — match it):
-Structure the CV in this section order: ${customSectionOrder.join(", ")}. Skip any section the user has no data for.
-CRITICAL: The CV must fit on exactly ONE A4 page regardless of template. Apply the same dynamic content density rules from ONE PAGE RULE above — scale detail inversely with content volume.\n`
-      : "";
-
     const systemPrompt =
       `You are a CV Generation Engine for the "Get A Job" Career Operating System. Your job is to produce a tailored, one-page, truthful CV as JSON. The CV WILL be sent to real employers — so every word must be grounded in the user's actual data.\n\n` +
+      `You are generating a TAILORED CV. The CV must be specifically customized for the target job description. Generic CVs that don't incorporate JD-specific language will be rejected.\n\n` +
       ONE_PAGE_RULE + `\n` +
       TRUTHFULNESS_RULES + `\n` +
       STRUCTURE_RULES + `\n` +
       TAILORING_RULES + `\n` +
       LIBRARY_CONTEXT + `\n` +
-      KEYWORD_INJECTION_BLOCK + `\n` +
-      CUSTOM_TEMPLATE_BLOCK + `\n` +
       `REMINDER: Truthfulness beats polish AND one-page fit is non-negotiable. If a bullet needs a metric to sound impressive but you have no metric in the source, leave it without. Do not invent. If content is overflowing, shorten bullets rather than dropping entries.`;
+    // KEYWORD_INJECTION_BLOCK is appended to the END of the user prompt below
+    // so it's the last instruction the LLM sees before producing output.
 
     const userPrompt = `TARGET ROLE: ${safeTargetRole}
 ${targetCompany ? `TARGET COMPANY: ${targetCompany}` : ""}
 
-${safeJobDescription ? `JOB DESCRIPTION:\n${safeJobDescription}\n` : "(No job description provided — tailor using the target role and user profile only.)"}
-
 USER DATA:
 ${JSON.stringify(userContext, null, 2)}
+
+${safeJobDescription ? `JOB DESCRIPTION:\n${safeJobDescription}\n` : "(No job description provided — tailor using the target role and user profile only.)"}
 
 TASK:
 Produce a tailored, truthful, one-page CV for this user as JSON matching the exact schema below.
@@ -796,12 +692,20 @@ SPECIFIC OUTPUT RULES:
 - Languages priority: (1) If USER DATA.stored_languages is a non-empty array, use those entries VERBATIM (same language name, same proficiency) — do NOT re-infer or flip levels. (2) Otherwise, include every language signal from USER DATA.skills, USER DATA.summary, and USER DATA.language_hints. Use the "proficiency" field (not "level") with one of Native | Fluent | Professional | Conversational | Basic. The language_hints array is advisory — if it suggests Hebrew (likely fluent), mark Hebrew at "Fluent" (not "Native") unless you have stronger signal.
 - Education dates: if USER DATA.education.dates is non-empty, output that string verbatim as the education entry's "dates". Do not guess "Present" or similar when the source is blank — leave the field empty instead.
 - fit_analysis.skill_match_percentage is an integer 0-100. Compute honestly: how many of the JD's core requirements does this candidate actually meet? An entry-level candidate with clearly-transferable experience should score 40-70%. A perfect match should score 80-95%. Never output 0% unless the candidate has no overlap at all — 0% is almost never correct for a real candidate.
-- Return ONLY valid JSON. No markdown, no prose outside the JSON object.`;
+${KEYWORD_INJECTION_BLOCK}
+Return ONLY valid JSON. No markdown, no prose outside the JSON object.`;
 
     const openaiKey = Deno.env.get("OPENAI_API_KEY");
     if (!openaiKey) {
       return json({ error: "OpenAI API key not configured on server" }, 500);
     }
+
+    // Diagnostic: confirm the JD is actually reaching the LLM and the
+    // keyword extraction pulled something useful out. Shows up in
+    // Supabase edge-function logs under this function.
+    console.log("[CV] JD present:", !!safeJobDescription, "JD length:", safeJobDescription?.length || 0);
+    console.log("[CV] Keywords extracted:", JSON.stringify(jdKeywords?.must_include_phrases?.slice(0, 5) || []));
+    console.log("[CV] Injection block length:", KEYWORD_INJECTION_BLOCK.length);
 
     const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -1116,17 +1020,10 @@ SPECIFIC OUTPUT RULES:
       return lines;
     };
 
-    // Rendered lines at 500-twip top/bottom margins on A4:
-    //  - Classic / Modern @ 10pt body: ~46-50 lines fit
-    //  - Compact          @ 9pt body:  ~54-56 lines fit
-    //  - Executive        @ 10.5pt body + bigger spacing: ~42-44 lines fit
-    // The trim should be a rare safety net, not fire on normal content, so
-    // these thresholds sit near the real visual capacity rather than below
-    // it. If the LLM prompt is producing a healthy density, generations
-    // typically land under these numbers.
-    const maxLines = templateId === "compact" ? 54
-      : templateId === "executive" ? 44
-      : 48;
+    // Single threshold for the single style. At 500-twip top/bottom A4
+    // margins and 10pt body type, ~48 paragraph-lines fit on one page with
+    // a small safety cushion before visual overflow.
+    const maxLines = 48;
 
     const initialEstimatedLines = estimatePageLines(cvData);
     let estimatedLines = initialEstimatedLines;
@@ -1182,46 +1079,38 @@ SPECIFIC OUTPUT RULES:
     //   - margins 20mm top/bottom ≈ 1134 twips, 25mm left/right ≈ 1417 twips
     //   - tab stop max ≈ 9072 twips (inside a 21cm page with 25mm margins)
     //   - line: 240 = single, 276 = 1.15x, 288 = 1.2x, 360 = 1.5x
-    // All typography is driven by the resolved `template` config so different
-    // built-in templates (classic / modern / compact / executive) render
-    // with different fonts, sizes, and accent colors from the same pipeline.
-    const FONT = template.font;
+    // Single hardcoded style (the pre-template-refactor layout that produced
+    // clean one-page CVs). Font sizes are in half-points.
+    const FONT = "Calibri";
     const BLACK = "000000";
     const MUTED_COLOR = "555555";
-    const ACCENT_COLOR = template.accentColor;
-    const BODY_SIZE = template.bodySize;
-    const BULLET_SIZE = template.bulletSize;
-    const HEADING_SIZE = template.headingSize;
-    const SUBHEADING_SIZE = Math.max(18, template.bulletSize + 1); // one notch above bullets
-    const ENTRY_TITLE_SIZE = template.entryTitleSize;
-    const CONTACT_SIZE = template.bulletSize + 1;
-    const DATE_SIZE = template.bulletSize + 1;
-    const NAME_SIZE = template.nameSize;
-    const ROLE_SUBTITLE_SIZE = Math.max(20, template.headingSize);
-    // Right tab stop just inside the right margin on an A4 page with 20mm
-    // L/R margins (page 11906 twips wide, margin 1134 each side → 9638).
-    const RIGHT_TAB = 9600;
+    const BODY_SIZE = 20;        // 10pt — About Me
+    const BULLET_SIZE = 18;      // 9pt — bullets
+    const HEADING_SIZE = 22;     // 11pt — section heading
+    const SUBHEADING_SIZE = 19;  // 9.5pt — sub-section
+    const ENTRY_TITLE_SIZE = 20; // 10pt — entry title
+    const CONTACT_SIZE = 19;     // 9.5pt
+    const DATE_SIZE = 19;        // 9.5pt
+    const NAME_SIZE = 48;        // 24pt — uppercase name
+    const ROLE_SUBTITLE_SIZE = 22; // 11pt
+    // Right tab stop just inside the right margin on an A4 page with 700-
+    // twip L/R margins (page 11906 twips wide, margin 700 each side → 10506).
+    const RIGHT_TAB = 10400;
 
     // Spacing constants in twips (1pt = 20 twips). 1.0 line = 240.
-    // Baseline spec values are per the one-page enforcement pass. Compact
-    // templates multiply by 0.7; executive by 1.15; classic/modern use
-    // baseline. `_s(v)` applies the template scale and rounds.
-    const _spaceScale = templateId === "compact" ? 0.7
-      : templateId === "executive" ? 1.15
-      : 1.0;
-    const _s = (v: number) => Math.round(v * _spaceScale);
-    const SP_AFTER_NAME = _s(0);
-    const SP_AFTER_SUBTITLE = _s(20);
-    const SP_AFTER_CONTACT = _s(80);
-    const SP_BEFORE_SECTION = _s(140);
-    const SP_AFTER_SECTION = _s(40);
-    const SP_BEFORE_ENTRY = _s(60);
-    const SP_AFTER_BULLET = _s(10);
-    const SP_BEFORE_EDU = _s(40);
-    const SP_AFTER_SKILL = _s(10);
-    const SP_AFTER_HONOR = _s(10);
-    const LINE_SINGLE = 240; // 1.0 line spacing (don't scale line height)
-    const LINE_ABOUT = 252;  // 1.05 for About Me — slightly looser than bullets
+    // Single hardcoded spacing set — the original values that produced the
+    // good-looking one-page CV before the template refactor.
+    const SP_AFTER_NAME = 0;
+    const SP_AFTER_SUBTITLE = 20;
+    const SP_AFTER_CONTACT = 80;
+    const SP_BEFORE_SECTION = 140;
+    const SP_AFTER_SECTION = 40;
+    const SP_BEFORE_ENTRY = 60;
+    const SP_AFTER_BULLET = 10;
+    const SP_BEFORE_EDU = 40;
+    const SP_AFTER_SKILL = 10;
+    const LINE_SINGLE = 240; // 1.0 line spacing
+    const LINE_ABOUT = 252;  // 1.05 for About Me
 
     const paragraphs: Array<Paragraph | Table> = [];
 
@@ -1229,37 +1118,13 @@ SPECIFIC OUTPUT RULES:
     const text = (s: string, opts: Record<string, unknown> = {}) =>
       new TextRun({ text: s, font: FONT, size: BODY_SIZE, ...opts });
 
-    // Section heading styling varies by template. Spacing pulls from the
-    // template-scaled constants so compact templates sit tighter and
-    // executive templates breathe a touch more.
-    const sectionHeading = (label: string): Paragraph => {
-      switch (template.headingStyle) {
-        case "bold-accent-line":
-          return new Paragraph({
-            spacing: { before: SP_BEFORE_SECTION, after: SP_AFTER_SECTION },
-            border: { bottom: { color: ACCENT_COLOR, style: BorderStyle.SINGLE, size: 10, space: 1 } },
-            children: [new TextRun({ text: label, bold: true, size: HEADING_SIZE, font: FONT, color: ACCENT_COLOR })],
-          });
-        case "small-caps-line":
-          return new Paragraph({
-            spacing: { before: SP_BEFORE_SECTION, after: SP_AFTER_SECTION },
-            border: { bottom: { color: "BFBFBF", style: BorderStyle.SINGLE, size: 4, space: 1 } },
-            children: [new TextRun({ text: label.toUpperCase(), bold: true, size: HEADING_SIZE - 1, font: FONT, characterSpacing: 60 })],
-          });
-        case "serif-elegant":
-          return new Paragraph({
-            spacing: { before: SP_BEFORE_SECTION, after: SP_AFTER_SECTION },
-            children: [new TextRun({ text: label, bold: true, size: HEADING_SIZE, font: FONT, color: ACCENT_COLOR })],
-          });
-        case "uppercase-underline":
-        default:
-          return new Paragraph({
-            spacing: { before: SP_BEFORE_SECTION, after: SP_AFTER_SECTION },
-            border: { bottom: { color: "BFBFBF", style: BorderStyle.SINGLE, size: 6, space: 1 } },
-            children: [new TextRun({ text: label.toUpperCase(), bold: true, size: HEADING_SIZE, font: FONT })],
-          });
-      }
-    };
+    // Single section-heading style: UPPERCASE bold with thin gray paragraph
+    // bottom border. This matches the pre-template-refactor layout.
+    const sectionHeading = (label: string): Paragraph => new Paragraph({
+      spacing: { before: SP_BEFORE_SECTION, after: SP_AFTER_SECTION },
+      border: { bottom: { color: "BFBFBF", style: BorderStyle.SINGLE, size: 6, space: 1 } },
+      children: [new TextRun({ text: label.toUpperCase(), bold: true, size: HEADING_SIZE, font: FONT })],
+    });
 
     const subsectionHeading = (label: string) => new Paragraph({
       spacing: { before: SP_BEFORE_ENTRY, after: 0 },
@@ -1637,17 +1502,12 @@ SPECIFIC OUTPUT RULES:
     const cv_url = signedUrlData.signedUrl;
 
     let appRecord;
-    const templateFields = {
-      cv_template_id: templateId,
-      custom_template_id: requestedCustomTemplateId || null,
-    };
     if (application_id) {
       const { data } = await supabase.from("applications").update({
         cv_url,
         cv_status: "ready",
         cv_version_name: `${safeTargetRole} CV`,
         cv_skills_emphasized: (cvData.skills as any)?.domain || [],
-        ...templateFields,
       }).eq("id", application_id).eq("user_id", user.id).select().single();
       if (!data) { return json({ error: "Application not found or not owned by user." }, 404); }
       appRecord = data;
@@ -1660,7 +1520,6 @@ SPECIFIC OUTPUT RULES:
         cv_version_name: `${safeTargetRole} CV`,
         cv_skills_emphasized: (cvData.skills as any)?.domain || [],
         status: "interested",
-        ...templateFields,
       }).select().single();
       appRecord = data;
     }
@@ -1683,7 +1542,6 @@ SPECIFIC OUTPUT RULES:
       // Diagnostic metadata — lets callers see the overflow decision at a
       // glance without having to pull edge-function logs.
       page_fit: {
-        template: templateId,
         max_lines: maxLines,
         initial_estimate: initialEstimatedLines,
         final_estimate: estimatedLines,

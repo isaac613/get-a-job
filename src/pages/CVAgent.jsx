@@ -3,11 +3,7 @@ import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { FileText } from "lucide-react";
 import ChatInterface from "../components/chat/ChatInterface";
-import TemplateManager from "@/components/cv/TemplateManager";
 
 const GENERAL_PROMPTS = [
   "Generate a tailored CV for my top Tier 1 role",
@@ -19,7 +15,6 @@ const GENERAL_PROMPTS = [
 export default function CVAgent() {
   const { user } = useAuth();
   const [selectedAppId, setSelectedAppId] = useState("general");
-  const [templatesOpen, setTemplatesOpen] = useState(false);
 
   const { data: applications = [] } = useQuery({
     queryKey: ["applications", user?.id],
@@ -81,20 +76,7 @@ export default function CVAgent() {
             ))}
           </SelectContent>
         </Select>
-        <div className="ml-auto">
-          <Button variant="outline" size="sm" className="text-xs" onClick={() => setTemplatesOpen(true)}>
-            <FileText className="w-3.5 h-3.5 mr-1.5" /> Manage CV Templates
-          </Button>
-        </div>
       </div>
-      <Dialog open={templatesOpen} onOpenChange={setTemplatesOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Manage CV Templates</DialogTitle>
-          </DialogHeader>
-          <TemplateManager onClose={() => setTemplatesOpen(false)} />
-        </DialogContent>
-      </Dialog>
 
       <div className="flex-1 overflow-hidden">
         {/* key resets messages when the selected application changes */}

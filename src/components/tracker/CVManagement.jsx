@@ -1,45 +1,17 @@
 import React, { useState } from "react";
 import { supabase } from "@/api/supabaseClient";
-import { useAuth } from "@/lib/AuthContext";
-import { useQuery } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, FileText, Sparkles, Download, Save } from "lucide-react";
 import { toast } from "sonner";
-import { TemplatePicker } from "@/components/chat/ChatInterface";
-import TemplateManager from "@/components/cv/TemplateManager";
 
 export default function CVManagement({ app, onUpdate }) {
-  const { user } = useAuth();
   const [cvName, setCvName] = useState(app.cv_version_name || "");
   const [cvStatus, setCvStatus] = useState(app.cv_status || "not_started");
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
-  // Default to whichever template the application was last generated with.
-  // If the row has a custom_template_id we preselect that; otherwise fall
-  // back to the built-in cv_template_id or "classic".
-  const [templateId, setTemplateId] = useState(app.cv_template_id || "classic");
-  const [customTemplateId, setCustomTemplateId] = useState(app.custom_template_id || null);
-  const [templatesDialogOpen, setTemplatesDialogOpen] = useState(false);
-
-  const { data: customTemplates = [] } = useQuery({
-    queryKey: ["cvTemplates", user?.id],
-    queryFn: async () => {
-      if (!user?.id) return [];
-      const { data, error } = await supabase
-        .from("cv_templates")
-        .select("id, name, is_default, created_at")
-        .eq("user_id", user.id)
-        .order("is_default", { ascending: false })
-        .order("updated_at", { ascending: false });
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!user?.id,
-  });
 
   const handleSave = async () => {
     setSaving(true);
@@ -68,8 +40,6 @@ export default function CVManagement({ app, onUpdate }) {
           job_description: app.job_description,
           target_role: app.role_title,
           application_id: app.id,
-          template_id: customTemplateId ? null : templateId,
-          custom_template_id: customTemplateId || null,
         },
       });
 
@@ -147,30 +117,6 @@ export default function CVManagement({ app, onUpdate }) {
           </a>
         </div>
       )}
-
-      <div>
-        <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium mb-2 block">
-          CV Template
-        </label>
-        <TemplatePicker
-          value={templateId}
-          onChange={(id) => { setTemplateId(id); setCustomTemplateId(null); }}
-          customValue={customTemplateId}
-          onCustomChange={(id) => setCustomTemplateId(id)}
-          customTemplates={customTemplates}
-          onManage={() => setTemplatesDialogOpen(true)}
-          disabled={generating}
-        />
-      </div>
-
-      <Dialog open={templatesDialogOpen} onOpenChange={setTemplatesDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Manage CV Templates</DialogTitle>
-          </DialogHeader>
-          <TemplateManager onClose={() => setTemplatesDialogOpen(false)} />
-        </DialogContent>
-      </Dialog>
 
       <div className="flex gap-2">
         <Button
