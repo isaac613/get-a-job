@@ -145,30 +145,23 @@ Deno.serve(async (req) => {
 
     const trunc = (s: unknown, max: number) => String(s ?? '').slice(0, max);
 
-    // Classify each experience into professional / military / volunteering.
-    // `experiences.type` is unreliable here — every row for our test user is
-    // tagged "full_time" even though one is clearly military and another is
-    // volunteering. So we infer from the COMPANY and TITLE fields only.
-    //
-    // Key lesson from the first rev: do NOT match keywords inside the
-    // responsibilities text. That caused a false positive where a Program
-    // Coordinator role got classified as military because its curriculum
-    // description mentioned "military benefits". The company/title fields are
-    // structured; the responsibilities text is free-form and noisy.
-    const classifyExperience = (exp: any): "military" | "volunteering" | "professional" => {
+    // Classify each experience into professional / military / volunteering /
+    // leadership. `experiences.type` is unreliable across this DB (legacy rows
+    // are tagged "full_time" even when they're clearly military or
+    // volunteering), so we infer from the COMPANY and TITLE fields only —
+    // never from the free-form responsibilities text (which once caused a
+    // false "military" positive on a Program Coordinator role whose curriculum
+    // mentioned "military benefits").
+    type Bucket = "military" | "volunteering" | "leadership" | "professional";
+    const classifyExperience = (exp: any): Bucket => {
       const company = String(exp.company || "").toLowerCase();
       const title = String(exp.title || "").toLowerCase();
       const type = String(exp.type || "").toLowerCase();
 
-      // Military: look for unit names, service branches, or ranks in company
-      // or title. Intentionally strict — prefer missing a military role over
-      // mis-tagging a civilian one (misclassification is dishonest).
       const militaryKeywords =
-        /\b(idf|israel\s?defense\s?forces|nahal|golani|givati|paratroopers?|sayeret|unit\s?8200|8200|army|brigade|platoon|battalion|regiment|commander|sergeant|corporal|lieutenant|captain|staff\s?sergeant|reservist|conscript|military\s?service|military\s?role)\b/;
+        /\b(idf|israel\s?defense\s?forces|nahal|golani|givati|paratroopers?|sayeret|unit\s?8200|8200|army|navy|air\s?force|brigade|platoon|battalion|regiment|commander|sergeant|corporal|lieutenant|captain|staff\s?sergeant|reservist|conscript|military\s?service|military\s?role)\b/;
       const looksMilitary = militaryKeywords.test(company) || militaryKeywords.test(title) || type === "military";
 
-      // Volunteering: keyword in title or an explicit volunteer/ngo signal in
-      // the company name. "Volunteer Educator", "Volunteer Coordinator", etc.
       const volunteerKeywords = /\b(volunteer(ed|ing)?|voluntary|pro\s?bono)\b/;
       const ngoCompany = /\b(ngo|non[-\s]?profit|charity|foundation)\b/;
       const looksVolunteering =
@@ -178,11 +171,19 @@ Deno.serve(async (req) => {
         type === "volunteering" ||
         type === "volunteer";
 
-      // Precedence: military > volunteering > professional. But if a title says
-      // "Volunteer …" AND matches military via company, prefer volunteering.
+      // Leadership bucket: explicit type tag OR title pattern like
+      // "President of X Club", "Editor of ...", "Captain of ..." — used for
+      // student leadership roles that aren't paid work. Intentionally narrow.
+      const looksLeadership = type === "leadership" ||
+        /\b(president of|editor of|captain of|head of student|club president|society president|student council)\b/.test(title);
+
+      // Precedence: if the title says "Volunteer" AND the company looks
+      // military (e.g. "Volunteer Reservist"), prefer volunteering. Otherwise
+      // military > volunteering > leadership > professional.
       if (looksMilitary && volunteerKeywords.test(title)) return "volunteering";
       if (looksMilitary) return "military";
       if (looksVolunteering) return "volunteering";
+      if (looksLeadership) return "leadership";
       return "professional";
     };
 
@@ -203,6 +204,18 @@ Deno.serve(async (req) => {
     const professionalExperiences = allExperiences.filter((e: any) => e.bucket === "professional");
     const militaryExperiences = allExperiences.filter((e: any) => e.bucket === "military");
     const volunteeringExperiences = allExperiences.filter((e: any) => e.bucket === "volunteering");
+    const leadershipExperiences = allExperiences.filter((e: any) => e.bucket === "leadership");
+
+    // Hebrew inference: any Israeli location signal is treated as a hint that
+    // the candidate is very likely fluent/native in Hebrew. The LLM sees this
+    // as a HINT (not a fact), so it can incorporate it into languages[] when
+    // the source data is silent. Users who aren't Israeli simply won't have
+    // this hint injected.
+    const locationHint = String(profile.location || "").toLowerCase();
+    const likelyLanguages: string[] = [];
+    if (/\b(israel|tel aviv|jerusalem|haifa|herzliya|ramat|netanya|rehovot|beer sheva|be'?er sheva|eilat|ashdod|petah tikva)\b/.test(locationHint)) {
+      likelyLanguages.push("Hebrew (likely native or fluent — candidate is based in Israel)");
+    }
 
     const userContext = {
       full_name: trunc(profile.full_name, 100),
@@ -214,10 +227,15 @@ Deno.serve(async (req) => {
       primary_domain: trunc(profile.primary_domain, 100),
       cv_tailoring_strategy: trunc(profile.cv_tailoring_strategy, 600),
       skills: safeArray(profile.skills).slice(0, 50).map((s) => trunc(s, 60)),
-      // Pre-bucketed experiences — the LLM should honor these groupings.
+      // Pre-bucketed experiences — the LLM MUST honor these groupings and
+      // must preserve `title` and `company` verbatim from each entry.
       professional_experiences: professionalExperiences,
       military_experiences: militaryExperiences,
       volunteering_experiences: volunteeringExperiences,
+      leadership_experiences: leadershipExperiences,
+      // If the user is in Israel and has nothing explicit about languages in
+      // their skills list, this hint lets the LLM include Hebrew in languages[].
+      language_hints: likelyLanguages,
       projects: safeArray(projects).slice(0, 10).map((p: any) => ({
         name: trunc(p.name, 100),
         description: trunc(p.description, 500),
@@ -236,6 +254,16 @@ Deno.serve(async (req) => {
         honors: safeArray(profile.honors).slice(0, 15).map((h) => trunc(h, 200)),
         relevant_coursework: safeArray(profile.relevant_coursework).slice(0, 20).map((c) => trunc(c, 100)),
       },
+      // Optional pre-university / high-school entry. Users without one will
+      // see this as null and the renderer will skip the entry cleanly.
+      secondary_education: profile.secondary_education && typeof profile.secondary_education === "object"
+        ? {
+            institution: trunc((profile.secondary_education as any).institution, 200),
+            location: trunc((profile.secondary_education as any).location, 200),
+            dates: trunc((profile.secondary_education as any).dates, 40),
+            highlights: safeArray((profile.secondary_education as any).highlights).slice(0, 6).map((h) => trunc(h, 200)),
+          }
+        : null,
       // Rich pre-scored evidence from the onboarding analyzer. Helps the LLM
       // pick which experiences to emphasize without inventing metrics.
       proof_signals: safeArray(profile.proof_signals).slice(0, 20),
@@ -304,28 +332,44 @@ Deno.serve(async (req) => {
     //      to the target role / JD / company.
     //   3) Role-library context (only when a library match exists) — gives the
     //      LLM a controlled vocabulary of skills and proof signals.
-    const TRUTHFULNESS_RULES = `ABSOLUTE TRUTHFULNESS RULES — THESE OVERRIDE EVERY OTHER RULE BELOW:
-1. NEVER invent, fabricate, or estimate any metrics, percentages, numbers, dollar amounts, team sizes, durations, or statistics that are not EXPLICITLY present in the user's original resume or profile data. No "reduced response time by 20%", no "managed a team of 15", no "drove $1M in pipeline" unless those exact numbers appear in the source.
-2. NEVER add a quantified achievement ("improved X by Y%", "reduced by Z%") unless the user's own data contains that exact number. If a bullet would be stronger with a metric, leave it without one. "Weaker but truthful" beats "strong but false".
-3. You MAY rephrase, tighten, and restructure the user's existing bullet points to better align with the target role — but the factual content must be preserved. Same achievements, cleaner wording, stronger action verbs.
-4. You MAY reorder experiences and emphasize different skills to align with the job description. Lead with the most relevant.
-5. You MAY write a tailored About Me that connects the user's REAL experience to the target role and (if provided) the specific company.
-6. NEVER add skills, tools, languages, certifications, or experiences the user doesn't actually have in the source data. If the JD asks for SQL and the user has no SQL anywhere in their profile, do not add it.
-7. Preserve every bullet point from the user's original experiences — rephrase to align with the target role, but do not drop content. If an experience has 5 responsibilities in the source, your output should cover all 5.
-8. If the user's experience responsibilities mention a specific award or honor (e.g. "Awarded Presidential Award for Excellence"), ALSO surface it in the honors[] output array so it appears in a dedicated Honors & Awards section.
+    const TRUTHFULNESS_RULES = `ABSOLUTE TRUTHFULNESS & PRESERVATION RULES — THESE OVERRIDE EVERY OTHER RULE:
+
+A. Factual integrity (no invention):
+1. NEVER invent, fabricate, or estimate any metrics, percentages, numbers, dollar amounts, team sizes, or durations that aren't EXPLICITLY in the user's source data. No "reduced response time by 20%", no "managed a team of 15", no "drove $1M in pipeline" unless those exact figures appear in the source.
+2. NEVER add a quantified achievement unless the user's own data contains that exact number. If a bullet would be stronger with a metric, leave it without. Weaker-but-truthful beats strong-but-false.
+3. NEVER add skills, tools, certifications, experiences, education entries, or awards the user doesn't actually have in the source data. If the JD asks for SQL and the user has no SQL anywhere, do not add it.
+
+B. Preservation (don't drop, don't paraphrase identifiers):
+4. Use the EXACT job titles from the source data. Never shorten, generalize, or paraphrase a title — "Supervised and trained teams of soldiers" stays "Supervised and trained teams of soldiers", never "Soldier". "Senior Customer Success Manager" stays "Senior Customer Success Manager", never "CS Manager".
+5. Use the EXACT company / institution / organization names from the source data. Don't re-capitalize, abbreviate, or translate them.
+6. Preserve every bullet from the source responsibilities. Rephrase for clarity and role alignment, but do not drop content. Five source bullets in → five bullets out.
+7. Include EVERY experience, education entry, certification, award, and language present in USER DATA. Do not silently omit entries because they feel less relevant — reorder them, but include them all.
+
+C. Surfacing awards and honors:
+8. If a responsibility line mentions an award (e.g. "Awarded Presidential Award for Excellence"), keep it in the bullet AND surface the award in honors_and_awards[] so it appears in a dedicated Honors & Awards section.
+
+D. What you MAY do:
+9. MAY rephrase and tighten bullets for stronger action verbs, ATS keywords, and role alignment — while preserving facts.
+10. MAY reorder experiences and bullets so the most role-relevant lead.
+11. MAY write a tailored About Me that connects the user's real experience to the target role and (when provided) the target company by name.
 `;
 
-    const STRUCTURE_RULES = `CV STRUCTURE RULES:
-- Sections in this order: Header → About Me → Professional Experience → Military Service → Volunteering → Education → Skills & Tools → Languages → Honors & Awards → Certifications → Projects.
-- Omit any section the user has no data for (e.g. no military → no Military Service section).
-- Do NOT merge Professional Experience, Military Service, and Volunteering into one section — they must be separate. Use the \`bucket\` field on each experience in USER DATA to decide which section it belongs in.
-- About Me: 2-3 sentences. Third person is fine. Must be tailored to the target role and (if a company name is given) reference the company or its domain.
-- Experience bullets: action verb + what you did. Factual and concrete. No invented metrics.
-- Skills & Tools: categorize as Domain (role-specific skills), Tools (software/platforms). Do NOT put languages here.
-- Languages: spoken/written human languages only (English, Spanish, Hebrew, etc.). Only include languages the user has actually listed somewhere in their data — check skills[] for language-like entries and the profile summary. Mark level when known.
-- Honors & Awards: include the user's honors[] plus any awards mentioned inside experience responsibilities (e.g. "Presidential Award for Excellence" inside a military role).
-- Military Service: preserve military terminology (Unit name, rank) but write responsibilities in civilian-readable language.
-- Never keyword-stuff. Keywords from the JD should appear naturally only where they actually apply to the user's real experience.
+    const STRUCTURE_RULES = `OUTPUT STRUCTURE:
+- Produce a single JSON document (see schema below). The PDF renderer reads it verbatim.
+- Omit any section the user has no data for. Do NOT return empty arrays of placeholders.
+- Experiences are pre-bucketed in USER DATA. You MUST honor those buckets — route each one into the correct output array:
+    • bucket === "professional" → professional_experiences[]
+    • bucket === "military"     → military_experiences[]
+    • bucket === "volunteering" → volunteering_experiences[]
+    • bucket === "leadership"   → leadership_experiences[]
+- About Me: 2-3 sentences. Tailored to the target role; if a company name is given, reference it by name. Third person is fine.
+- Experience bullets: action verb + what you did. Factual, concrete. No invented metrics.
+- Skills & Tools: categorize as Domain (role-specific capabilities) and Tools (software/platforms/systems). Languages do NOT go here.
+- Languages: human spoken/written languages only. Draw them from the user's skills list if language-like entries are there; draw also from language_hints[] which flags likely languages based on location. Include a proficiency level (Native | Fluent | Professional | Conversational | Basic) when the source or hint supports it, otherwise omit level.
+- Education: include every entry from USER DATA.education and — if present — USER DATA.secondary_education as a second education entry. Do not drop pre-university education.
+- Honors & Awards: include USER DATA.education.honors verbatim and any awards mentioned inside experience responsibilities.
+- Military Service: preserve unit names and ranks (titles), but phrase bullets in civilian-readable language.
+- Never keyword-stuff. JD keywords appear only where they genuinely apply to real experience.
 `;
 
     const TAILORING_RULES = `TAILORING RULES:
@@ -375,34 +419,37 @@ Produce a tailored, truthful, one-page CV for this user as JSON matching the exa
 OUTPUT SCHEMA (JSON):
 {
   "header": {
-    "name": "string",
+    "name": "string — exact full name from USER DATA",
     "title": "string — the target role title",
     "email": "string",
-    "phone": "string",
+    "phone": "string — only if USER DATA.phone_number is non-empty",
     "location": "string",
     "linkedin": "string — linkedin URL or handle"
   },
   "about_me": "string — 2-3 sentences, tailored to the target role and (if given) target company. No invented metrics.",
-  "experiences": [
-    { "title": "string", "company": "string", "dates": "string — e.g. Oct 2025 – Present", "bullets": ["concrete factual action-verb statement"] }
+  "professional_experiences": [
+    { "title": "string — EXACT title from USER DATA", "company": "string — EXACT company from USER DATA", "dates": "string", "bullets": ["concrete factual action-verb statement"] }
   ],
   "military_experiences": [
-    { "unit": "string — e.g. Nahal Brigade, IDF", "role": "string — rank/role", "dates": "string", "bullets": ["civilian-readable bullet"] }
+    { "title": "string — EXACT role/rank from USER DATA", "unit": "string — EXACT unit from USER DATA", "dates": "string", "bullets": ["civilian-readable bullet"] }
   ],
-  "volunteering": [
-    { "title": "string", "organization": "string", "dates": "string", "bullets": ["what the user did"] }
+  "volunteering_experiences": [
+    { "title": "string — EXACT title from USER DATA", "organization": "string — EXACT org from USER DATA", "dates": "string", "bullets": ["what the user did"] }
+  ],
+  "leadership_experiences": [
+    { "title": "string — EXACT title", "organization": "string — EXACT org", "dates": "string", "bullets": ["factual statement"] }
   ],
   "education": [
-    { "institution": "string", "degree": "string", "dates": "string", "gpa": "string — only if strong", "coursework": ["course1", "course2"] }
+    { "institution": "string — EXACT institution", "degree": "string — EXACT degree/field", "dates": "string", "gpa": "string — only if explicitly in USER DATA and strong", "coursework": ["course1", "course2"], "highlights": ["leadership role, club, or position held DURING this education — NOT awards. Awards belong in honors_and_awards[] only."] }
   ],
   "skills": {
-    "domain": ["role-specific skill 1", "role-specific skill 2"],
+    "domain": ["role-specific capability 1", "role-specific capability 2"],
     "tools": ["software/platform 1", "software/platform 2"]
   },
   "languages": [
-    { "language": "English", "level": "Native | Fluent | Professional | Conversational" }
+    { "language": "English", "level": "Native | Fluent | Professional | Conversational | Basic" }
   ],
-  "honors_and_awards": ["Presidential Award for Excellence (2022)", "Heseg Scholarship"],
+  "honors_and_awards": ["verbatim award string"],
   "certifications": [
     { "name": "string", "issuer": "string", "date": "string" }
   ],
@@ -417,13 +464,14 @@ OUTPUT SCHEMA (JSON):
   }
 }
 
-RULES FOR THIS OUTPUT:
-- Omit any section the user has no data for. Do NOT emit empty arrays filled with placeholder text.
-- "experiences" contains ONLY entries whose \`bucket\` in USER DATA is "professional". Route "military" entries to "military_experiences" and "volunteering" entries to "volunteering".
-- Every bullet must be traceable to something in the user's responsibilities text — do not invent achievements or metrics.
-- If a user responsibility line mentions an award (e.g. "Awarded Presidential Award for Excellence"), keep the mention in the bullet AND also add the award to honors_and_awards.
-- Languages: only include languages that appear somewhere in USER DATA. Infer levels only when the data supports it (e.g. native location/country, or an explicit "fluent" mention). Otherwise omit the level.
-- If target company is given, the About Me should reference it by name.
+SPECIFIC OUTPUT RULES:
+- "professional_experiences" contains ONLY entries whose \`bucket\` in USER DATA is "professional". Military → military_experiences[]. Volunteering → volunteering_experiences[]. Leadership → leadership_experiences[].
+- Every experience title and company/unit/organization must be COPIED VERBATIM from USER DATA. Do not shorten, generalize, or paraphrase them. If the source title is "Supervised and trained teams of soldiers", that is the title you output.
+- Every bullet must trace to something in the user's responsibilities text. Rephrase, don't invent.
+- If a responsibility line mentions an award (e.g. "Awarded Presidential Award for Excellence"), keep the mention AND add the award to honors_and_awards[].
+- If USER DATA.secondary_education is non-null, add it as a SECOND entry in education[] (institution, the secondary_education object's dates/highlights). Do not drop it because it's pre-university.
+- Languages: include every language signal from USER DATA.skills, USER DATA.summary, and USER DATA.language_hints. A user based in Israel (language_hints will show this) should include Hebrew at a reasonable level. English is essentially always applicable for professional roles; infer a sensible level from the rest of the data.
+- fit_analysis.skill_match_percentage is an integer 0-100. Compute honestly: how many of the JD's core requirements does this candidate actually meet? An entry-level candidate with clearly-transferable experience should score 40-70%. A perfect match should score 80-95%. Never output 0% unless the candidate has no overlap at all — 0% is almost never correct for a real candidate.
 - Return ONLY valid JSON. No markdown, no prose outside the JSON object.`;
 
     const openaiKey = Deno.env.get("OPENAI_API_KEY");
@@ -462,6 +510,60 @@ RULES FOR THIS OUTPUT:
     } catch {
       return json({ error: "AI returned an invalid response format. Please try again." }, 500);
     }
+
+    // ─── Post-process: reconcile titles + companies against source data ───
+    // The LLM sometimes shortens titles ("Supervised and trained teams of
+    // soldiers" → "Soldier") or reformats company names. We match each output
+    // entry back to its source experience by dates (cheapest stable key) and
+    // force the DB's title/company/unit/organization onto the output. This
+    // guarantees the "EXACT titles" rule even when the LLM paraphrases.
+    const normDates = (s: unknown) => String(s || "").replace(/\s+/g, " ").trim().toLowerCase();
+    const matchSource = (outDates: string, sources: any[]) => {
+      const key = normDates(outDates);
+      if (!key) return null;
+      // Exact-or-contains match on dates. Good enough given there are only a
+      // handful of experiences per user; dates are distinctive.
+      return sources.find((s) => {
+        const srcKey = normDates(`${s.start_date} ${s.end_date || s.is_current ? "present" : ""}`) ||
+                        normDates(`${s.start_date} - ${s.end_date}`);
+        return srcKey === key || srcKey.includes(key) || key.includes(srcKey);
+      }) || sources.find((s) => normDates(s.start_date) && key.includes(normDates(s.start_date)));
+    };
+
+    const reconcile = (outList: any[], sources: any[], titleField: string, orgField: string) => {
+      if (!Array.isArray(outList)) return;
+      for (const entry of outList) {
+        const src = matchSource(entry.dates, sources);
+        if (!src) continue;
+        // Preserve source title (e.g. "Supervised and trained teams of soldiers").
+        if (src.title) entry[titleField] = src.title;
+        // Preserve source company / unit / organization.
+        if (src.company) entry[orgField] = src.company;
+      }
+    };
+
+    reconcile(cvData.professional_experiences, professionalExperiences, "title", "company");
+    reconcile(cvData.military_experiences, militaryExperiences, "title", "unit");
+    reconcile(cvData.volunteering_experiences, volunteeringExperiences, "title", "organization");
+    reconcile(cvData.leadership_experiences, leadershipExperiences, "title", "organization");
+
+    // Sanity-floor the fit percentage. The LLM very occasionally returns 0
+    // for a candidate who does have overlap — we floor at a low but non-zero
+    // value and recompute alignment bucket from the number. This never
+    // inflates a genuine poor fit above "Weak", it just stops misleading 0s.
+    const fa = (cvData.fit_analysis || {}) as any;
+    let pct = Number(fa.skill_match_percentage);
+    if (!Number.isFinite(pct) || pct < 0) pct = 0;
+    if (pct > 100) pct = 100;
+    // Only floor if we have any experience/skills/projects at all — keep a
+    // genuinely empty profile at 0.
+    const hasAnyData = (allExperiences.length + (userContext.skills?.length || 0) + (userContext.projects?.length || 0)) > 0;
+    if (pct === 0 && hasAnyData) pct = 20;
+    fa.skill_match_percentage = Math.round(pct);
+    if (!fa.alignment || typeof fa.alignment !== "string") {
+      fa.alignment = pct >= 70 ? "Strong" : pct >= 40 ? "Moderate" : "Weak";
+    }
+    cvData.fit_analysis = fa;
 
     // --- Generate PDF (professional, single-page layout) ---
     // Typography is tuned so an entry-level CV (4-5 experiences + military +
@@ -561,6 +663,16 @@ RULES FOR THIS OUTPUT:
       });
     };
 
+    // Sub-section heading inside a top-level section (e.g. "Professional
+    // Experience" inside "EXPERIENCE"). Smaller + bold in black, no rule.
+    const addSubsectionHeading = (text: string) => {
+      ensureSpace(7);
+      y += 1;
+      setFont("bold", 9.5, [0, 0, 0]);
+      doc.text(String(text), leftMargin, y);
+      y += 3.6;
+    };
+
     // --- Header (name / target role / contact) ---
     const header = (cvData.header || {}) as any;
     setFont("bold", 18, [0, 0, 0]);
@@ -573,11 +685,17 @@ RULES FOR THIS OUTPUT:
       y += 4.5;
     }
 
+    // Only include contact bits that actually have a value — don't create
+    // gaps. Each entry is trimmed and skipped if empty.
     const contactBits: string[] = [];
-    if (header.location || userContext.location) contactBits.push(String(header.location || userContext.location));
-    if (header.email || userContext.email) contactBits.push(String(header.email || userContext.email));
-    if (header.phone || userContext.phone_number) contactBits.push(String(header.phone || userContext.phone_number));
-    if (header.linkedin || userContext.linkedin_url) contactBits.push(String(header.linkedin || userContext.linkedin_url));
+    const pushBit = (v: string | null | undefined) => {
+      const s = (v ?? "").toString().trim();
+      if (s) contactBits.push(s);
+    };
+    pushBit(header.location || userContext.location);
+    pushBit(header.email || userContext.email);
+    pushBit(header.phone || userContext.phone_number);
+    pushBit(header.linkedin || userContext.linkedin_url);
     if (contactBits.length > 0) {
       setFont("normal", 8.5, MUTED);
       const contactLine = contactBits.join("  \u00B7  ");
@@ -593,62 +711,125 @@ RULES FOR THIS OUTPUT:
 
     // --- About Me ---
     if (cvData.about_me) {
-      addSectionHeader("Summary");
+      addSectionHeader("About Me");
       addParagraph(String(cvData.about_me), 9.5);
     }
 
-    // --- Professional Experience ---
-    const professional = Array.isArray(cvData.experiences) ? cvData.experiences : [];
-    if (professional.length > 0) {
-      addSectionHeader("Professional Experience");
-      professional.forEach((exp: any, idx: number) => {
-        addEntryHeader(exp.title || "", exp.dates, exp.company);
-        (exp.bullets || []).forEach((bullet: string) => addBullet(bullet));
-        if (idx < professional.length - 1) addSpace(1.2);
-      });
-    }
-
-    // --- Military Service (supports multiple roles) ---
-    // Accept both the new array shape (military_experiences[]) and the legacy
-    // single-object shape (military_service{}) in case the LLM falls back.
+    // --- EXPERIENCE (umbrella section with sub-headings) ---
+    // Pulls from four possible buckets. Each sub-heading is rendered only if
+    // its bucket has at least one entry. Older schema variants are accepted
+    // as fallbacks (e.g. military_service{} single-object, experiences[] as
+    // "professional"), so older in-flight responses don't produce blanks.
+    const professional: any[] = Array.isArray(cvData.professional_experiences)
+      ? cvData.professional_experiences
+      : (Array.isArray(cvData.experiences) ? cvData.experiences : []);
     const militaryList: any[] = Array.isArray(cvData.military_experiences)
       ? cvData.military_experiences
       : (cvData.military_service && cvData.military_service.unit ? [cvData.military_service] : []);
-    if (militaryList.length > 0) {
-      addSectionHeader("Military Service");
-      militaryList.forEach((m: any, idx: number) => {
-        addEntryHeader(m.role || "", m.dates, m.unit);
-        (m.bullets || []).forEach((bullet: string) => addBullet(bullet));
-        if (idx < militaryList.length - 1) addSpace(1.2);
-      });
+    const volunteeringList: any[] = Array.isArray(cvData.volunteering_experiences)
+      ? cvData.volunteering_experiences
+      : (Array.isArray(cvData.volunteering) ? cvData.volunteering : []);
+    const leadershipList: any[] = Array.isArray(cvData.leadership_experiences)
+      ? cvData.leadership_experiences
+      : [];
+
+    const hasAnyExperience =
+      professional.length + militaryList.length + volunteeringList.length + leadershipList.length > 0;
+
+    if (hasAnyExperience) {
+      addSectionHeader("Experience");
+
+      const renderEntries = (
+        entries: any[],
+        titleKey: string,
+        subtitleKey: string,
+      ) => {
+        entries.forEach((exp: any, idx: number) => {
+          addEntryHeader(exp[titleKey] || "", exp.dates, exp[subtitleKey]);
+          (exp.bullets || []).forEach((bullet: string) => addBullet(bullet));
+          if (idx < entries.length - 1) addSpace(1.2);
+        });
+      };
+
+      if (professional.length > 0) {
+        addSubsectionHeading("Professional Experience");
+        renderEntries(professional, "title", "company");
+      }
+      if (militaryList.length > 0) {
+        if (professional.length > 0) addSpace(1.2);
+        addSubsectionHeading("Military Service");
+        // Military entries use "unit" as the sub-line; the reconcile step
+        // already wrote the DB company into .unit.
+        renderEntries(militaryList, "title", "unit");
+      }
+      if (volunteeringList.length > 0) {
+        if (professional.length + militaryList.length > 0) addSpace(1.2);
+        addSubsectionHeading("Volunteering");
+        renderEntries(volunteeringList, "title", "organization");
+      }
+      if (leadershipList.length > 0) {
+        if (professional.length + militaryList.length + volunteeringList.length > 0) addSpace(1.2);
+        addSubsectionHeading("Leadership");
+        renderEntries(leadershipList, "title", "organization");
+      }
     }
 
-    // --- Volunteering ---
-    const volunteering: any[] = Array.isArray(cvData.volunteering) ? cvData.volunteering : [];
-    if (volunteering.length > 0) {
-      addSectionHeader("Volunteering");
-      volunteering.forEach((v: any, idx: number) => {
-        addEntryHeader(v.title || "", v.dates, v.organization);
-        (v.bullets || []).forEach((bullet: string) => addBullet(bullet));
-        if (idx < volunteering.length - 1) addSpace(1.2);
-      });
+    // --- Education (university + secondary, rendered top-down) ---
+    // The LLM emits education[] — we append the pre-university slot as a
+    // second entry so any user who filled secondary_education in their
+    // profile gets it on the CV. If the LLM already included it we'd have
+    // duplicates, so we dedupe loosely by institution.
+    const llmEducation: any[] = Array.isArray(cvData.education) ? cvData.education : [];
+    const secondary = (userContext as any).secondary_education;
+    const normInst = (s: unknown) => String(s || "").replace(/\s+/g, " ").trim().toLowerCase();
+
+    const mergedEducation: any[] = [...llmEducation];
+    if (secondary && secondary.institution) {
+      const already = mergedEducation.some((e) => normInst(e.institution) === normInst(secondary.institution));
+      if (!already) {
+        mergedEducation.push({
+          institution: secondary.institution,
+          degree: "", // secondary ed has no degree field
+          dates: secondary.dates,
+          coursework: [],
+          highlights: secondary.highlights || [],
+          _secondary_location: secondary.location,
+        });
+      }
     }
 
-    // --- Education ---
-    const educationList: any[] = Array.isArray(cvData.education) ? cvData.education : [];
-    if (educationList.length > 0) {
+    if (mergedEducation.length > 0) {
       addSectionHeader("Education");
-      educationList.forEach((edu: any, idx: number) => {
-        addEntryHeader(edu.degree || "", edu.dates, edu.institution);
+      // Pre-compute a normalized set of honors so we can dedupe any highlight
+      // that's really an award — the LLM sometimes puts honors in both places.
+      const honorsSet = new Set(
+        safeArray(cvData.honors_and_awards)
+          .map((s) => String(s || "").replace(/\s+/g, " ").trim().toLowerCase())
+          .filter(Boolean),
+      );
+      mergedEducation.forEach((edu: any, idx: number) => {
+        // Institution is the primary identifier for an education entry; the
+        // degree + specialization sits below (or is empty for secondary ed).
+        const topLine = edu.degree?.trim() ? edu.degree : edu.institution;
+        const subLine = edu.degree?.trim() ? edu.institution : (edu._secondary_location || "");
+        addEntryHeader(topLine || "", edu.dates, subLine);
         if (edu.gpa) addBullet(`GPA: ${edu.gpa}`);
         const coursework = safeArray(edu.coursework || edu.relevant_coursework);
         if (coursework.length > 0) {
           addBullet(`Relevant coursework: ${coursework.join(", ")}`);
         }
-        // Legacy shape — still render any loose details strings if present.
-        const loose = safeArray(edu.details);
-        loose.forEach((d) => addBullet(String(d)));
-        if (idx < educationList.length - 1) addSpace(1.2);
+        // Skip any highlight that duplicates an entry in honors_and_awards[]
+        // — those render in the dedicated Honors & Awards section below.
+        safeArray(edu.highlights).forEach((h) => {
+          const key = String(h || "").replace(/\s+/g, " ").trim().toLowerCase();
+          if (key && !honorsSet.has(key)) addBullet(String(h));
+        });
+        // Legacy shape — render any loose details strings if present.
+        safeArray(edu.details).forEach((d) => {
+          const key = String(d || "").replace(/\s+/g, " ").trim().toLowerCase();
+          if (key && !honorsSet.has(key)) addBullet(String(d));
+        });
+        if (idx < mergedEducation.length - 1) addSpace(1.2);
       });
     }
 

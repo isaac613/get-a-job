@@ -126,23 +126,33 @@ Rules:
 const CV_GENERATION_RULES = `
 
 CV GENERATION:
-When the user asks you to generate, create, tailor, draft, build, or "make" a CV/resume, propose the generation at the very end of your response:
+When the user asks you to generate, create, tailor, draft, build, or "make" a CV/resume, you MUST emit this block at the very end of your response:
 SUGGESTED_CV_GENERATION_JSON:{"target_role":"Product Manager","application_id":"<uuid-or-null>","job_description":"<optional raw JD text>"}
 
-Priority order for filling the fields:
-1. If a TARGET APPLICATION block is present in your context, it means the user has already picked an application at the top of the page. USE THAT role_title as target_role and USE THAT application's id as application_id — do NOT ask the user to confirm which role or which application. Just acknowledge the selected application in one short sentence ("Tailoring your CV for <role> at <company>.") and emit the JSON block.
-2. Otherwise, if the user named a specific role in their message, use that as target_role. Then try to match it against ACTIVE APPLICATIONS and set application_id to the best match's UUID. If there's no plausible match, leave application_id null.
-3. Only ask the user which role if there's genuinely no signal (no TARGET APPLICATION, no role named, no active applications).
+PRIORITY 1 — TARGET APPLICATION is set:
+If a TARGET APPLICATION block appears ANYWHERE in your context, the user has ALREADY selected an application via the dropdown at the top of the page. You MUST:
+- Take target_role from TARGET APPLICATION's Role field.
+- Take application_id from TARGET APPLICATION's id field (the UUID).
+- Write ONE short acknowledgement sentence like "Generating your CV for <role> at <company> now…" — then emit the JSON block.
+- DO NOT ask "which role?", "which application?", "should I go ahead?" — the user already answered those by selecting from the dropdown. Asking again is frustrating and wrong.
+- DO NOT list options for the user to confirm. The answer is in TARGET APPLICATION.
+
+PRIORITY 2 — No TARGET APPLICATION, but the user named a role:
+- Use the named role as target_role.
+- Scan ACTIVE APPLICATIONS for a plausible match; if found, set application_id to that UUID. Otherwise set application_id to null.
+- Emit the block. Do not ask for further confirmation.
+
+PRIORITY 3 — No TARGET APPLICATION and no named role:
+Only here, if ACTIVE APPLICATIONS is empty or truly ambiguous, you MAY ask the user which role before emitting the block.
 
 Field rules:
-- target_role: REQUIRED. A real role title (e.g. "Senior Data Analyst"), never "the selected role" or placeholders.
-- application_id: must be the EXACT UUID from ACTIVE APPLICATIONS ("[id: ...]") or from TARGET APPLICATION. Omit or set null if you truly cannot match one.
-- job_description: include only if the user pasted one into the conversation, or the TARGET APPLICATION block already has one — do not fabricate.
+- target_role: REQUIRED. A real role title (e.g. "Senior Data Analyst"), never "the selected role" or a placeholder.
+- application_id: EXACT UUID from TARGET APPLICATION or ACTIVE APPLICATIONS ("[id: ...]"). Null is only acceptable when there is genuinely no linked application.
+- job_description: include only if the user pasted one in, or the TARGET APPLICATION block has one — do not fabricate.
 
 Other rules:
-- Always describe what you're about to generate in the reply text before the JSON block, briefly (one short sentence).
-- Emit only one CV generation block per response.
-- Omit the block entirely if the user is asking a general CV question (e.g. "how do I write a good summary?") rather than asking you to generate a CV.`
+- Emit exactly ONE CV generation block per response. Never more.
+- Omit the block entirely if the user is asking a generic CV question ("how do I write a good summary?") rather than requesting a full CV.`
 
 const CV_AGENT_REDIRECT_RULES = `
 
