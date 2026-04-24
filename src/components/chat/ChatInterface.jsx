@@ -251,7 +251,7 @@ function AgentRedirectCard({ suggestion, onSwitch }) {
   );
 }
 
-export default function ChatInterface({ agentName, title, description, applicationId, suggestedPrompts }) {
+export default function ChatInterface({ agentName, title, description, applicationId, suggestedPrompts, introMessage }) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -711,9 +711,15 @@ export default function ChatInterface({ agentName, title, description, applicati
         )}
         {!loadingMessages && messages.length === 0 && (
           <div className="text-center py-12 space-y-4">
-            <p className="text-sm text-[#A3A3A3]">
-              Start a conversation. Ask a question about your career path.
-            </p>
+            {introMessage ? (
+              <p className="text-sm text-[#525252] max-w-md mx-auto leading-relaxed whitespace-pre-line">
+                {introMessage}
+              </p>
+            ) : (
+              <p className="text-sm text-[#A3A3A3]">
+                Start a conversation. Ask a question about your career path.
+              </p>
+            )}
             {suggestedPrompts?.length > 0 && (
               <div className="flex flex-wrap gap-2 justify-center">
                 {suggestedPrompts.map((prompt, i) => (

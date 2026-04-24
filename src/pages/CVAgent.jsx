@@ -5,12 +5,11 @@ import { useQuery } from "@tanstack/react-query";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import ChatInterface from "../components/chat/ChatInterface";
 
-const SUGGESTED_PROMPTS = [
+const GENERAL_PROMPTS = [
   "Generate a tailored CV for my top Tier 1 role",
   "Rewrite my summary for a Product Manager role",
   "Turn my most recent job into 5 strong CV bullets",
   "What keywords am I missing for a Data Analyst CV?",
-  "Tailor my CV for the job I selected above",
 ];
 
 export default function CVAgent() {
@@ -33,12 +32,32 @@ export default function CVAgent() {
   });
 
   const selectedApp = applications.find((a) => a.id === selectedAppId);
+  const appLabel = selectedApp
+    ? `${selectedApp.role_title}${selectedApp.company ? ` at ${selectedApp.company}` : ""}`
+    : null;
   const title = selectedApp
-    ? `CV Agent — ${selectedApp.role_title}${selectedApp.company ? ` at ${selectedApp.company}` : ""}`
+    ? `CV Agent — ${appLabel}`
     : "CV Agent";
   const description = selectedApp
     ? "CV tailoring scoped to this application's role and job description."
     : "Pick an application above to anchor the CV, or ask general CV questions.";
+
+  // Empty-state greeting + suggested prompts adapt to whether an application
+  // is selected. The edge function's CV_GENERATION_RULES are instructed to use
+  // the selected application directly, so a single "Generate a tailored CV"
+  // prompt is enough — the agent will fill in role + application_id from the
+  // TARGET APPLICATION block in its context.
+  const introMessage = selectedApp
+    ? `I see you've selected ${appLabel}. Want me to generate a tailored CV for this role? Type "Generate a CV" or tap a prompt below, and I'll build it from your profile.`
+    : null;
+  const suggestedPrompts = selectedApp
+    ? [
+        "Generate a tailored CV for this role",
+        "What should I emphasise for this role?",
+        "Rewrite my summary for this role",
+        "Which of my bullets matter most here?",
+      ]
+    : GENERAL_PROMPTS;
 
   return (
     <div className="h-screen flex flex-col overflow-hidden">
@@ -67,7 +86,8 @@ export default function CVAgent() {
           title={title}
           description={description}
           applicationId={selectedAppId === "general" ? null : selectedAppId}
-          suggestedPrompts={SUGGESTED_PROMPTS}
+          suggestedPrompts={suggestedPrompts}
+          introMessage={introMessage}
         />
       </div>
     </div>

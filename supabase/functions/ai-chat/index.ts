@@ -126,14 +126,21 @@ Rules:
 const CV_GENERATION_RULES = `
 
 CV GENERATION:
-When the user asks you to generate, create, tailor, or draft a CV/resume for a specific role, propose the generation at the very end of your response:
+When the user asks you to generate, create, tailor, draft, build, or "make" a CV/resume, propose the generation at the very end of your response:
 SUGGESTED_CV_GENERATION_JSON:{"target_role":"Product Manager","application_id":"<uuid-or-null>","job_description":"<optional raw JD text>"}
 
-Rules:
-- target_role: REQUIRED. Use the exact role title the user is targeting (e.g. "Senior Data Analyst"). If unclear, ask first — do not emit the block.
-- application_id: match to one of their ACTIVE APPLICATIONS above. Use the EXACT UUID shown in parentheses after each application. Omit (or set null) if the user isn't targeting a tracked application yet.
+Priority order for filling the fields:
+1. If a TARGET APPLICATION block is present in your context, it means the user has already picked an application at the top of the page. USE THAT role_title as target_role and USE THAT application's id as application_id — do NOT ask the user to confirm which role or which application. Just acknowledge the selected application in one short sentence ("Tailoring your CV for <role> at <company>.") and emit the JSON block.
+2. Otherwise, if the user named a specific role in their message, use that as target_role. Then try to match it against ACTIVE APPLICATIONS and set application_id to the best match's UUID. If there's no plausible match, leave application_id null.
+3. Only ask the user which role if there's genuinely no signal (no TARGET APPLICATION, no role named, no active applications).
+
+Field rules:
+- target_role: REQUIRED. A real role title (e.g. "Senior Data Analyst"), never "the selected role" or placeholders.
+- application_id: must be the EXACT UUID from ACTIVE APPLICATIONS ("[id: ...]") or from TARGET APPLICATION. Omit or set null if you truly cannot match one.
 - job_description: include only if the user pasted one into the conversation, or the TARGET APPLICATION block already has one — do not fabricate.
-- Always describe what you're about to generate in the reply text before the JSON block (role, which application if any) so the user can confirm.
+
+Other rules:
+- Always describe what you're about to generate in the reply text before the JSON block, briefly (one short sentence).
 - Emit only one CV generation block per response.
 - Omit the block entirely if the user is asking a general CV question (e.g. "how do I write a good summary?") rather than asking you to generate a CV.`
 
@@ -420,7 +427,7 @@ Deno.serve(async (req) => {
         .select('role_title, company, job_description, skills_required, status')
         .eq('id', application_id).eq('user_id', user.id).single()
       if (appData) {
-        userContext += `\n\nTARGET APPLICATION:\n- Role: ${appData.role_title} at ${appData.company}\n- Status: ${appData.status}`
+        userContext += `\n\nTARGET APPLICATION (the user has already selected this via the dropdown at the top of the page — use its role and id directly, do NOT ask which role):\n- Role: ${appData.role_title}${appData.company ? ` at ${appData.company}` : ''}\n- id: ${application_id}\n- Status: ${appData.status}`
         if (appData.job_description) userContext += `\n- Job Description:\n${String(appData.job_description).slice(0, 2000)}`
         if (Array.isArray(appData.skills_required) && appData.skills_required.length > 0) {
           const proven = appData.skills_required.filter((s: { status: string }) => s.status === 'proven')

@@ -7,11 +7,34 @@ import { skillLibrary } from "./shared/libraries/01_skill_library.ts";
 import { proofSignalLibrary } from "./shared/libraries/02_proof_signal_library.ts";
 import { roleSkillMapping } from "./shared/libraries/04_role_skill_mapping.ts";
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Max-Age": "86400",
+};
+
+// Helper so every response path picks up CORS headers without having to thread
+// them manually. Replaces Response.json() — which does NOT merge custom headers
+// the way we need for cross-origin browser calls from the Vite dev server.
+function json(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
 Deno.serve(async (req) => {
+  // CORS preflight. Must come before any other logic — without this the browser
+  // aborts the POST with "Failed to send a request to the Edge Function".
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return Response.json({ error: "Unauthorized" }, { status: 401 });
+      return json({ error: "Unauthorized" }, 401);
     }
 
     const supabase = createClient(
@@ -22,7 +45,7 @@ Deno.serve(async (req) => {
 
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
-      return Response.json({ error: "Unauthorized" }, { status: 401 });
+      return json({ error: "Unauthorized" }, 401);
     }
 
     const serviceClient = createClient(
@@ -33,17 +56,17 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const rawBody = JSON.stringify(body);
     if (rawBody.length > 50_000) {
-      return Response.json({ error: 'Request payload too large.' }, { status: 413 });
+      return json({ error: 'Request payload too large.' }, 413);
     }
     const { job_description, target_role, application_id } = body;
     const safeTargetRole = String(target_role ?? '').slice(0, 200);
     const safeJobDescription = String(job_description ?? '').slice(0, 5000);
 
     if (!safeTargetRole) {
-      return Response.json({ error: "target_role is required" }, { status: 400 });
+      return json({ error: "target_role is required" }, 400);
     }
     if (application_id !== undefined && typeof application_id !== 'string') {
-      return Response.json({ error: 'Invalid application_id.' }, { status: 400 });
+      return json({ error: 'Invalid application_id.' }, 400);
     }
 
     const { data: allowed } = await serviceClient.rpc('check_rate_limit', {
@@ -53,7 +76,7 @@ Deno.serve(async (req) => {
       p_window_seconds: 3600,
     });
     if (!allowed) {
-      return Response.json({ error: 'Rate limit exceeded. Try again in an hour.' }, { status: 429 });
+      return json({ error: 'Rate limit exceeded. Try again in an hour.' }, 429);
     }
 
     const [profileRes, experiencesRes, projectsRes, certificationsRes] = await Promise.all([
@@ -65,7 +88,7 @@ Deno.serve(async (req) => {
 
     const profile = profileRes.data;
     if (!profile) {
-      return Response.json({ error: "No user profile found" }, { status: 404 });
+      return json({ error: "No user profile found" }, 404);
     }
 
     const experiences = experiencesRes.data || [];
@@ -301,7 +324,7 @@ Return ONLY valid JSON. Omit sections (military_service, certifications, project
 
     const openaiKey = Deno.env.get("OPENAI_API_KEY");
     if (!openaiKey) {
-      return Response.json({ error: "OpenAI API key not configured on server" }, { status: 500 });
+      return json({ error: "OpenAI API key not configured on server" }, 500);
     }
 
     const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -325,7 +348,7 @@ Return ONLY valid JSON. Omit sections (military_service, certifications, project
 
     if (!openaiRes.ok) {
       const err = await openaiRes.text();
-      return Response.json({ error: `OpenAI error: ${err}` }, { status: 500 });
+      return json({ error: `OpenAI error: ${err}` }, 500);
     }
 
     const openaiData = await openaiRes.json();
@@ -333,7 +356,7 @@ Return ONLY valid JSON. Omit sections (military_service, certifications, project
     try {
       cvData = JSON.parse(openaiData.choices?.[0]?.message?.content || "{}");
     } catch {
-      return Response.json({ error: "AI returned an invalid response format. Please try again." }, { status: 500 });
+      return json({ error: "AI returned an invalid response format. Please try again." }, 500);
     }
 
     // --- Generate PDF (professional layout) ---
@@ -547,7 +570,7 @@ Return ONLY valid JSON. Omit sections (military_service, certifications, project
       .upload(fileName, pdfBuffer, { contentType: "application/pdf", upsert: true });
 
     if (uploadError) {
-      return Response.json({ error: `PDF upload failed: ${uploadError.message}` }, { status: 500 });
+      return json({ error: `PDF upload failed: ${uploadError.message}` }, 500);
     }
 
     const { data: signedUrlData, error: signedUrlError } = await serviceClient.storage
@@ -555,7 +578,7 @@ Return ONLY valid JSON. Omit sections (military_service, certifications, project
       .createSignedUrl(fileName, 315360000);
 
     if (signedUrlError || !signedUrlData) {
-      return Response.json({ error: "Failed to generate CV download URL" }, { status: 500 });
+      return json({ error: "Failed to generate CV download URL" }, 500);
     }
     const cv_url = signedUrlData.signedUrl;
 
@@ -567,7 +590,7 @@ Return ONLY valid JSON. Omit sections (military_service, certifications, project
         cv_version_name: `${safeTargetRole} CV`,
         cv_skills_emphasized: (cvData.skills as any)?.domain || []
       }).eq("id", application_id).eq("user_id", user.id).select().single();
-      if (!data) { return Response.json({ error: "Application not found or not owned by user." }, { status: 404 }); }
+      if (!data) { return json({ error: "Application not found or not owned by user." }, 404); }
       appRecord = data;
     } else {
       const { data } = await supabase.from("applications").insert({
@@ -582,7 +605,7 @@ Return ONLY valid JSON. Omit sections (military_service, certifications, project
       appRecord = data;
     }
 
-    return Response.json({
+    return json({
       cv_url,
       application_id: appRecord?.id,
       fit_analysis: cvData.fit_analysis,
@@ -590,6 +613,7 @@ Return ONLY valid JSON. Omit sections (military_service, certifications, project
       message: `CV generated for "${safeTargetRole}". Download it using the link, and it's been saved to your Application Tracker.`,
     });
   } catch (error) {
-    return Response.json({ error: (error as Error).message }, { status: 500 });
+    console.error("generate-tailored-cv error:", error);
+    return json({ error: (error as Error).message }, 500);
   }
 });
