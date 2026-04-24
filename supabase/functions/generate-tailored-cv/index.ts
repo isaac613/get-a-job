@@ -463,24 +463,29 @@ RULES FOR THIS OUTPUT:
       return json({ error: "AI returned an invalid response format. Please try again." }, 500);
     }
 
-    // --- Generate PDF (professional layout) ---
+    // --- Generate PDF (professional, single-page layout) ---
+    // Typography is tuned so an entry-level CV (4-5 experiences + military +
+    // volunteering + honors + languages) fits on one A4 page. If a user has
+    // significantly more content the renderer will still paginate cleanly,
+    // but the target is one page for the common case.
     const doc = new jsPDF();
-    const leftMargin = 15;
-    const rightMargin = 195;
+    const leftMargin = 14;
+    const rightMargin = 196;
     const pageWidth = rightMargin - leftMargin;
-    const pageBottom = 282;
+    const pageBottom = 285;
     const ACCENT: [number, number, number] = [37, 99, 235];
     const MUTED: [number, number, number] = [90, 90, 95];
     const SUBTLE: [number, number, number] = [130, 130, 135];
-    let y = 18;
+    const TOP_Y = 14;
+    let y = TOP_Y;
 
     const ensureSpace = (needed: number) => {
       if (y + needed > pageBottom) {
         doc.addPage();
-        y = 18;
+        y = TOP_Y;
       }
     };
-    const addSpace = (space = 3) => { y += space; };
+    const addSpace = (space = 1) => { y += space; };
 
     const setFont = (weight: "bold" | "normal", size: number, color: [number, number, number]) => {
       doc.setFont("helvetica", weight);
@@ -489,85 +494,83 @@ RULES FOR THIS OUTPUT:
     };
 
     const addSectionHeader = (title: string) => {
-      ensureSpace(10);
-      y += 3;
-      setFont("bold", 10, ACCENT);
+      ensureSpace(8);
+      y += 1.5;
+      setFont("bold", 9, ACCENT);
       doc.text(title.toUpperCase(), leftMargin, y);
-      y += 1.6;
+      y += 1.3;
       doc.setDrawColor(ACCENT[0], ACCENT[1], ACCENT[2]);
-      doc.setLineWidth(0.4);
+      doc.setLineWidth(0.35);
       doc.line(leftMargin, y, rightMargin, y);
-      y += 4.5;
+      y += 3.5;
     };
 
-    // Two-line entry header: bold title on the left, muted dates right-aligned,
-    // then a lighter subtitle (company / institution) under it.
     const addEntryHeader = (title: string, dates?: string, subtitle?: string) => {
-      ensureSpace(subtitle ? 10.5 : 6);
-      setFont("bold", 10.5, [0, 0, 0]);
+      ensureSpace(subtitle ? 8.5 : 5);
+      setFont("bold", 10, [0, 0, 0]);
       doc.text(String(title || ""), leftMargin, y);
       if (dates) {
-        setFont("normal", 9, SUBTLE);
+        setFont("normal", 8.5, SUBTLE);
         doc.text(String(dates), rightMargin, y, { align: "right" });
       }
-      y += 4.6;
+      y += 4.0;
       if (subtitle) {
-        setFont("normal", 9.5, MUTED);
+        setFont("normal", 9, MUTED);
         doc.text(String(subtitle), leftMargin, y);
-        y += 4.4;
+        y += 3.8;
       }
     };
 
     const addBullet = (text: string) => {
-      const indent = 4;
-      setFont("normal", 9.5, [20, 20, 20]);
+      const indent = 3.5;
+      setFont("normal", 9, [20, 20, 20]);
       const lines = doc.splitTextToSize(String(text || ""), pageWidth - indent);
       lines.forEach((line: string, i: number) => {
-        ensureSpace(5);
+        ensureSpace(4);
         const prefix = i === 0 ? "\u2022  " : "   ";
         doc.text(prefix + line, leftMargin + indent, y);
-        y += 4.3;
+        y += 3.8;
       });
     };
 
-    const addParagraph = (text: string, fontSize = 10, color: [number, number, number] = [25, 25, 25]) => {
+    const addParagraph = (text: string, fontSize = 9.5, color: [number, number, number] = [25, 25, 25]) => {
       setFont("normal", fontSize, color);
       const lines = doc.splitTextToSize(String(text || ""), pageWidth);
       lines.forEach((line: string) => {
-        ensureSpace(fontSize * 0.55 + 1);
+        ensureSpace(fontSize * 0.5 + 0.5);
         doc.text(line, leftMargin, y);
-        y += fontSize * 0.55;
+        y += fontSize * 0.5;
       });
     };
 
     // Label: value — wraps values onto continuation lines aligned after the label.
     const addLabelledLine = (label: string, values: string[] | string) => {
       if (!values || (Array.isArray(values) && values.length === 0)) return;
-      ensureSpace(6);
-      setFont("bold", 9.5, [0, 0, 0]);
+      ensureSpace(5);
+      setFont("bold", 9, [0, 0, 0]);
       const labelText = `${label}: `;
       doc.text(labelText, leftMargin, y);
       const labelWidth = doc.getTextWidth(labelText);
-      setFont("normal", 9.5, [25, 25, 25]);
+      setFont("normal", 9, [25, 25, 25]);
       const valueText = Array.isArray(values) ? values.join(", ") : String(values);
       const lines = doc.splitTextToSize(valueText, pageWidth - labelWidth);
-      lines.forEach((line: string) => {
-        ensureSpace(5);
-        doc.text(line, leftMargin + labelWidth, y);
-        y += 4.3;
+      lines.forEach((line: string, i: number) => {
+        ensureSpace(4);
+        doc.text(line, i === 0 ? leftMargin + labelWidth : leftMargin + labelWidth, y);
+        y += 3.8;
       });
     };
 
-    // --- Header (name / target role / contact on one line) ---
+    // --- Header (name / target role / contact) ---
     const header = (cvData.header || {}) as any;
-    setFont("bold", 20, [0, 0, 0]);
+    setFont("bold", 18, [0, 0, 0]);
     doc.text(String(header.name || userContext.full_name || ""), leftMargin, y);
-    y += 7.5;
+    y += 6.5;
 
     if (header.title) {
-      setFont("normal", 12, ACCENT);
+      setFont("normal", 11, ACCENT);
       doc.text(String(header.title), leftMargin, y);
-      y += 5.5;
+      y += 4.5;
     }
 
     const contactBits: string[] = [];
@@ -576,23 +579,22 @@ RULES FOR THIS OUTPUT:
     if (header.phone || userContext.phone_number) contactBits.push(String(header.phone || userContext.phone_number));
     if (header.linkedin || userContext.linkedin_url) contactBits.push(String(header.linkedin || userContext.linkedin_url));
     if (contactBits.length > 0) {
-      setFont("normal", 9.2, MUTED);
+      setFont("normal", 8.5, MUTED);
       const contactLine = contactBits.join("  \u00B7  ");
       const lines = doc.splitTextToSize(contactLine, pageWidth);
-      lines.forEach((line: string) => { doc.text(line, leftMargin, y); y += 4.2; });
+      lines.forEach((line: string) => { doc.text(line, leftMargin, y); y += 3.6; });
     }
 
-    y += 1.5;
+    y += 0.5;
     doc.setDrawColor(ACCENT[0], ACCENT[1], ACCENT[2]);
-    doc.setLineWidth(0.9);
+    doc.setLineWidth(0.8);
     doc.line(leftMargin, y, rightMargin, y);
-    y += 4;
+    y += 2.5;
 
     // --- About Me ---
     if (cvData.about_me) {
       addSectionHeader("Summary");
-      addParagraph(String(cvData.about_me), 10);
-      addSpace(2);
+      addParagraph(String(cvData.about_me), 9.5);
     }
 
     // --- Professional Experience ---
@@ -602,9 +604,8 @@ RULES FOR THIS OUTPUT:
       professional.forEach((exp: any, idx: number) => {
         addEntryHeader(exp.title || "", exp.dates, exp.company);
         (exp.bullets || []).forEach((bullet: string) => addBullet(bullet));
-        if (idx < professional.length - 1) addSpace(2.5);
+        if (idx < professional.length - 1) addSpace(1.2);
       });
-      addSpace(2);
     }
 
     // --- Military Service (supports multiple roles) ---
@@ -618,9 +619,8 @@ RULES FOR THIS OUTPUT:
       militaryList.forEach((m: any, idx: number) => {
         addEntryHeader(m.role || "", m.dates, m.unit);
         (m.bullets || []).forEach((bullet: string) => addBullet(bullet));
-        if (idx < militaryList.length - 1) addSpace(2.5);
+        if (idx < militaryList.length - 1) addSpace(1.2);
       });
-      addSpace(2);
     }
 
     // --- Volunteering ---
@@ -630,9 +630,8 @@ RULES FOR THIS OUTPUT:
       volunteering.forEach((v: any, idx: number) => {
         addEntryHeader(v.title || "", v.dates, v.organization);
         (v.bullets || []).forEach((bullet: string) => addBullet(bullet));
-        if (idx < volunteering.length - 1) addSpace(2.5);
+        if (idx < volunteering.length - 1) addSpace(1.2);
       });
-      addSpace(2);
     }
 
     // --- Education ---
@@ -649,9 +648,8 @@ RULES FOR THIS OUTPUT:
         // Legacy shape — still render any loose details strings if present.
         const loose = safeArray(edu.details);
         loose.forEach((d) => addBullet(String(d)));
-        if (idx < educationList.length - 1) addSpace(2.5);
+        if (idx < educationList.length - 1) addSpace(1.2);
       });
-      addSpace(2);
     }
 
     // --- Skills & Tools ---
@@ -661,7 +659,6 @@ RULES FOR THIS OUTPUT:
       addSectionHeader("Skills & Tools");
       if (skills.domain?.length > 0) addLabelledLine("Domain", skills.domain);
       if (skills.tools?.length > 0) addLabelledLine("Tools", skills.tools);
-      addSpace(2);
     }
 
     // --- Languages (own section so they don't get lost inside Skills) ---
@@ -684,7 +681,6 @@ RULES FOR THIS OUTPUT:
     if (languageLines.length > 0) {
       addSectionHeader("Languages");
       addLabelledLine("Languages", languageLines);
-      addSpace(2);
     }
 
     // --- Honors & Awards ---
@@ -692,7 +688,6 @@ RULES FOR THIS OUTPUT:
     if (honors.length > 0) {
       addSectionHeader("Honors & Awards");
       honors.forEach((h) => addBullet(String(h)));
-      addSpace(2);
     }
 
     // --- Certifications ---
@@ -704,9 +699,8 @@ RULES FOR THIS OUTPUT:
         if (cert.name) parts.push(String(cert.name));
         if (cert.issuer) parts.push(String(cert.issuer));
         const line = parts.join(" \u2014 ") + (cert.date ? `  (${cert.date})` : "");
-        addParagraph(line, 9.5);
+        addParagraph(line, 9);
       });
-      addSpace(2);
     }
 
     // --- Projects ---
@@ -716,7 +710,7 @@ RULES FOR THIS OUTPUT:
       projectsOut.forEach((proj: any, idx: number) => {
         addEntryHeader(proj.name || "", undefined, undefined);
         (proj.bullets || []).forEach((bullet: string) => addBullet(bullet));
-        if (idx < projectsOut.length - 1) addSpace(2.5);
+        if (idx < projectsOut.length - 1) addSpace(1.2);
       });
     }
 
