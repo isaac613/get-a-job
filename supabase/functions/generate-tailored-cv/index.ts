@@ -25,6 +25,68 @@ import { skillLibrary } from "./shared/libraries/01_skill_library.ts";
 import { proofSignalLibrary } from "./shared/libraries/02_proof_signal_library.ts";
 import { roleSkillMapping } from "./shared/libraries/04_role_skill_mapping.ts";
 
+// Built-in CV template library. Each template is a style bundle — the same
+// docx structure is rendered with different font / size / accent / heading
+// style. Custom uploaded templates (see cv_templates table) resolve to a
+// base built-in via their extracted_structure before rendering.
+type CVTemplate = {
+  name: string;
+  font: string;
+  nameSize: number;       // half-points (48 = 24pt)
+  headingSize: number;
+  bodySize: number;
+  bulletSize: number;
+  entryTitleSize: number;
+  accentColor: string;    // hex without #
+  headingStyle: "uppercase-underline" | "bold-accent-line" | "small-caps-line" | "serif-elegant";
+};
+const CV_TEMPLATES: Record<string, CVTemplate> = {
+  classic: {
+    name: "Classic",
+    font: "Calibri",
+    nameSize: 48,
+    headingSize: 22,
+    bodySize: 20,
+    bulletSize: 18,
+    entryTitleSize: 20,
+    accentColor: "444444",
+    headingStyle: "uppercase-underline",
+  },
+  modern: {
+    name: "Modern",
+    font: "Aptos",
+    nameSize: 44,
+    headingSize: 24,
+    bodySize: 20,
+    bulletSize: 18,
+    entryTitleSize: 20,
+    accentColor: "2B579A",
+    headingStyle: "bold-accent-line",
+  },
+  compact: {
+    name: "Compact",
+    font: "Arial Narrow",
+    nameSize: 40,
+    headingSize: 20,
+    bodySize: 18,
+    bulletSize: 16,
+    entryTitleSize: 18,
+    accentColor: "333333",
+    headingStyle: "small-caps-line",
+  },
+  executive: {
+    name: "Executive",
+    font: "Georgia",
+    nameSize: 52,
+    headingSize: 24,
+    bodySize: 22,
+    bulletSize: 20,
+    entryTitleSize: 22,
+    accentColor: "1A1A1A",
+    headingStyle: "serif-elegant",
+  },
+};
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -40,6 +102,77 @@ function json(body: unknown, status = 200): Response {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+// Two-step LLM tailoring. The first pass extracts ATS-style keywords from
+// the job description; those keywords then become a mandatory instruction
+// layer in the main CV generation prompt. Without this, GPT-4o-mini's
+// compliance with "tailor to the JD" was too weak — the output came back
+// generic even when the user had a perfect JD. Returns an empty skeleton if
+// the extraction call fails, so the rest of the pipeline still works.
+type JDKeywords = {
+  must_include_phrases: string[];
+  action_verbs: string[];
+  tools_and_platforms: string[];
+  domain_terms: string[];
+  soft_skill_keywords: string[];
+};
+async function extractJDKeywords(jd: string, openaiKey: string): Promise<JDKeywords> {
+  const empty: JDKeywords = {
+    must_include_phrases: [], action_verbs: [], tools_and_platforms: [],
+    domain_terms: [], soft_skill_keywords: [],
+  };
+  try {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      signal: AbortSignal.timeout(20000),
+      headers: {
+        "Authorization": `Bearer ${openaiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        temperature: 0,
+        max_tokens: 600,
+        response_format: { type: "json_object" },
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are an ATS keyword extraction specialist. Extract the most important keywords and phrases from job descriptions that should appear in a tailored CV. Return JSON only, no markdown.",
+          },
+          {
+            role: "user",
+            content:
+              `Extract keywords from this job description. Return JSON with these exact fields:
+- must_include_phrases: 8-12 exact multi-word phrases from the JD that are core to the role (e.g. "operational excellence", "adoption dashboards", "GTM initiatives")
+- action_verbs: 5-8 action verbs the JD uses (e.g. "own", "lead", "collaborate", "monitor")
+- tools_and_platforms: all specific tools, platforms, technologies mentioned (e.g. "Data Cloud", "Tableau", "Agentforce")
+- domain_terms: 5-8 domain/industry terms (e.g. "marketing analytics", "martech", "customer signals")
+- soft_skill_keywords: 3-5 soft skill phrases (e.g. "cross-functional", "stakeholder management")
+
+JOB DESCRIPTION:
+${jd.slice(0, 6000)}`,
+          },
+        ],
+      }),
+    });
+    if (!response.ok) return empty;
+    const data = await response.json();
+    const raw = data.choices?.[0]?.message?.content || "{}";
+    const cleaned = raw.replace(/```json|```/g, "").trim();
+    const parsed = JSON.parse(cleaned) as Partial<JDKeywords>;
+    return {
+      must_include_phrases: Array.isArray(parsed.must_include_phrases) ? parsed.must_include_phrases.slice(0, 15).map(String) : [],
+      action_verbs: Array.isArray(parsed.action_verbs) ? parsed.action_verbs.slice(0, 10).map(String) : [],
+      tools_and_platforms: Array.isArray(parsed.tools_and_platforms) ? parsed.tools_and_platforms.slice(0, 20).map(String) : [],
+      domain_terms: Array.isArray(parsed.domain_terms) ? parsed.domain_terms.slice(0, 10).map(String) : [],
+      soft_skill_keywords: Array.isArray(parsed.soft_skill_keywords) ? parsed.soft_skill_keywords.slice(0, 8).map(String) : [],
+    };
+  } catch (err) {
+    console.warn("[CV] JD keyword extraction failed:", err instanceof Error ? err.message : err);
+    return empty;
+  }
 }
 
 // Defensive array coercer. Profile columns are inconsistent in this DB: some
@@ -104,6 +237,17 @@ Deno.serve(async (req) => {
     const safeTargetRole = String(target_role ?? '').slice(0, 200);
     let safeJobDescription = String(job_description ?? '').slice(0, 5000);
     let targetCompany = ""; // populated from the linked application when available
+
+    // Built-in template selection. Falls back to "classic" for unknown ids.
+    const requestedTemplateId = typeof body.template_id === "string" ? body.template_id : "classic";
+    const templateId: string = CV_TEMPLATES[requestedTemplateId] ? requestedTemplateId : "classic";
+    let template: CVTemplate = CV_TEMPLATES[templateId];
+
+    // Custom template (user-uploaded PDF). If present, overrides the built-in
+    // style resolution further down based on the row's extracted_structure.
+    const requestedCustomTemplateId = typeof body.custom_template_id === "string"
+      ? body.custom_template_id
+      : null;
 
     if (!safeTargetRole) {
       return json({ error: "target_role is required" }, 400);
@@ -180,6 +324,51 @@ Deno.serve(async (req) => {
           safeJobDescription = String(app.notes).slice(0, 5000);
         }
       }
+    }
+
+    // ─── Custom template resolution ───
+    // If custom_template_id was passed, fetch the row and use its cached
+    // extracted_structure. Map font_style → built-in template so the
+    // renderer still has a consistent style config to follow. Section order
+    // is injected into the prompt so the LLM emits sections in the order
+    // the user's uploaded template shows them.
+    let customSectionOrder: string[] | null = null;
+    if (requestedCustomTemplateId) {
+      const { data: tpl } = await supabase
+        .from("cv_templates")
+        .select("id, extracted_structure")
+        .eq("id", requestedCustomTemplateId)
+        .eq("user_id", user.id)
+        .single();
+      if (tpl?.extracted_structure) {
+        const es = tpl.extracted_structure as any;
+        if (Array.isArray(es.sections)) customSectionOrder = es.sections.slice(0, 12);
+        // Pick base style from font + density hints
+        const fontStyle = String(es.font_style || "").toLowerCase();
+        const density = String(es.density || "").toLowerCase();
+        if (fontStyle.includes("serif")) template = CV_TEMPLATES.executive;
+        else if (density === "compact") template = CV_TEMPLATES.compact;
+        else if (density === "spacious") template = CV_TEMPLATES.executive;
+        else template = CV_TEMPLATES.modern;
+      }
+    }
+
+    // ─── Step 1 of two-step tailoring: extract ATS keywords from the JD ───
+    // Without explicit keywords injected into the main prompt, the generator
+    // produces a generic CV. Pass-through of OPENAI_API_KEY happens inside the
+    // helper. We read the secret once here so both calls share it.
+    const _openaiKeyForExtraction = Deno.env.get("OPENAI_API_KEY");
+    const jdKeywords: JDKeywords | null = (safeJobDescription && _openaiKeyForExtraction)
+      ? await extractJDKeywords(safeJobDescription, _openaiKeyForExtraction)
+      : null;
+    if (jdKeywords) {
+      console.log("[CV] JD keywords extracted", JSON.stringify({
+        phrases: jdKeywords.must_include_phrases.length,
+        verbs: jdKeywords.action_verbs.length,
+        tools: jdKeywords.tools_and_platforms.length,
+        domain: jdKeywords.domain_terms.length,
+        soft: jdKeywords.soft_skill_keywords.length,
+      }));
     }
 
     const trunc = (s: unknown, max: number) => String(s ?? '').slice(0, max);
@@ -434,24 +623,55 @@ D. What you MAY do:
 - Never keyword-stuff. JD keywords appear only where they genuinely apply to real experience.
 `;
 
-    const TAILORING_RULES = `JOB DESCRIPTION TAILORING RULES:
-When a job_description is provided, you are NOT just reformatting the user's resume — you are creating a TAILORED version that highlights why THIS specific person is a fit for THIS specific role. Do the following explicitly:
-
-1. Identify the top 5 keywords / skills / responsibilities from the job description. Keep them in mind for every output decision.
-2. REPHRASE bullet points across ALL experiences to naturally incorporate the JD's language — where the fact is truly present in the user's responsibilities. Example:
-     Original: "Resolve complex user issues efficiently while maintaining strict service-level expectations."
-     JD mentions "translating business needs into structured requirements."
-     Tailored: "Translated complex user issues into structured requirements and actionable solutions while maintaining service-level expectations."
-   The factual content stays true — only the framing shifts to echo JD terminology. NEVER change what happened; only how it's described.
-3. REORDER bullets within each experience so the bullet that most clearly demonstrates a JD requirement is FIRST. The top bullet is prime real estate.
-4. REORDER the experiences list itself so the role most relevant to the target comes first within its bucket (e.g. a Customer Success role before a Volunteer Coordinator role when applying for a PM position).
-5. REORDER and REFRAME the skills list to put JD-relevant capabilities first. If the JD emphasises "cross-functional collaboration with engineering and design", surface matching skills the user has ("Cross-functional coordination", "Stakeholder management") at the top of domain[].
-6. Write the About Me to bridge the user's actual background to THIS role at THIS company. Reference the company's domain (e.g. "trade finance", "B2B fintech") and pick up key JD terminology — but keep the "no pronouns, no candidate-speak" rule from the About Me section.
-7. NEVER invent experiences, skills, tools, certifications, or metrics. Rephrasing is allowed; fabrication is not. "Managed multiple cases" can become "Prioritised and managed a backlog of concurrent cases" if that's what actually happened, but CANNOT become "Managed a product backlog" if the user didn't work on a product backlog.
-
-STRONG ACTION VERBS TO USE:
-Led, Built, Managed, Owned, Delivered, Launched, Developed, Implemented, Drove, Executed, Designed, Analyzed, Coordinated, Streamlined, Improved, Reduced, Increased, Generated, Negotiated, Trained, Supported, Collaborated, Translated, Prioritised, Facilitated.
+    const TAILORING_RULES = `
+TAILORING (apply aggressively — this is the most important part of your job):
+- REPHRASE every bullet point to use language from the job description. "Managed customer cases" becomes "Owned customer relationships and drove adoption" if the JD uses those terms.
+- REORDER bullets within each experience: put the most JD-relevant responsibility first.
+- About Me must read like it was written FOR this specific role. Reference the company's domain and the role's core focus.
+- Skills section must lead with skills that match the JD, then list others.
+- DO NOT just clean up the existing CV. ACTIVELY REWRITE using JD vocabulary.
+- If you are not sure whether a rephrasing is truthful, keep the original wording but try to use at least one JD keyword per bullet.
+- Reorder the experiences list itself so the role most relevant to the target comes first within its bucket.
+- NEVER invent experiences, skills, tools, certifications, or metrics. Rephrasing is allowed; fabrication is not. "Managed multiple cases" can become "Prioritised and managed a backlog of concurrent cases" if that's what actually happened, but CANNOT become "Managed a product backlog" if the user didn't work on one.
 `;
+
+    // Extracted keywords are the single most effective lever for forcing
+    // tailoring. Without them the generic TAILORING_RULES gets largely ignored.
+    const KEYWORD_INJECTION_BLOCK = jdKeywords && (
+      jdKeywords.must_include_phrases.length +
+      jdKeywords.action_verbs.length +
+      jdKeywords.tools_and_platforms.length +
+      jdKeywords.domain_terms.length +
+      jdKeywords.soft_skill_keywords.length
+    ) > 0
+      ? `
+=== MANDATORY KEYWORD TAILORING ===
+The following keywords were extracted from the job description. You MUST weave these into the CV naturally:
+
+${jdKeywords.must_include_phrases.length > 0 ? `MUST-INCLUDE PHRASES (use at least 6 of these verbatim or near-verbatim in bullet points and About Me):
+${jdKeywords.must_include_phrases.map((p) => `- "${p}"`).join("\n")}
+` : ""}
+${jdKeywords.action_verbs.length > 0 ? `ACTION VERBS (prefer these over generic verbs):
+${jdKeywords.action_verbs.join(", ")}
+` : ""}
+${jdKeywords.tools_and_platforms.length > 0 ? `TOOLS & PLATFORMS (include in Skills section AND mention in relevant bullets where truthful):
+${jdKeywords.tools_and_platforms.join(", ")}
+` : ""}
+${jdKeywords.domain_terms.length > 0 ? `DOMAIN TERMS (weave into About Me and experience descriptions):
+${jdKeywords.domain_terms.join(", ")}
+` : ""}
+${jdKeywords.soft_skill_keywords.length > 0 ? `SOFT SKILLS (reflect in bullet phrasing):
+${jdKeywords.soft_skill_keywords.join(", ")}
+` : ""}
+
+RULES:
+1. The About Me section MUST use at least 3 must-include phrases and 2 domain terms.
+2. Experience bullet points MUST be rewritten to use JD action verbs and incorporate must-include phrases WHERE TRUTHFUL. Do not invent new responsibilities — rephrase existing ones using JD language.
+3. The Skills section MUST include tools from the JD that the user actually knows or could reasonably claim from their existing skills/experience. If the user's profile doesn't mention a JD tool at all, do NOT add it.
+4. If the user has NO experience with a JD tool/platform, do NOT add it. Truthfulness is still non-negotiable.
+5. Reorder experience bullets so the most JD-relevant ones come first within each role.
+`
+      : "";
 
     const LIBRARY_CONTEXT = library_match ? `ROLE-LIBRARY CONTEXT (controlled vocabulary — use to pick which of the user's real skills to emphasize; DO NOT use to invent skills the user doesn't have):
 
@@ -468,12 +688,19 @@ RELEVANT PROOF SIGNALS (map user experiences to these signals when possible):
 ${JSON.stringify(relevantSignals, null, 2)}
 ` : `NOTE: The target role was not found in the standardized role library. Tailor strictly using the job description and the user's actual profile data.\n`;
 
+    const CUSTOM_TEMPLATE_BLOCK = customSectionOrder && customSectionOrder.length > 0
+      ? `\nCUSTOM TEMPLATE SECTION ORDER (user uploaded a template PDF — match it):
+Structure the CV in this section order: ${customSectionOrder.join(", ")}. Skip any section the user has no data for.\n`
+      : "";
+
     const systemPrompt =
       `You are a CV Generation Engine for the "Get A Job" Career Operating System. Your job is to produce a tailored, one-page, truthful CV as JSON. The CV WILL be sent to real employers — so every word must be grounded in the user's actual data.\n\n` +
       TRUTHFULNESS_RULES + `\n` +
       STRUCTURE_RULES + `\n` +
       TAILORING_RULES + `\n` +
       LIBRARY_CONTEXT + `\n` +
+      KEYWORD_INJECTION_BLOCK + `\n` +
+      CUSTOM_TEMPLATE_BLOCK + `\n` +
       `REMINDER: Truthfulness beats polish. If a bullet needs a metric to sound impressive but you have no metric in the source, leave it without. Do not invent.`;
 
     const userPrompt = `TARGET ROLE: ${safeTargetRole}
@@ -730,6 +957,38 @@ SPECIFIC OUTPUT RULES:
     const finalSubtitle = useDerived ? derivedSubtitle : llmSubtitle;
     cvData.header = { ...(cvData.header || {}), subtitle: finalSubtitle };
 
+    // ─── Step 2 of tailoring: validate how many JD phrases made it through ───
+    // The score is the fraction of must_include_phrases that literally appear
+    // somewhere in the generated CV text (case-insensitive). If it's below
+    // 40%, we log a warning to edge-function telemetry so we can track which
+    // JDs are hard to tailor. The score is also returned to the frontend so
+    // the UI can show a "Keyword match: X%" indicator next to the fit card.
+    let tailoring = null as null | {
+      tailoring_score: number;
+      matched_phrases: string[];
+      missed_phrases: string[];
+    };
+    if (jdKeywords && jdKeywords.must_include_phrases.length > 0) {
+      const cvTextLower = JSON.stringify(cvData).toLowerCase();
+      const matched: string[] = [];
+      const missed: string[] = [];
+      for (const phrase of jdKeywords.must_include_phrases) {
+        if (cvTextLower.includes(phrase.toLowerCase())) matched.push(phrase);
+        else missed.push(phrase);
+      }
+      const pct = matched.length / jdKeywords.must_include_phrases.length;
+      if (pct < 0.4) {
+        console.warn(`[CV] Low tailoring score: ${Math.round(pct * 100)}% — matched: ${matched.join(" · ") || "(none)"}`);
+      } else {
+        console.log(`[CV] Tailoring score: ${Math.round(pct * 100)}% (${matched.length}/${jdKeywords.must_include_phrases.length})`);
+      }
+      tailoring = {
+        tailoring_score: Math.round(pct * 100),
+        matched_phrases: matched,
+        missed_phrases: missed,
+      };
+    }
+
     // Sanity-floor the fit percentage. The LLM very occasionally returns 0
     // for a candidate who does have overlap — we floor at a low but non-zero
     // value and recompute alignment bucket from the number. This never
@@ -760,19 +1019,22 @@ SPECIFIC OUTPUT RULES:
     //   - margins 20mm top/bottom ≈ 1134 twips, 25mm left/right ≈ 1417 twips
     //   - tab stop max ≈ 9072 twips (inside a 21cm page with 25mm margins)
     //   - line: 240 = single, 276 = 1.15x, 288 = 1.2x, 360 = 1.5x
-    const FONT = "Calibri";
+    // All typography is driven by the resolved `template` config so different
+    // built-in templates (classic / modern / compact / executive) render
+    // with different fonts, sizes, and accent colors from the same pipeline.
+    const FONT = template.font;
     const BLACK = "000000";
     const MUTED_COLOR = "555555";
-    // Font sizes in half-points. Final squeeze to guarantee single-page fit.
-    const BODY_SIZE = 19; // 9.5pt — About Me and default
-    const BULLET_SIZE = 18; // 9pt for entry bullets
-    const HEADING_SIZE = 22; // 11pt section heading
-    const SUBHEADING_SIZE = 19; // 9.5pt sub-section heading
-    const ENTRY_TITLE_SIZE = 20; // 10pt bold role/degree line
-    const CONTACT_SIZE = 19; // 9.5pt contact line
-    const DATE_SIZE = 19; // 9.5pt dates, muted
-    const NAME_SIZE = 48; // 24pt uppercase name
-    const ROLE_SUBTITLE_SIZE = 22; // 11pt subtitle under the name
+    const ACCENT_COLOR = template.accentColor;
+    const BODY_SIZE = template.bodySize;
+    const BULLET_SIZE = template.bulletSize;
+    const HEADING_SIZE = template.headingSize;
+    const SUBHEADING_SIZE = Math.max(18, template.bulletSize + 1); // one notch above bullets
+    const ENTRY_TITLE_SIZE = template.entryTitleSize;
+    const CONTACT_SIZE = template.bulletSize + 1;
+    const DATE_SIZE = template.bulletSize + 1;
+    const NAME_SIZE = template.nameSize;
+    const ROLE_SUBTITLE_SIZE = Math.max(20, template.headingSize);
     // Right tab stop just inside the right margin on an A4 page with 20mm
     // L/R margins (page 11906 twips wide, margin 1134 each side → 9638).
     const RIGHT_TAB = 9600;
@@ -792,11 +1054,40 @@ SPECIFIC OUTPUT RULES:
     const text = (s: string, opts: Record<string, unknown> = {}) =>
       new TextRun({ text: s, font: FONT, size: BODY_SIZE, ...opts });
 
-    const sectionHeading = (label: string) => new Paragraph({
-      spacing: { before: SP_BEFORE_SECTION, after: 0 },
-      border: { bottom: { color: "BFBFBF", style: BorderStyle.SINGLE, size: 6, space: 1 } },
-      children: [new TextRun({ text: label.toUpperCase(), bold: true, size: HEADING_SIZE, font: FONT })],
-    });
+    // Section heading styling varies by template.
+    //  - uppercase-underline (Classic): UPPERCASE text, thin gray rule
+    //  - bold-accent-line    (Modern):  mixed case, thicker colored rule
+    //  - small-caps-line     (Compact): small caps (faked by uppercase +
+    //    slightly smaller), letter-spacing, thin rule
+    //  - serif-elegant       (Executive): extra before-spacing, bold, no rule
+    const sectionHeading = (label: string): Paragraph => {
+      switch (template.headingStyle) {
+        case "bold-accent-line":
+          return new Paragraph({
+            spacing: { before: SP_BEFORE_SECTION, after: 0 },
+            border: { bottom: { color: ACCENT_COLOR, style: BorderStyle.SINGLE, size: 10, space: 1 } },
+            children: [new TextRun({ text: label, bold: true, size: HEADING_SIZE, font: FONT, color: ACCENT_COLOR })],
+          });
+        case "small-caps-line":
+          return new Paragraph({
+            spacing: { before: SP_BEFORE_SECTION, after: 0 },
+            border: { bottom: { color: "BFBFBF", style: BorderStyle.SINGLE, size: 4, space: 1 } },
+            children: [new TextRun({ text: label.toUpperCase(), bold: true, size: HEADING_SIZE - 1, font: FONT, characterSpacing: 60 })],
+          });
+        case "serif-elegant":
+          return new Paragraph({
+            spacing: { before: SP_BEFORE_SECTION + 40, after: 0 },
+            children: [new TextRun({ text: label, bold: true, size: HEADING_SIZE, font: FONT, color: ACCENT_COLOR })],
+          });
+        case "uppercase-underline":
+        default:
+          return new Paragraph({
+            spacing: { before: SP_BEFORE_SECTION, after: 0 },
+            border: { bottom: { color: "BFBFBF", style: BorderStyle.SINGLE, size: 6, space: 1 } },
+            children: [new TextRun({ text: label.toUpperCase(), bold: true, size: HEADING_SIZE, font: FONT })],
+          });
+      }
+    };
 
     const subsectionHeading = (label: string) => new Paragraph({
       spacing: { before: SP_BEFORE_SUBHEAD, after: 0 },
@@ -1176,12 +1467,17 @@ SPECIFIC OUTPUT RULES:
     const cv_url = signedUrlData.signedUrl;
 
     let appRecord;
+    const templateFields = {
+      cv_template_id: templateId,
+      custom_template_id: requestedCustomTemplateId || null,
+    };
     if (application_id) {
       const { data } = await supabase.from("applications").update({
         cv_url,
         cv_status: "ready",
         cv_version_name: `${safeTargetRole} CV`,
-        cv_skills_emphasized: (cvData.skills as any)?.domain || []
+        cv_skills_emphasized: (cvData.skills as any)?.domain || [],
+        ...templateFields,
       }).eq("id", application_id).eq("user_id", user.id).select().single();
       if (!data) { return json({ error: "Application not found or not owned by user." }, 404); }
       appRecord = data;
@@ -1193,7 +1489,8 @@ SPECIFIC OUTPUT RULES:
         cv_status: "ready",
         cv_version_name: `${safeTargetRole} CV`,
         cv_skills_emphasized: (cvData.skills as any)?.domain || [],
-        status: "interested"
+        status: "interested",
+        ...templateFields,
       }).select().single();
       appRecord = data;
     }
@@ -1213,6 +1510,7 @@ SPECIFIC OUTPUT RULES:
       fit_analysis: cvData.fit_analysis,
       library_match,
       message: `CV generated for "${safeTargetRole}". Download it using the link, and it's been saved to your Application Tracker.`,
+      ...(tailoring && { tailoring }),
       ...(missing_contact_fields.length > 0 && { missing_contact_fields }),
     });
   } catch (error) {

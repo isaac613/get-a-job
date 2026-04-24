@@ -11,16 +11,27 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { createPageUrl } from "@/utils";
 import MessageBubble from "./MessageBubble";
+import TemplateManager from "@/components/cv/TemplateManager";
 
 const TIER_LABELS = {
   tier_1: "Tier 1 — Your Move",
   tier_2: "Tier 2 — Plan B",
   tier_3: "Tier 3 — Work Toward",
 };
+
+// Built-in CV templates — mirrors the server-side CV_TEMPLATES config in
+// generate-tailored-cv/index.ts. Keep ids in sync.
+export const CV_TEMPLATE_OPTIONS = [
+  { id: "classic", name: "Classic", desc: "Clean Calibri, single-column", icon: "📄" },
+  { id: "modern", name: "Modern", desc: "Blue accents, Aptos font", icon: "✨" },
+  { id: "compact", name: "Compact", desc: "Tight spacing, fits more", icon: "📋" },
+  { id: "executive", name: "Executive", desc: "Elegant serif, senior roles", icon: "👔" },
+];
 
 function TaskSuggestionCard({ messageId, tasks, addedTaskSets, onAdd }) {
   const addedForMessage = addedTaskSets[messageId] || {};
@@ -149,12 +160,109 @@ function ApplicationActionsCard({ messageId, actions, applied, onApply }) {
   );
 }
 
+// Reusable 2×2 grid of built-in template cards plus an optional list of
+// custom user-uploaded templates below. The selected card (built-in OR
+// custom) is highlighted. Callers can opt into the custom section by
+// passing customTemplates (rows from the cv_templates table). A "Manage"
+// link invokes onManage.
+//
+// The value model: one of `templateId` (built-in) OR `customTemplateId`
+// (custom). Only one is ever "selected"; the other is null.
+export function TemplatePicker({
+  value,            // built-in template id (or null if a custom one is selected)
+  onChange,         // called with a built-in id — clears customValue
+  customValue,      // custom template uuid (or null)
+  onCustomChange,   // called with a custom uuid — clears value
+  customTemplates = [],
+  onManage,
+  disabled,
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="grid grid-cols-2 gap-2">
+        {CV_TEMPLATE_OPTIONS.map((tpl) => {
+          const isSelected = !customValue && tpl.id === value;
+          return (
+            <button
+              key={tpl.id}
+              type="button"
+              onClick={() => !disabled && onChange(tpl.id)}
+              disabled={disabled}
+              className={
+                "text-left rounded-lg border p-2 transition-colors " +
+                (isSelected
+                  ? "border-[#0A0A0A] bg-white ring-1 ring-[#0A0A0A]"
+                  : "border-[#E5E5E5] bg-white hover:border-[#A3A3A3]") +
+                (disabled ? " opacity-50 cursor-not-allowed" : "")
+              }
+            >
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm">{tpl.icon}</span>
+                <span className="text-xs font-semibold text-[#0A0A0A]">{tpl.name}</span>
+              </div>
+              <p className="text-[10px] text-[#525252] mt-0.5 leading-tight">{tpl.desc}</p>
+            </button>
+          );
+        })}
+      </div>
+
+      {(customTemplates.length > 0 || onManage) && (
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <p className="text-[10px] uppercase tracking-wider text-[#A3A3A3] font-medium">Your templates</p>
+            {onManage && (
+              <button
+                type="button"
+                onClick={onManage}
+                disabled={disabled}
+                className="text-[10px] text-[#2563EB] hover:underline"
+              >
+                Manage
+              </button>
+            )}
+          </div>
+          {customTemplates.length === 0 ? (
+            <p className="text-[10px] text-[#A3A3A3]">Upload a .pdf template in Manage to use it here.</p>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              {customTemplates.map((tpl) => {
+                const isSelected = customValue === tpl.id;
+                return (
+                  <button
+                    key={tpl.id}
+                    type="button"
+                    onClick={() => !disabled && onCustomChange && onCustomChange(tpl.id)}
+                    disabled={disabled}
+                    className={
+                      "text-left rounded-lg border p-2 transition-colors " +
+                      (isSelected
+                        ? "border-[#0A0A0A] bg-white ring-1 ring-[#0A0A0A]"
+                        : "border-[#E5E5E5] bg-white hover:border-[#A3A3A3]") +
+                      (disabled ? " opacity-50 cursor-not-allowed" : "")
+                    }
+                  >
+                    <p className="text-xs font-semibold text-[#0A0A0A] truncate">📎 {tpl.name}</p>
+                    <p className="text-[10px] text-[#525252] mt-0.5">Custom PDF template</p>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Renders the CV agent's "generate a tailored CV" proposal. Three visual
 // states: ready-to-generate (shows a Generate CV button), generating (loading
-// spinner), and done (download link + fit analysis). The parent owns the
-// state object so it survives re-renders and can be persisted to the DB.
-function CVGenerationCard({ proposal, state, onGenerate, appLabel }) {
-  const { status, cv_url, fit_analysis, error } = state || {};
+// spinner), and done (download link + fit analysis + tracker confirmation).
+// The parent owns the state object so it survives re-renders and can be
+// persisted to the DB.
+function CVGenerationCard({ proposal, state, onGenerate, appLabel, customTemplates, onManageTemplates }) {
+  const [templateId, setTemplateId] = useState("classic");
+  const [customTemplateId, setCustomTemplateId] = useState(null);
+  const { status, cv_url, fit_analysis, application_id, tailoring, error } = state || {};
 
   if (status === "done" && cv_url) {
     const alignment = fit_analysis?.alignment;
@@ -168,10 +276,13 @@ function CVGenerationCard({ proposal, state, onGenerate, appLabel }) {
       : "text-[#525252]";
     return (
       <div className="ml-10 mt-2 bg-emerald-50 border border-emerald-200 rounded-xl p-4 max-w-xl">
-        <div className="flex items-center gap-2 mb-2">
+        <div className="flex items-center gap-2 mb-1">
           <CheckCircle2 className="w-4 h-4 text-emerald-600" />
           <p className="text-xs font-semibold text-emerald-800">CV generated for {proposal.target_role}</p>
         </div>
+        {application_id && (
+          <p className="text-[11px] text-emerald-700 mb-2">✓ Linked to your application tracker</p>
+        )}
         {fit_analysis && (
           <div className="mb-3 bg-white border border-emerald-100 rounded-lg px-3 py-2 text-xs space-y-1">
             <div className="flex items-center justify-between">
@@ -180,6 +291,12 @@ function CVGenerationCard({ proposal, state, onGenerate, appLabel }) {
                 {alignment || "—"}{pct != null ? ` · ${pct}%` : ""}
               </span>
             </div>
+            {typeof tailoring?.tailoring_score === "number" && (
+              <div className="flex items-center justify-between">
+                <span className="text-[#525252]">Keyword match</span>
+                <span className="font-semibold text-[#525252]">{tailoring.tailoring_score}%</span>
+              </div>
+            )}
             {Array.isArray(fit_analysis.major_gaps) && fit_analysis.major_gaps.length > 0 && (
               <div>
                 <p className="text-[10px] uppercase tracking-wider text-[#A3A3A3] font-medium mt-1">Major gaps</p>
@@ -217,12 +334,24 @@ function CVGenerationCard({ proposal, state, onGenerate, appLabel }) {
           <li><span className="text-rose-600">Application:</span> <span className="text-rose-500">linked to tracked role</span></li>
         )}
       </ul>
+      <div className="mb-3">
+        <p className="text-[10px] uppercase tracking-wider text-rose-600 font-medium mb-1.5">Template</p>
+        <TemplatePicker
+          value={templateId}
+          onChange={(id) => { setTemplateId(id); setCustomTemplateId(null); }}
+          customValue={customTemplateId}
+          onCustomChange={(id) => { setCustomTemplateId(id); }}
+          customTemplates={customTemplates}
+          onManage={onManageTemplates}
+          disabled={status === "generating"}
+        />
+      </div>
       {error && (
         <p className="text-[11px] text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1 mb-2">{error}</p>
       )}
       <Button
         size="sm"
-        onClick={onGenerate}
+        onClick={() => onGenerate({ templateId, customTemplateId })}
         disabled={status === "generating"}
         className="h-7 text-xs bg-rose-700 hover:bg-rose-800 gap-1.5"
       >
@@ -289,6 +418,25 @@ export default function ChatInterface({ agentName, title, description, applicati
     }
     return m;
   }, [applications]);
+
+  // User-uploaded PDF templates. Fetched once per user and handed to every
+  // CVGenerationCard so the picker's "Your templates" row is always in sync.
+  const { data: customTemplates = [] } = useQuery({
+    queryKey: ["cvTemplates", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const { data, error } = await supabase
+        .from("cv_templates")
+        .select("id, name, is_default, created_at")
+        .eq("user_id", user.id)
+        .order("is_default", { ascending: false })
+        .order("updated_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id,
+  });
+  const [templatesDialogOpen, setTemplatesDialogOpen] = useState(false);
   const [conversations, setConversations] = useState([]);
   const [activeConversationId, setActiveConversationId] = useState(null);
   const [loadingMessages, setLoadingMessages] = useState(false);
@@ -348,7 +496,13 @@ export default function ChatInterface({ agentName, title, description, applicati
         for (const m of data || []) {
           const g = m.suggested_cv_generation;
           if (g && g.result && g.result.cv_url) {
-            rehydrated[m.id] = { status: "done", cv_url: g.result.cv_url, fit_analysis: g.result.fit_analysis };
+            rehydrated[m.id] = {
+              status: "done",
+              cv_url: g.result.cv_url,
+              fit_analysis: g.result.fit_analysis,
+              application_id: g.result.application_id || null,
+              tailoring: g.result.tailoring || null,
+            };
           }
         }
         setCvGenStates(rehydrated);
@@ -601,35 +755,60 @@ export default function ChatInterface({ agentName, title, description, applicati
     toast.success("Applications updated");
   };
 
-  const handleGenerateCV = async (messageId, proposal) => {
+  const handleGenerateCV = async (messageId, proposal, pickerValue = { templateId: "classic", customTemplateId: null }) => {
     if (!user?.id || !proposal?.target_role) return;
     if (cvGenStates[messageId]?.status === "generating" || cvGenStates[messageId]?.status === "done") return;
+
+    const { templateId = "classic", customTemplateId = null } = pickerValue || {};
 
     setCvGenStates((prev) => ({ ...prev, [messageId]: { status: "generating" } }));
     try {
       const { data, error } = await supabase.functions.invoke("generate-tailored-cv", {
         body: {
           target_role: proposal.target_role,
-          ...(proposal.application_id && { application_id: proposal.application_id }),
-          ...(proposal.job_description && { job_description: proposal.job_description }),
+          application_id: proposal.application_id || null,
+          job_description: proposal.job_description || null,
+          template_id: customTemplateId ? null : (templateId || "classic"),
+          custom_template_id: customTemplateId || null,
         },
       });
       if (error) throw error;
       if (!data?.cv_url) throw new Error(data?.error || "CV generation did not return a download link.");
 
-      const next = { status: "done", cv_url: data.cv_url, fit_analysis: data.fit_analysis };
+      // Snapshot everything the card needs — cv_url, fit_analysis, the
+      // application_id the edge function actually wrote to the tracker, and
+      // the keyword-tailoring score.
+      const next = {
+        status: "done",
+        cv_url: data.cv_url,
+        fit_analysis: data.fit_analysis,
+        application_id: data.application_id || null,
+        tailoring: data.tailoring || null,
+      };
       setCvGenStates((prev) => ({ ...prev, [messageId]: next }));
 
       // Persist the result alongside the original proposal so refreshing the
-      // conversation still shows the download button + fit analysis.
-      const merged = { ...proposal, result: { cv_url: data.cv_url, fit_analysis: data.fit_analysis, application_id: data.application_id } };
+      // conversation still shows the download button + fit analysis + linkage.
+      const merged = {
+        ...proposal,
+        result: {
+          cv_url: data.cv_url,
+          fit_analysis: data.fit_analysis,
+          application_id: data.application_id,
+          tailoring: data.tailoring || null,
+        },
+      };
       await supabase.from("chat_messages")
         .update({ suggested_cv_generation: merged })
         .eq("id", messageId);
 
       // If the function touched an application, refresh the tracker cache.
       queryClient.invalidateQueries({ queryKey: ["applications"] });
-      toast.success("CV generated");
+      if (data.application_id) {
+        toast.success("CV linked to your application tracker!");
+      } else {
+        toast.success("CV generated");
+      }
     } catch (err) {
       console.error("CV generation failed:", err);
       const message = err?.message || "Could not generate CV. Please try again.";
@@ -768,8 +947,10 @@ export default function ChatInterface({ agentName, title, description, applicati
                 <CVGenerationCard
                   proposal={msg.suggestedCVGeneration}
                   state={cvGenStates[msg.id]}
-                  onGenerate={() => handleGenerateCV(msg.id, msg.suggestedCVGeneration)}
+                  onGenerate={(pickerValue) => handleGenerateCV(msg.id, msg.suggestedCVGeneration, pickerValue)}
                   appLabel={applicationsById[msg.suggestedCVGeneration.application_id] || null}
+                  customTemplates={customTemplates}
+                  onManageTemplates={() => setTemplatesDialogOpen(true)}
                 />
               )}
               {msg.suggestedAgent && (
@@ -797,6 +978,16 @@ export default function ChatInterface({ agentName, title, description, applicati
 
         <div ref={bottomRef} />
       </div>
+
+      {/* CV template manager dialog — shared across all CVGenerationCards */}
+      <Dialog open={templatesDialogOpen} onOpenChange={setTemplatesDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Manage CV Templates</DialogTitle>
+          </DialogHeader>
+          <TemplateManager onClose={() => setTemplatesDialogOpen(false)} />
+        </DialogContent>
+      </Dialog>
 
       {/* Input */}
       <div className="px-6 py-4 border-t border-[#E5E5E5] bg-white">
