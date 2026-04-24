@@ -284,16 +284,6 @@ export default function CareerRoadmap() {
         </div>
       )}
 
-      {/* Learning Paths */}
-      {roles.length > 0 && profile?.skill_gaps && profile.skill_gaps.length > 0 && (
-        <div className="mb-8">
-          <LearningPaths
-            skillGaps={profile.skill_gaps}
-            targetRole={profile.current_tier1_role || profile.five_year_role}
-          />
-        </div>
-      )}
-
       {tier1.length > 0 && (
         <div className="mb-8">
           <h2 className="text-xs uppercase tracking-wider text-[#059669] font-semibold mb-3 flex items-center gap-2">
@@ -347,6 +337,17 @@ export default function CareerRoadmap() {
               <RoleCard key={role.id} role={role} onTrack={handleTrack} />
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Learning Paths — below the role cards so users see their tiered
+          options first, then the skill-gap plan to move between tiers. */}
+      {roles.length > 0 && profile?.skill_gaps && profile.skill_gaps.length > 0 && (
+        <div className="mb-8">
+          <LearningPaths
+            skillGaps={profile.skill_gaps}
+            targetRole={profile.current_tier1_role || profile.five_year_role}
+          />
         </div>
       )}
     </div>
