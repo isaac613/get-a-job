@@ -90,7 +90,9 @@ export default function LearningPaths({ skillGaps, targetRole }) {
       {!courses && !loading && (
         <Card className="border-[#E5E5E5]">
           <CardContent className="pt-6 text-center text-sm text-[#A3A3A3]">
-            Click "Generate Path" to get personalized learning recommendations based on your skill gaps
+            {!skillGaps || skillGaps.length === 0
+              ? "Your skill gaps will appear here after you run a Career Roadmap analysis. Once identified, click \"Generate Path\" for personalized learning recommendations."
+              : "Click \"Generate Path\" to get personalized learning recommendations based on your skill gaps"}
           </CardContent>
         </Card>
       )}

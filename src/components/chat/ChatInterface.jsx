@@ -304,6 +304,10 @@ export default function ChatInterface({ agentName, title, description, applicati
   const [activeConversationId, setActiveConversationId] = useState(null);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const bottomRef = useRef(null);
+  // Skip the load-messages effect the one time we set activeConversationId
+  // inline from sendMessage — the optimistic + just-inserted user message is
+  // authoritative; fetching would race the insert and blank the thread.
+  const justCreatedConvoRef = useRef(false);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -332,6 +336,10 @@ export default function ChatInterface({ agentName, title, description, applicati
   // Load messages when the active conversation changes.
   useEffect(() => {
     if (!activeConversationId) { setMessages([]); return; }
+    if (justCreatedConvoRef.current) {
+      justCreatedConvoRef.current = false;
+      return;
+    }
     setLoadingMessages(true);
     (async () => {
       const { data, error } = await supabase
@@ -430,6 +438,7 @@ export default function ChatInterface({ agentName, title, description, applicati
       }
       convoId = newConvo.id;
       convoIsNew = true;
+      justCreatedConvoRef.current = true;
       setActiveConversationId(convoId);
       setConversations((prev) => [newConvo, ...prev]);
     }

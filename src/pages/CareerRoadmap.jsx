@@ -341,12 +341,15 @@ export default function CareerRoadmap() {
       )}
 
       {/* Learning Paths — below the role cards so users see their tiered
-          options first, then the skill-gap plan to move between tiers. */}
-      {roles.length > 0 && profile?.skill_gaps && profile.skill_gaps.length > 0 && (
+          options first, then the skill-gap plan to move between tiers.
+          Always renders once there are roles on the page; the component
+          itself handles the empty-skill_gaps state (disabled Generate
+          button, hint text). */}
+      {roles.length > 0 && (
         <div className="mb-8">
           <LearningPaths
-            skillGaps={profile.skill_gaps}
-            targetRole={profile.current_tier1_role || profile.five_year_role}
+            skillGaps={Array.isArray(profile?.skill_gaps) ? profile.skill_gaps : []}
+            targetRole={profile?.current_tier1_role || profile?.five_year_role}
           />
         </div>
       )}

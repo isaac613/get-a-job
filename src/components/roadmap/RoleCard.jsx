@@ -2,6 +2,11 @@ import React, { useState } from "react";
 import { ChevronDown, ChevronUp, Check, X, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+// NB: `onTrack` is accepted for backward compatibility with CareerRoadmap's
+// handleTrack but no longer wired up — the "Add to Tracker" button was
+// removed (users should add specific job postings via Tracker, not generic
+// role cards).
+
 const tierConfig = {
   tier_1: { label: "Tier 1", className: "tier-badge-1", border: "border-l-emerald-500" },
   tier_2: { label: "Tier 2", className: "tier-badge-2", border: "border-l-amber-400" },
@@ -114,14 +119,6 @@ export default function RoleCard({ role, onTrack }) {
             </div>
           )}
 
-          {(role.tier === "tier_1" || role.tier === "tier_2") && (
-            <button
-              onClick={() => onTrack(role)}
-              className="w-full mt-2 px-4 py-2 bg-[#0A0A0A] text-white text-sm font-medium rounded-lg hover:bg-[#262626] transition-colors"
-            >
-              Add to Tracker
-            </button>
-          )}
         </div>
       )}
     </div>

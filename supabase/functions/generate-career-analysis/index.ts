@@ -595,8 +595,12 @@ Deno.serve(async (req) => {
     };
 
     const targeted = allScored.filter(r => isTargeted(r.role_id));
+    // All three tiers are candidates. Filtering out tier_3 here meant the
+    // "Work Toward" column never populated unless the user explicitly typed
+    // an aspirational title into target_job_titles. The MAX_T3=1 cap downstream
+    // still keeps the output size small.
     const strongUntargeted = allScored
-      .filter(r => !isTargeted(r.role_id) && (r.tier === "tier_1" || r.tier === "tier_2"));
+      .filter(r => !isTargeted(r.role_id) && (r.tier === "tier_1" || r.tier === "tier_2" || r.tier === "tier_3"));
     const candidatePool = [...targeted, ...strongUntargeted];
 
     // 1f. Select final set: top-N per tier with tier-appropriate sort
