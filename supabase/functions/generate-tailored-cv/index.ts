@@ -1117,17 +1117,22 @@ SPECIFIC OUTPUT RULES:
     };
 
     // Rendered lines at 500-twip top/bottom margins on A4:
-    //  - Classic / Modern @ 10pt body: ~46 lines fit
-    //  - Compact          @ 9pt body:  ~52 lines fit
-    //  - Executive        @ 10.5pt body + bigger spacing: ~42 lines fit
-    // Thresholds here trigger auto-trim slightly before the real limit so
-    // we have a safety cushion.
-    const maxLines = templateId === "compact" ? 50
-      : templateId === "executive" ? 40
-      : 44;
+    //  - Classic / Modern @ 10pt body: ~46-50 lines fit
+    //  - Compact          @ 9pt body:  ~54-56 lines fit
+    //  - Executive        @ 10.5pt body + bigger spacing: ~42-44 lines fit
+    // The trim should be a rare safety net, not fire on normal content, so
+    // these thresholds sit near the real visual capacity rather than below
+    // it. If the LLM prompt is producing a healthy density, generations
+    // typically land under these numbers.
+    const maxLines = templateId === "compact" ? 54
+      : templateId === "executive" ? 44
+      : 48;
 
-    let estimatedLines = estimatePageLines(cvData);
+    const initialEstimatedLines = estimatePageLines(cvData);
+    let estimatedLines = initialEstimatedLines;
+    let trimFired = false;
     if (estimatedLines > maxLines) {
+      trimFired = true;
       console.warn(`[CV] Estimated ${estimatedLines} lines (max ${maxLines}) — trimming`);
 
       // 1. Shorten bullets in the least-prominent buckets first. Keep at
@@ -1160,9 +1165,9 @@ SPECIFIC OUTPUT RULES:
         });
       }
 
-      // 3. Re-estimate for the log only.
-      const finalEstimate = estimatePageLines(cvData);
-      console.log(`[CV] Post-trim estimate: ${finalEstimate} lines`);
+      // 3. Re-estimate for the log + response.
+      estimatedLines = estimatePageLines(cvData);
+      console.log(`[CV] Post-trim estimate: ${estimatedLines} lines`);
     }
 
     // --- Build DOCX (professional single-column CV) ---
@@ -1675,6 +1680,15 @@ SPECIFIC OUTPUT RULES:
       fit_analysis: cvData.fit_analysis,
       library_match,
       message: `CV generated for "${safeTargetRole}". Download it using the link, and it's been saved to your Application Tracker.`,
+      // Diagnostic metadata — lets callers see the overflow decision at a
+      // glance without having to pull edge-function logs.
+      page_fit: {
+        template: templateId,
+        max_lines: maxLines,
+        initial_estimate: initialEstimatedLines,
+        final_estimate: estimatedLines,
+        trim_fired: trimFired,
+      },
       ...(tailoring && { tailoring }),
       ...(missing_contact_fields.length > 0 && { missing_contact_fields }),
     });
