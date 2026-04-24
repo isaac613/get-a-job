@@ -120,6 +120,27 @@ Deno.serve(async (req) => {
     const projects = projectsRes.data || [];
     const certifications = certificationsRes.data || [];
 
+    // Visibility log for which profile fields are present/absent. This shows
+    // up in the Supabase edge-function log stream and is the fastest way to
+    // diagnose "my phone isn't showing" style reports — the most common
+    // cause is simply an empty string in the DB (CV extractor didn't capture
+    // it, or the user hasn't filled in the profile yet).
+    const phonePresent = !!String(profile.phone_number ?? "").trim();
+    const emailPresent = !!String(user.email ?? "").trim();
+    const linkedinPresent = !!String(profile.linkedin_url ?? "").trim();
+    const locationPresent = !!String(profile.location ?? "").trim();
+    const languagesPresent = Array.isArray(profile.languages) && profile.languages.length > 0;
+    const educationDatesPresent = !!String(profile.education_dates ?? "").trim();
+    console.log("generate-tailored-cv contact-fields", JSON.stringify({
+      user_id: user.id,
+      phone_number: phonePresent ? "present" : "MISSING (empty in DB)",
+      email: emailPresent ? "present" : "MISSING",
+      location: locationPresent ? "present" : "MISSING",
+      linkedin: linkedinPresent ? "present" : "MISSING",
+      languages_field: languagesPresent ? "present" : "MISSING (will infer)",
+      education_dates: educationDatesPresent ? "present" : "MISSING",
+    }));
+
     // If an application is linked, use it as an additional context source.
     // The client often omits job_description from the body (because it doesn't
     // have it); the tracker row usually does. Also capture the company so we
@@ -206,15 +227,31 @@ Deno.serve(async (req) => {
     const volunteeringExperiences = allExperiences.filter((e: any) => e.bucket === "volunteering");
     const leadershipExperiences = allExperiences.filter((e: any) => e.bucket === "leadership");
 
-    // Hebrew inference: any Israeli location signal is treated as a hint that
-    // the candidate is very likely fluent/native in Hebrew. The LLM sees this
-    // as a HINT (not a fact), so it can incorporate it into languages[] when
-    // the source data is silent. Users who aren't Israeli simply won't have
-    // this hint injected.
+    // Language resolution. Prefer the user's explicitly stored languages
+    // (new profiles.languages jsonb). Only fall back to inference when the
+    // profile is silent — inferring can get proficiency levels wrong
+    // (American-Israeli students are typically English-native + Hebrew-fluent,
+    // not the other way round).
+    const storedLanguagesRaw = Array.isArray(profile.languages) ? profile.languages : [];
+    const storedLanguages = storedLanguagesRaw
+      .map((l: any) => {
+        if (!l) return null;
+        if (typeof l === "string") return { language: l.trim(), proficiency: "" };
+        const lang = String(l.language || l.name || "").trim();
+        if (!lang) return null;
+        const prof = String(l.proficiency || l.level || "").trim();
+        return { language: lang, proficiency: prof };
+      })
+      .filter(Boolean) as Array<{ language: string; proficiency: string }>;
+
     const locationHint = String(profile.location || "").toLowerCase();
-    const likelyLanguages: string[] = [];
-    if (/\b(israel|tel aviv|jerusalem|haifa|herzliya|ramat|netanya|rehovot|beer sheva|be'?er sheva|eilat|ashdod|petah tikva)\b/.test(locationHint)) {
-      likelyLanguages.push("Hebrew (likely native or fluent — candidate is based in Israel)");
+    const inferredLanguages: string[] = [];
+    if (storedLanguages.length === 0) {
+      // Only infer when the profile has zero languages stored — otherwise
+      // inference could contradict explicit user data.
+      if (/\b(israel|tel aviv|jerusalem|haifa|herzliya|ramat|netanya|rehovot|beer sheva|be'?er sheva|eilat|ashdod|petah tikva)\b/.test(locationHint)) {
+        inferredLanguages.push("Hebrew (likely fluent — candidate is based in Israel; proficiency should be inferred conservatively)");
+      }
     }
 
     const userContext = {
@@ -233,9 +270,11 @@ Deno.serve(async (req) => {
       military_experiences: militaryExperiences,
       volunteering_experiences: volunteeringExperiences,
       leadership_experiences: leadershipExperiences,
-      // If the user is in Israel and has nothing explicit about languages in
-      // their skills list, this hint lets the LLM include Hebrew in languages[].
-      language_hints: likelyLanguages,
+      // Explicit languages (from profile.languages) — when non-empty, the
+      // LLM must use these verbatim and NOT infer. language_hints is only
+      // populated when stored_languages is empty.
+      stored_languages: storedLanguages,
+      language_hints: inferredLanguages,
       projects: safeArray(projects).slice(0, 10).map((p: any) => ({
         name: trunc(p.name, 100),
         description: trunc(p.description, 500),
@@ -251,6 +290,9 @@ Deno.serve(async (req) => {
         field_of_study: trunc(profile.field_of_study, 100),
         education_level: trunc(profile.education_level, 50),
         gpa: trunc(profile.gpa, 10),
+        // Dates are stored as free text ("2023 - Present", "Sep 2021 - Jun
+        // 2024", etc.) — the LLM echoes this through as-is.
+        dates: trunc(profile.education_dates, 40),
         honors: safeArray(profile.honors).slice(0, 15).map((h) => trunc(h, 200)),
         relevant_coursework: safeArray(profile.relevant_coursework).slice(0, 20).map((c) => trunc(c, 100)),
       },
@@ -339,11 +381,12 @@ A. Factual integrity (no invention):
 2. NEVER add a quantified achievement unless the user's own data contains that exact number. If a bullet would be stronger with a metric, leave it without. Weaker-but-truthful beats strong-but-false.
 3. NEVER add skills, tools, certifications, experiences, education entries, or awards the user doesn't actually have in the source data. If the JD asks for SQL and the user has no SQL anywhere, do not add it.
 
-B. Preservation (don't drop, don't paraphrase identifiers):
+B. Preservation (don't drop, don't paraphrase identifiers — BUT fix obvious typos):
 4. Use the EXACT job titles from the source data. Never shorten, generalize, or paraphrase a title — "Supervised and trained teams of soldiers" stays "Supervised and trained teams of soldiers", never "Soldier". "Senior Customer Success Manager" stays "Senior Customer Success Manager", never "CS Manager".
 5. Use the EXACT company / institution / organization names from the source data. Don't re-capitalize, abbreviate, or translate them.
-6. Preserve every bullet from the source responsibilities. Rephrase for clarity and role alignment, but do not drop content. Five source bullets in → five bullets out.
-7. Include EVERY experience, education entry, certification, award, and language present in USER DATA. Do not silently omit entries because they feel less relevant — reorder them, but include them all.
+6. EXCEPTION to rules 4 and 5 — you MUST silently correct obvious spelling mistakes in degree names, field-of-study strings, institution names, and company names. "specilization" → "specialization". "Reichmann" → "Reichman". "Mangement" → "Management". "Engeering" → "Engineering". Only fix clear typos; never rephrase, re-order words, translate, or expand abbreviations. The user will be embarrassed if the CV goes to an employer with a misspelled degree or school.
+7. Preserve every bullet from the source responsibilities. Rephrase for clarity and role alignment, but do not drop content. Five source bullets in → five bullets out.
+8. Include EVERY experience, education entry, certification, award, and language present in USER DATA. Do not silently omit entries because they feel less relevant — reorder them, but include them all.
 
 C. Surfacing awards and honors:
 8. If a responsibility line mentions an award (e.g. "Awarded Presidential Award for Excellence"), keep it in the bullet AND surface the award in honors_and_awards[] so it appears in a dedicated Honors & Awards section.
@@ -475,7 +518,8 @@ SPECIFIC OUTPUT RULES:
 - If USER DATA.secondary_education is non-null, add it as a SECOND entry in education[] (institution, dates from secondary_education.dates, details[] containing the highlights strings). Do not drop it because it's pre-university.
 - education[].coursework[] is a list of SHORT course names (e.g. "SQL", "Python", "Data Science") — the renderer joins them into a single "Relevant coursework: X, Y, Z" line. education[].activities[] is for leadership roles, clubs, or notable activities held DURING the education, each rendered as its own bullet. Do NOT duplicate awards here — awards only appear in honors_and_awards[].
 - skills.technical[] is for programming languages or technical stacks (Python, SQL, React, AWS, etc.) — include only if the user actually has them. Non-technical roles can omit this category entirely.
-- Languages: include every language signal from USER DATA.skills, USER DATA.summary, and USER DATA.language_hints. Use the "proficiency" field (not "level") with one of Native | Fluent | Professional | Conversational | Basic. A user based in Israel (language_hints will flag this) should include Hebrew at a reasonable proficiency. English is essentially always applicable for professional roles; infer a sensible proficiency from the rest of the data.
+- Languages priority: (1) If USER DATA.stored_languages is a non-empty array, use those entries VERBATIM (same language name, same proficiency) — do NOT re-infer or flip levels. (2) Otherwise, include every language signal from USER DATA.skills, USER DATA.summary, and USER DATA.language_hints. Use the "proficiency" field (not "level") with one of Native | Fluent | Professional | Conversational | Basic. The language_hints array is advisory — if it suggests Hebrew (likely fluent), mark Hebrew at "Fluent" (not "Native") unless you have stronger signal.
+- Education dates: if USER DATA.education.dates is non-empty, output that string verbatim as the education entry's "dates". Do not guess "Present" or similar when the source is blank — leave the field empty instead.
 - fit_analysis.skill_match_percentage is an integer 0-100. Compute honestly: how many of the JD's core requirements does this candidate actually meet? An entry-level candidate with clearly-transferable experience should score 40-70%. A perfect match should score 80-95%. Never output 0% unless the candidate has no overlap at all — 0% is almost never correct for a real candidate.
 - Return ONLY valid JSON. No markdown, no prose outside the JSON object.`;
 
@@ -535,22 +579,42 @@ SPECIFIC OUTPUT RULES:
       }) || sources.find((s) => normDates(s.start_date) && key.includes(normDates(s.start_date)));
     };
 
-    const reconcile = (outList: any[], sources: any[], titleField: string, orgField: string) => {
+    // Guard against DB titles that are actually responsibility sentences
+    // (e.g. "Supervised and trained teams of soldiers" from a bad CV
+    // extraction). Real titles are short and typically noun phrases. If a
+    // source title looks like a sentence, substitute a bucket-appropriate
+    // generic so we don't dump a responsibility line in the bold title slot.
+    const VERB_PREFIX = /^(supervised|managed|led|coordinated|trained|oversaw|directed|assisted|designed|developed|delivered|built|owned|launched|executed|drove|ran|created|served|implemented|handled|facilitated|performed|worked)\b/i;
+    const BUCKET_FALLBACK: Record<string, string> = {
+      professional: "Team Member",
+      military: "Service Member",
+      volunteering: "Volunteer",
+      leadership: "Member",
+    };
+    const sanitizeTitle = (rawTitle: string, bucket: string): string => {
+      const t = String(rawTitle || "").trim();
+      if (!t) return BUCKET_FALLBACK[bucket] || "Member";
+      const looksLikeSentence = t.length > 60 || VERB_PREFIX.test(t);
+      if (looksLikeSentence) return BUCKET_FALLBACK[bucket] || "Member";
+      return t;
+    };
+
+    const reconcile = (outList: any[], sources: any[], titleField: string, orgField: string, bucket: string) => {
       if (!Array.isArray(outList)) return;
       for (const entry of outList) {
         const src = matchSource(entry.dates, sources);
         if (!src) continue;
-        // Preserve source title (e.g. "Supervised and trained teams of soldiers").
-        if (src.title) entry[titleField] = src.title;
+        // Preserve source title, but sanitize if it's a sentence fragment.
+        if (src.title) entry[titleField] = sanitizeTitle(src.title, bucket);
         // Preserve source company / unit / organization.
         if (src.company) entry[orgField] = src.company;
       }
     };
 
-    reconcile(cvData.professional_experiences, professionalExperiences, "title", "company");
-    reconcile(cvData.military_experiences, militaryExperiences, "title", "unit");
-    reconcile(cvData.volunteering_experiences, volunteeringExperiences, "title", "organization");
-    reconcile(cvData.leadership_experiences, leadershipExperiences, "title", "organization");
+    reconcile(cvData.professional_experiences, professionalExperiences, "title", "company", "professional");
+    reconcile(cvData.military_experiences, militaryExperiences, "title", "unit", "military");
+    reconcile(cvData.volunteering_experiences, volunteeringExperiences, "title", "organization", "volunteering");
+    reconcile(cvData.leadership_experiences, leadershipExperiences, "title", "organization", "leadership");
 
     // Sanity-floor the fit percentage. The LLM very occasionally returns 0
     // for a candidate who does have overlap — we floor at a low but non-zero
@@ -583,6 +647,10 @@ SPECIFIC OUTPUT RULES:
     const ACCENT: [number, number, number] = [37, 99, 235];
     const MUTED: [number, number, number] = [90, 90, 95];
     const SUBTLE: [number, number, number] = [130, 130, 135];
+    // Rules are neutral gray — no accent color on lines, per spec. The accent
+    // blue only shows on section-header text to keep the document readable.
+    const RULE_GRAY: [number, number, number] = [212, 212, 212]; // #D4D4D4
+    const RULE_WEIGHT = 0.3;
     const TOP_Y = 14;
     let y = TOP_Y;
 
@@ -602,13 +670,18 @@ SPECIFIC OUTPUT RULES:
 
     const addSectionHeader = (title: string) => {
       ensureSpace(9);
-      y += 1.2;
+      // The visual gap between the last bullet of the previous section and
+      // this heading is pre-padding + the bullet's trailing advance (~1mm).
+      // 3mm here gives ~4mm visible gap — plenty of breathing room without
+      // wasting vertical space on a single-page CV.
+      y += 3;
       setFont("bold", 12, ACCENT);
       doc.text(title.toUpperCase(), leftMargin, y);
       y += 1.3;
-      doc.setDrawColor(ACCENT[0], ACCENT[1], ACCENT[2]);
-      doc.setLineWidth(0.35);
+      doc.setDrawColor(RULE_GRAY[0], RULE_GRAY[1], RULE_GRAY[2]);
+      doc.setLineWidth(RULE_WEIGHT);
       doc.line(leftMargin, y, rightMargin, y);
+      // Gap between underline and first entry.
       y += 3;
     };
 
@@ -730,15 +803,8 @@ SPECIFIC OUTPUT RULES:
     if (roleText) {
       setFont("normal", 11, ACCENT);
       doc.text(roleText, pageCenter, y, { align: "center" });
-      y += 4.8;
+      y += 4.5;
     }
-
-    // Rule #1 between name/role and the contact line.
-    y += 0.8;
-    doc.setDrawColor(ACCENT[0], ACCENT[1], ACCENT[2]);
-    doc.setLineWidth(0.5);
-    doc.line(leftMargin, y, rightMargin, y);
-    y += 3.5;
 
     // Only include contact bits that actually have a value — don't create
     // gaps. Each entry is trimmed and skipped if empty.
@@ -754,21 +820,20 @@ SPECIFIC OUTPUT RULES:
     if (contactBits.length > 0) {
       setFont("normal", 9, MUTED);
       const contactLine = contactBits.join("  \u00B7  ");
-      // If the contact line is wider than the page it wraps onto a second
-      // centered line; keep both centered for consistency.
       const lines = doc.splitTextToSize(contactLine, pageWidth);
       lines.forEach((line: string) => {
         doc.text(line, pageCenter, y, { align: "center" });
-        y += 4.0;
+        y += 3.8;
       });
     }
 
-    // Rule #2 below contact info.
-    y += 0.5;
-    doc.setDrawColor(ACCENT[0], ACCENT[1], ACCENT[2]);
-    doc.setLineWidth(0.5);
+    // Single subtle gray rule separating the header from the body. No blue
+    // accent bar above the contact line — cleaner, less templated feel.
+    y += 1.5;
+    doc.setDrawColor(RULE_GRAY[0], RULE_GRAY[1], RULE_GRAY[2]);
+    doc.setLineWidth(RULE_WEIGHT);
     doc.line(leftMargin, y, rightMargin, y);
-    y += 3;
+    y += 0.5; // small buffer before first section's own pre-header padding
 
     // --- About Me ---
     // Accept either `summary` (new schema) or `about_me` (legacy schema).
@@ -807,7 +872,7 @@ SPECIFIC OUTPUT RULES:
         entries.forEach((exp: any, idx: number) => {
           addExperienceEntry(exp.title || "", exp[orgKey], exp.dates);
           (exp.bullets || []).forEach((bullet: string) => addBullet(bullet));
-          if (idx < entries.length - 1) addSpace(1.2);
+          if (idx < entries.length - 1) addSpace(3);
         });
       };
 
@@ -816,17 +881,17 @@ SPECIFIC OUTPUT RULES:
         renderEntries(professional, "company");
       }
       if (militaryList.length > 0) {
-        if (professional.length > 0) addSpace(1.2);
+        if (professional.length > 0) addSpace(3);
         addSubsectionHeading("Military Service");
         renderEntries(militaryList, "unit");
       }
       if (volunteeringList.length > 0) {
-        if (professional.length + militaryList.length > 0) addSpace(1.2);
+        if (professional.length + militaryList.length > 0) addSpace(3);
         addSubsectionHeading("Volunteering");
         renderEntries(volunteeringList, "organization");
       }
       if (leadershipList.length > 0) {
-        if (professional.length + militaryList.length + volunteeringList.length > 0) addSpace(1.2);
+        if (professional.length + militaryList.length + volunteeringList.length > 0) addSpace(3);
         addSubsectionHeading("Leadership");
         renderEntries(leadershipList, "organization");
       }
@@ -912,7 +977,7 @@ SPECIFIC OUTPUT RULES:
           if (honorsSet.has(key)) return;
           addBullet(raw);
         });
-        if (idx < mergedEducation.length - 1) addSpace(1.5);
+        if (idx < mergedEducation.length - 1) addSpace(3);
       });
     }
 
@@ -991,7 +1056,7 @@ SPECIFIC OUTPUT RULES:
       projectsOut.forEach((proj: any, idx: number) => {
         addExperienceEntry(proj.name || "", undefined, undefined);
         (proj.bullets || []).forEach((bullet: string) => addBullet(bullet));
-        if (idx < projectsOut.length - 1) addSpace(2);
+        if (idx < projectsOut.length - 1) addSpace(3);
       });
     }
 
@@ -1039,12 +1104,22 @@ SPECIFIC OUTPUT RULES:
       appRecord = data;
     }
 
+    // Collect any profile fields that silently dropped out of the CV because
+    // the underlying data is empty — so the user can fix their profile
+    // without having to diff the PDF against what they expected.
+    const missing_contact_fields: string[] = [];
+    if (!phonePresent) missing_contact_fields.push("phone_number");
+    if (!emailPresent) missing_contact_fields.push("email");
+    if (!locationPresent) missing_contact_fields.push("location");
+    if (!linkedinPresent) missing_contact_fields.push("linkedin_url");
+
     return json({
       cv_url,
       application_id: appRecord?.id,
       fit_analysis: cvData.fit_analysis,
       library_match,
       message: `CV generated for "${safeTargetRole}". Download it using the link, and it's been saved to your Application Tracker.`,
+      ...(missing_contact_fields.length > 0 && { missing_contact_fields }),
     });
   } catch (error) {
     console.error("generate-tailored-cv error:", error);
