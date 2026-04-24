@@ -22,7 +22,7 @@ export default function AddEventDialog({ open, onClose, applications, onEventAdd
     end_date: "",
     end_time: "",
     all_day: false,
-    application_id: "",
+    application_id: "none",
     location: "",
     reminder_minutes: 60
   });
@@ -62,7 +62,7 @@ export default function AddEventDialog({ open, onClose, applications, onEventAdd
       start_date: startDateTime,
       end_date: endDateTime,
       all_day: formData.all_day,
-      application_id: formData.application_id || null,
+      application_id: formData.application_id && formData.application_id !== "none" ? formData.application_id : null,
       location: formData.location,
       reminder_minutes: formData.reminder_minutes
     });
@@ -84,7 +84,7 @@ export default function AddEventDialog({ open, onClose, applications, onEventAdd
       end_date: "",
       end_time: "",
       all_day: false,
-      application_id: "",
+      application_id: "none",
       location: "",
       reminder_minutes: 60
     });
@@ -137,7 +137,7 @@ export default function AddEventDialog({ open, onClose, applications, onEventAdd
                 <SelectValue placeholder="Select an application" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">None</SelectItem>
+                <SelectItem value="none">None</SelectItem>
                 {applications?.map(app => (
                   <SelectItem key={app.id} value={app.id}>
                     {app.role_title} {app.company ? `at ${app.company}` : ""}
