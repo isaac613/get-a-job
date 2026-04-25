@@ -929,7 +929,10 @@ Return ONLY valid JSON.`;
         max_tokens: 4500,
         response_format: { type: 'json_object' },
       }),
-      signal: AbortSignal.timeout(45000),
+      // Was 45s — observed cold-cache requests landing right at 38–42s with
+      // max_tokens=4500 + 15-role payload, so 45s timed out intermittently
+      // and bubbled "Signal timed out" up to onboarding's tier reveal step.
+      signal: AbortSignal.timeout(90000),
     })
 
     if (!openaiResponse.ok) {
