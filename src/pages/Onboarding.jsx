@@ -488,8 +488,25 @@ export default function Onboarding() {
 
     try {
       if (experiences.length > 0) {
+        // Whitelist columns that exist in the experiences schema. Spreading
+        // raw React state can include UI-only fields and break the entire
+        // insert with PGRST204 — see 20260425_experiences_managed_people.sql.
+        const sanitisedExperiences = experiences.map((e) => ({
+          user_id: user.id,
+          title: e.title,
+          company: e.company,
+          type: e.type,
+          start_date: e.start_date,
+          end_date: e.end_date,
+          is_current: e.is_current,
+          responsibilities: e.responsibilities,
+          skills_used: e.skills_used,
+          tools_used: e.tools_used,
+          managed_people: e.managed_people ?? false,
+          cross_functional: e.cross_functional ?? false,
+        }));
         const { data, error } = await supabase.from("experiences")
-          .insert(experiences.map((e) => ({ ...e, user_id: user.id })))
+          .insert(sanitisedExperiences)
           .select("id");
         if (error) throw error;
         insertedIds.exp = (data || []).map((r) => r.id);
