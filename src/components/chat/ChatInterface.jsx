@@ -313,17 +313,28 @@ export default function ChatInterface({ agentName, title, description, applicati
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Load conversations for this user+agent on mount. If any exist, open the
-  // most recent one; otherwise stay empty (first message creates a conversation).
+  // Load conversations for this user+agent+application on mount. Scoping to
+  // applicationId is what prevents AG2 context bleed: without the filter, the
+  // mount effect would pick up the most-recent conversation for the agent
+  // regardless of which application it was anchored to, then sendMessage
+  // would reuse that activeConversationId while passing the new application_id
+  // to the edge function — mixing one app's chat history with another app's
+  // TARGET APPLICATION block in the LLM prompt.
   useEffect(() => {
     if (!user?.id || !agentName) return;
     (async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("conversations")
         .select("id, title, updated_at, application_id")
         .eq("user_id", user.id)
         .eq("agent", agentName)
         .order("updated_at", { ascending: false });
+      if (applicationId) {
+        query = query.eq("application_id", applicationId);
+      } else {
+        query = query.is("application_id", null);
+      }
+      const { data, error } = await query;
       if (error) { console.error("Failed to load conversations:", error); return; }
       setConversations(data || []);
       if (data && data.length > 0 && !activeConversationId) {
@@ -331,7 +342,7 @@ export default function ChatInterface({ agentName, title, description, applicati
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, agentName]);
+  }, [user?.id, agentName, applicationId]);
 
   // Load messages when the active conversation changes.
   useEffect(() => {
