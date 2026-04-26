@@ -6,6 +6,7 @@ import { ChevronDown, ChevronUp, Lock, MessageSquare } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import CVManagement from "./CVManagement";
 import SkillsRequired from "./SkillsRequired";
@@ -45,6 +46,16 @@ export default function ApplicationRow({ app, onUpdate }) {
     referralAttached !== (app.referral_attached || false);
 
   const status = STATUS_LABELS[app.status] || STATUS_LABELS.interested;
+
+  const handleStatusChange = async (newStatus) => {
+    const { error } = await supabase.from("applications").update({ status: newStatus }).eq("id", app.id);
+    if (error) {
+      console.error("Failed to update status:", error);
+      toast.error("Failed to update status. Please try again.");
+      return;
+    }
+    onUpdate();
+  };
 
   const handleSaveJobDescription = async () => {
     const { error } = await supabase.from("applications").update({ job_description: jdText }).eq("id", app.id);
@@ -158,6 +169,19 @@ export default function ApplicationRow({ app, onUpdate }) {
 
       {expanded && (
         <div className="border-t border-[#F0F0F0]">
+          <div className="px-5 py-3 flex items-center gap-3 border-b border-[#F0F0F0]">
+            <span className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium">Status</span>
+            <Select value={app.status} onValueChange={handleStatusChange}>
+              <SelectTrigger className="h-8 w-[160px] text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(STATUS_LABELS).map(([value, { label }]) => (
+                  <SelectItem key={value} value={value} className="text-xs">{label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="flex border-b border-[#F0F0F0] overflow-x-auto">
             {tabs.map((tab) => (
               <button
