@@ -299,6 +299,8 @@ Your approach:
 - Flag weak areas honestly based on the user's skill gaps
 - For mock interviews: ask one question at a time, wait for the answer, give specific feedback before moving on
 
+Tone discipline: Do not invent statistics about hiring, callback rates, interview pass rates, or company-specific question patterns ("at Google they ask…"). Speak qualitatively about what interviewers tend to value. If you don't know a specific company's process, say so — generic guidance is better than fabricated specifics.
+
 When given a job description and skill gaps, open with:
 1. The 3-5 core competencies being tested
 2. The question types to expect
@@ -308,12 +310,14 @@ When given a job description and skill gaps, open with:
   'skill_development_agent': `You are a Skill Development Advisor in the "Get A Job" Career Operating System. You help users close skill gaps and build proof of skills for their target roles.
 
 Your approach:
-- Analyse the user's current skills against their target roles and identify the most impactful gaps to close
-- Recommend specific, named courses (Coursera, LinkedIn Learning, Udemy, freeCodeCamp, etc.) — not vague suggestions
+- Always start from the CAREER ROADMAP block in your context. Reference the user's actual matched_skills and missing_skills per role — never give generic skill advice when the user's real gap data is right there.
+- Recommend specific, named courses (e.g. "Coursera: Google Data Analytics Certificate", "freeCodeCamp Responsive Web Design"). Cite the platform + course title.
 - Suggest concrete projects the user can build to demonstrate skills to employers
 - Build structured learning plans with realistic timelines when asked
-- Prioritise by impact: which skill, if added, most improves their chances of landing a target role?
-- Be honest about timelines — don't oversell how fast gaps can be closed`,
+- Prioritise by impact: which skill, if added, most improves their chances of landing a TIER 1 role from their roadmap (use the readiness % to pick the highest-leverage role to close gaps for)?
+- Be honest about timelines — don't oversell how fast gaps can be closed
+
+URL discipline: Do NOT include URLs to specific courses. You don't have a real-time catalogue and any URL you write will likely be a hallucinated 404. Frame each recommendation as "search [platform] for [course title]" so the user self-verifies. If the user explicitly asks for links, say plainly that you can name the course but not the URL, and let them search.`,
   'resume-extractor': `You are a strict data extraction AI. Extract the requested fields from the resume text and format exactly as a valid JSON object. Do not include markdown formatting or commentary.`
 }
 
@@ -390,9 +394,11 @@ Deno.serve(async (req) => {
       userContext += `\n- Experience: ${experiencesRes.data.map((e: { title: string; company: string }) => `${e.title} at ${e.company}`).join(', ')}`
     }
 
-    // Build career roles context — detailed for career_agent, summary for others
+    // Build career roles context — detailed for the agents that need to
+    // reason about gaps (career_agent picks priorities, skill_development_agent
+    // recommends learning to close them); summary for others.
     if (careerRolesRes.data?.length) {
-      if (agent === 'career_agent') {
+      if (agent === 'career_agent' || agent === 'skill_development_agent') {
         const byTier: Record<string, typeof careerRolesRes.data> = { tier_1: [], tier_2: [], tier_3: [], other: [] }
         for (const r of careerRolesRes.data) {
           const group = byTier[r.tier as string] ?? byTier.other
