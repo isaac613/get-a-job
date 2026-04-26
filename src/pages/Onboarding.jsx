@@ -38,11 +38,11 @@ const EMPTY_PROFILE = {
   five_year_role: "",
   target_job_titles: [],
   target_industries: [],
-  work_environment: "",
+  work_environment: [],
   open_to_lateral: false,
   open_to_outside_degree: false,
   location: "",
-  work_type: "",
+  work_type: [],
   employment_status: "",
   salary_expectation: "",
   available_start_date: "",
@@ -265,6 +265,10 @@ export default function Onboarding() {
       // Survey fields (StepSurvey)
       biggest_challenge, cv_tailoring_strategy, linkedin_outreach_strategy,
       role_clarity_score, job_search_efforts,
+      // Preference fields (StepCareerDirection + StepConstraints)
+      target_job_titles, target_industries, work_environment, work_type,
+      employment_status, salary_expectation, available_start_date,
+      open_to_lateral, open_to_outside_degree,
     } = data;
     return {
       full_name, phone_number, location, linkedin_url, summary, skills,
@@ -274,6 +278,9 @@ export default function Onboarding() {
       five_year_role, proof_signals, primary_domain, adjacent_fields,
       biggest_challenge, cv_tailoring_strategy, linkedin_outreach_strategy,
       role_clarity_score, job_search_efforts,
+      target_job_titles, target_industries, work_environment, work_type,
+      employment_status, salary_expectation, available_start_date,
+      open_to_lateral, open_to_outside_degree,
     };
   };
 
@@ -336,9 +343,66 @@ export default function Onboarding() {
     setGeneratingRoles(true);
 
     try {
-      // Persist step 7 to DB before the long async call so a refresh doesn't restart from step 6
+      // Persist step 7 + merged skills to DB before the career analysis reads them
       if (existingProfileId) {
-        await supabase.from("profiles").update({ onboarding_step: 7 }).eq("id", existingProfileId);
+        const mergedSkillsForAnalysis = [
+          ...(profileData.hard_skills || []),
+          ...(profileData.tools_software || []),
+          ...(profileData.technical_skills || []),
+          ...(profileData.analytical_skills || []),
+          ...(profileData.communication_skills || []),
+          ...(profileData.leadership_skills || []),
+          ...(profileData.skills || []),
+        ];
+        await supabase.from("profiles").update({
+          onboarding_step: 7,
+          skills: [...new Set(mergedSkillsForAnalysis)],
+        }).eq("id", existingProfileId);
+      }
+
+      // Write experiences/projects/certs to DB so the career analysis can read them.
+      // handleFinalise's fetch-old-IDs pattern handles these existing records safely.
+      try {
+        await Promise.all([
+          supabase.from("experiences").delete().eq("user_id", user.id),
+          supabase.from("projects").delete().eq("user_id", user.id),
+          supabase.from("certifications").delete().eq("user_id", user.id),
+        ]);
+        if (experiences.length > 0) {
+          await supabase.from("experiences").insert(experiences.map((e) => ({
+            user_id: user.id,
+            title: e.title,
+            company: e.company,
+            type: e.type,
+            start_date: e.start_date,
+            end_date: e.end_date,
+            is_current: e.is_current,
+            responsibilities: e.responsibilities,
+            skills_used: e.skills_used,
+            tools_used: e.tools_used,
+            managed_people: e.managed_people ?? false,
+            cross_functional: e.cross_functional ?? false,
+          })));
+        }
+        if (projects.length > 0) {
+          await supabase.from("projects").insert(projects.map((p) => ({
+            user_id: user.id,
+            name: p.name,
+            description: p.description,
+            url: p.url,
+            skills_demonstrated: p.skills_demonstrated || [],
+          })));
+        }
+        if (certifications.length > 0) {
+          await supabase.from("certifications").insert(certifications.map((c) => ({
+            user_id: user.id,
+            name: c.name,
+            issuer: c.issuer,
+            date_earned: c.date_earned,
+          })));
+        }
+      } catch (preAnalysisErr) {
+        console.error("Pre-analysis data save failed (non-blocking):", preAnalysisErr);
       }
 
       // Refresh session so we don't invoke with an expired access token
