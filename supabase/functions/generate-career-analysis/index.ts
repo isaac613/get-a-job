@@ -29,13 +29,21 @@ const WEIGHTS = { core: 0.6, secondary: 0.3, differentiator: 0.1 } as const;
 const FIT_ONLY_THRESHOLDS = { t1: 0.55, t2: 0.40, t3: 0.25 } as const;
 
 // Goal-aware thresholds — tiers combine readiness (fit) AND goal alignment.
-// Tier 3 fit floor is lower than Tier 1/2 because Tier 3 is aspirational: the
-// user isn't ready yet but the role is on-path.
+//
+// T1 / T2 use the penalty-adjusted fitScore (skill overlap × seniority-gap
+// penalty × family-experience penalty) because they measure "could be hired
+// NOW." Penalties belong here.
+//
+// T3 ("Work Toward") uses RAW skill overlap (pre-penalty). T3 is aspirational
+// — penalising "not ready yet" by lowering fit makes the threshold meant to
+// capture aspirational roles unreachable for them. The raw skill overlap is
+// the right signal: does the user have any foundation in this role's skills
+// today, regardless of seniority gap or family distance?
 const GOAL_TIER_THRESHOLDS = {
   tier_1_min_fit: 0.50,
   tier_1_min_alignment: 0.60,
   tier_2_min_fit: 0.50,
-  tier_3_min_fit: 0.30,
+  tier_3_min_raw_fit: 0.20,
   tier_3_min_alignment: 0.60,
 } as const;
 
@@ -181,7 +189,8 @@ function assignTierWithGoal(
   fitScore: number,
   goalAlignment: number,
   roleSeniorityRank: number,
-  userLevel: "early_career" | "mid_career" | "senior_career"
+  userLevel: "early_career" | "mid_career" | "senior_career",
+  rawSkillFit: number
 ): "tier_1" | "tier_2" | "tier_3" | null {
   const t = GOAL_TIER_THRESHOLDS;
   const canHireNow = roleSeniorityRank <= T1_SENIORITY_CEILING[userLevel];
@@ -195,7 +204,11 @@ function assignTierWithGoal(
     if (fitScore >= 0.40 && goalAlignment >= 0.70) return "tier_1";
     if (fitScore >= t.tier_2_min_fit) return "tier_2";
   }
-  if (fitScore >= t.tier_3_min_fit && goalAlignment >= t.tier_3_min_alignment) return "tier_3";
+  // T3 uses raw skill overlap (pre-penalty) so goal-aligned aspirational
+  // roles aren't crushed by the seniority + family penalties — those
+  // penalties model "not ready NOW" which is exactly what T3 represents.
+  // See GOAL_TIER_THRESHOLDS comment above.
+  if (rawSkillFit >= t.tier_3_min_raw_fit && goalAlignment >= t.tier_3_min_alignment) return "tier_3";
   return null;
 }
 
@@ -529,7 +542,7 @@ function computeRoleScore(
     computeGoalAlignment(roleId, goalRoleId);
 
   const tier = goalRoleId
-    ? assignTierWithGoal(fitScore, goalAlignment, roleSeniorityRank, userLevel)
+    ? assignTierWithGoal(fitScore, goalAlignment, roleSeniorityRank, userLevel, skillFit)
     : assignTierFitOnly(fitScore);
 
   const matchedSkillIds = [...matchedBy.core, ...matchedBy.secondary, ...matchedBy.differentiator];
