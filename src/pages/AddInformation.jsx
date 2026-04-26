@@ -152,7 +152,7 @@ export default function AddInformation() {
   const [skillInput, setSkillInput] = useState("");
 
   const [courseForm, setCourseForm] = useState({ name: "", provider: "", skills_gained: [], completion_status: "completed" });
-  const [certForm, setCertForm] = useState({ name: "", issuer: "", skills_validated: [] });
+  const [certForm, setCertForm] = useState({ name: "", issuer: "" });
   const [projectForm, setProjectForm] = useState({ name: "", description: "", skills_demonstrated: [], url: "" });
   const [expForm, setExpForm] = useState({
     id: null, // set when editing an existing row
@@ -167,7 +167,6 @@ export default function AddInformation() {
   });
 
   const [tempSkillCourse, setTempSkillCourse] = useState("");
-  const [tempSkillCert, setTempSkillCert] = useState("");
   const [tempSkill, setTempSkill] = useState("");
 
   const saveProfile = async () => {
@@ -250,13 +249,17 @@ export default function AddInformation() {
 
   const addCert = async () => {
     if (!certForm.name) return;
-    const { error } = await supabase.from("certifications").insert({ ...certForm, user_id: user.id });
+    const { error } = await supabase.from("certifications").insert({
+      name: certForm.name,
+      issuer: certForm.issuer,
+      user_id: user.id,
+    });
     if (error) {
       console.error("Failed to add certification:", error);
       toast.error("Failed to add certification: " + error.message);
       return;
     }
-    setCertForm({ name: "", issuer: "", skills_validated: [] });
+    setCertForm({ name: "", issuer: "" });
     queryClient.invalidateQueries({ queryKey: ["certifications"] });
   };
 
