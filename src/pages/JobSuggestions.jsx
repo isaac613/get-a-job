@@ -289,7 +289,7 @@ export default function JobSuggestions() {
   };
 
   const noProfile = !profile && !loading;
-  const noSkills = profile && (profile.hard_skills || []).length === 0 && (profile.technical_skills || []).length === 0 && (profile.skills || []).length === 0;
+  const noSkills = profile && (profile.skills || []).length === 0;
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-8">
