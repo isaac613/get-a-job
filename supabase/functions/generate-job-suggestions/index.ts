@@ -385,10 +385,23 @@ Deno.serve(async (req) => {
       }
     }
 
+    // title_filter is a strict phrase match in Active Jobs DB. A search for
+    // "Associate Product Manager" matches only jobs literally titled with
+    // that phrase — Senior/Lead/plain "Product Manager" jobs all miss. The
+    // user's career_roles top entry usually has a seniority modifier
+    // (Associate, Senior, Junior, Lead, etc.); strip it before searching so
+    // the broader role family matches. Live probe: stripped form returned
+    // 20 IL PM jobs vs 1 with the prefixed form.
+    const stripSeniority = (t: string) =>
+      t.replace(/^\s*(senior|junior|associate|lead|principal|staff|head\s+of)\s+/i, '').trim()
+
     const fetchActiveJobsDb = async (titleFilter: string, locationFilter: string): Promise<any[]> => {
       if (!activeJobsKey) return []
       const qs = new URLSearchParams({
-        limit: '10',
+        // Pull 20 raw jobs; the cascade slices to 10 after URL filtering so
+        // there's a buffer if some URLs are unusable. AI scoring downstream
+        // narrows further to 3-4 final live suggestions.
+        limit: '20',
         offset: '0',
         title_filter: `"${titleFilter}"`,
         location_filter: `"${locationFilter}"`,
@@ -415,32 +428,21 @@ Deno.serve(async (req) => {
       }
     }
 
-    // --- Cascade: Active Jobs DB for IL (city → country), then JSearch global fallback ---
+    // --- Active Jobs DB for IL: single country-level query, then JSearch global fallback ---
+    // Earlier cascade (city → country) broke recall: any non-zero result at
+    // city tier (often 1 hit when "Tel Aviv" matches a single job) ended the
+    // cascade and we missed the 19+ other IL jobs available country-wide.
+    // Active Jobs DB's location_filter is precise enough that "Israel"
+    // captures all IL jobs without overshooting; the city tier was pure loss.
     if (countryCode === 'il') {
-      // title_filter is a strict phrase match — canonicalise typos via the
-      // role library so "Product managment" becomes "Product Manager" and
-      // actually returns hits.
-      const ajRoleTerm = canonicalizeRoleTitle(roleTerm)
-      console.log("[JOBS] Entering Active Jobs DB cascade, metro:", locHub, "apiKey present:", !!activeJobsKey, "roleTerm:", roleTerm, "canonicalised:", ajRoleTerm);
-      // A. city (Tel Aviv) — best local match
-      if (locHub) {
-        const jobs = await fetchActiveJobsDb(ajRoleTerm, locHub)
-        const mapped = jobs.map(mapActiveJobsDb).filter(j => isUsableJobUrl(j.job_url))
-        console.log(`[job-suggestions] active-jobs-db city title="${ajRoleTerm}" loc="${locHub}" → ${jobs.length} (${mapped.length} usable)`)
-        if (mapped.length > 0) {
-          liveJobs = mapped.slice(0, 10)
-          usedQuery = 'active-jobs-db-city'
-        }
-      }
-      // B. broader Israel query if city came back empty
-      if (liveJobs.length === 0) {
-        const jobs = await fetchActiveJobsDb(ajRoleTerm, 'Israel')
-        const mapped = jobs.map(mapActiveJobsDb).filter(j => isUsableJobUrl(j.job_url))
-        console.log(`[job-suggestions] active-jobs-db country title="${ajRoleTerm}" loc="Israel" → ${jobs.length} (${mapped.length} usable)`)
-        if (mapped.length > 0) {
-          liveJobs = mapped.slice(0, 10)
-          usedQuery = 'active-jobs-db-israel'
-        }
+      const ajRoleTerm = stripSeniority(canonicalizeRoleTitle(roleTerm))
+      console.log("[JOBS] Entering Active Jobs DB cascade, apiKey present:", !!activeJobsKey, "roleTerm:", roleTerm, "stripped:", ajRoleTerm);
+      const jobs = await fetchActiveJobsDb(ajRoleTerm, 'Israel')
+      const mapped = jobs.map(mapActiveJobsDb).filter(j => isUsableJobUrl(j.job_url))
+      console.log(`[job-suggestions] active-jobs-db country title="${ajRoleTerm}" loc="Israel" → ${jobs.length} (${mapped.length} usable)`)
+      if (mapped.length > 0) {
+        liveJobs = mapped.slice(0, 10)   // 10-cap is the AI scoring prompt budget
+        usedQuery = 'active-jobs-db-israel'
       }
     }
 
