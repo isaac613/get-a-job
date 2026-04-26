@@ -191,7 +191,23 @@ export default function StepResumeUpload({ onNext, onExtracted, profileData, onC
         setCvTruncated(true);
       }
 
-      const extractionPrompt = `Extract structured information from this resume text. Return ONLY a raw JSON object (no markdown, no code blocks) with these fields: full_name, phone_number, location, linkedin_url, summary, degree, field_of_study, education_level, skills (array of ALL skills combined), tools_software (array: apps/platforms/tools like Excel, Figma, Salesforce, Python, AWS), hard_skills (array: domain knowledge like Financial modeling, Market research, Contract law), technical_skills (array: engineering/programming skills like React, SQL, Machine learning — leave empty if not applicable), analytical_skills (array: data/problem-solving skills like Data analysis, Forecasting, A/B testing), communication_skills (array: written/verbal skills like Presentations, Technical writing, Public speaking), leadership_skills (array: people/management skills like Project management, Mentoring, Stakeholder management), experiences (array of {title, company, type, start_date, end_date, responsibilities}).
+      const extractionPrompt = `Extract structured information from this resume text. Return ONLY a raw JSON object (no markdown, no code blocks) with these fields: full_name, phone_number, location, linkedin_url, summary, degree, field_of_study, education_level, education_dates (string, e.g. "2023 - Present"), gpa (string, e.g. "3.7" or "85"), honors (array of strings, e.g. ["Dean's List", "Cum Laude"]), secondary_education (object with {institution, dates, location, highlights} — only if a high school OR earlier institution is mentioned, otherwise omit the field entirely), languages (array of {language, proficiency} — proficiency is one of "Native", "Fluent", "Conversational", "Basic"), skills (array of ALL skills combined), tools_software (array: apps/platforms/tools like Excel, Figma, Salesforce, Python, AWS), hard_skills (array: domain knowledge like Financial modeling, Market research, Contract law), technical_skills (array: engineering/programming skills like React, SQL, Machine learning — leave empty if not applicable), analytical_skills (array: data/problem-solving skills like Data analysis, Forecasting, A/B testing), communication_skills (array: written/verbal skills like Presentations, Technical writing, Public speaking), leadership_skills (array: people/management skills like Project management, Mentoring, Stakeholder management), experiences (array of {title, company, type, start_date, end_date, is_current, responsibilities, skills_used}), projects (array of {name, description, url, skills_demonstrated}), certifications (array of {name, issuer, date_earned}).
+
+PROJECTS / CERTIFICATIONS — only extract real ones:
+- projects: standalone work (capstone, side project, hackathon, open source). NOT coursework. NOT job responsibilities.
+- certifications: industry credentials (AWS, Coursera Pro, CFA, PMP, Google certifications). NOT bootcamps in progress, NOT online courses without a credential.
+
+EDUCATION DATES — set education_dates to the date range of the MOST RECENT degree (e.g. "2023 - Present", "2020 - 2024"). Use "Present" for current students.
+
+GPA / HONORS — return at the root level for the MOST RECENT degree only. Honours is the awards earned during that degree (Dean's List, Cum Laude, named scholarships). Do NOT include workplace awards here — those belong in experiences[].responsibilities.
+
+SECONDARY EDUCATION — only populate if the resume lists a high school or earlier institution separately from the main degree. Otherwise OMIT the field entirely (do not return null, do not return {}). Highlights array is for student-leadership roles or notable achievements at that school.
+
+LANGUAGES — only include human languages (English, Hebrew, Spanish, etc.), NEVER programming languages. If proficiency level isn't stated, infer "Fluent" for the resume's primary language (matches the writing tone) and "Conversational" for any others mentioned.
+
+EXPERIENCE.is_current — set to true if the role's end_date is "Present", "Current", missing, or the resume otherwise indicates ongoing employment. Otherwise false.
+
+EXPERIENCE.skills_used — pull skills/tools the resume names within that specific role's bullets. Leave [] if none are explicitly tied to the role.
 
 PHONE NUMBER — scan the full document, not just the header:
 - Search the ENTIRE resume text for a phone number, including the header, "Contact" section, email signature area, and anywhere near the email/LinkedIn.
