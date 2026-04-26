@@ -71,6 +71,45 @@ function canonicalizeRoleTitle(raw: string): string {
   return best && best.score >= 0.30 ? best.title : input;
 }
 
+// Infer the user's experience level — same buckets generate-career-analysis
+// uses, but local to this function (no shared module yet). Counts years of
+// dated experiences; education = student/in-progress short-circuits to early.
+type ExperienceLevel = 'early_career' | 'mid_career' | 'senior_career'
+function inferUserLevel(experiences: any[], educationLevel: string | null | undefined): ExperienceLevel {
+  const edu = String(educationLevel ?? '').toLowerCase()
+  if (/student|in.progress|current/.test(edu)) return 'early_career'
+  let years = 0
+  for (const e of experiences || []) {
+    const startMatch = String(e?.start_date ?? '').match(/\d{4}/)
+    if (!startMatch) continue
+    const start = parseInt(startMatch[0], 10)
+    if (start < 1990 || start > 2100) continue
+    const isCurrent = e?.is_current || /present|current/i.test(String(e?.end_date ?? ''))
+    const endMatch = String(e?.end_date ?? '').match(/\d{4}/)
+    const end = isCurrent ? new Date().getFullYear() : (endMatch ? parseInt(endMatch[0], 10) : 0)
+    if (end >= start) years += end - start
+  }
+  if (years < 3) return 'early_career'
+  if (years < 8) return 'mid_career'
+  return 'senior_career'
+}
+
+// Per-job seniority parsed from the title. Best-effort regex; default "mid"
+// when nothing matches so the gap math doesn't accidentally over-penalise an
+// unlabelled role. Order matters: check executive/director before "lead",
+// and "senior" before "junior" since "senior junior dev" wouldn't exist but
+// senior modifiers should win on ambiguous strings.
+type JobSeniority = 'entry' | 'mid' | 'senior' | 'lead' | 'director' | 'executive'
+function detectJobSeniority(title: string): JobSeniority {
+  const t = String(title || '').toLowerCase()
+  if (/\b(vp\b|chief\b|cto\b|ceo\b|cmo\b|cpo\b|cfo\b|head\s+of)/.test(t)) return 'executive'
+  if (/\b(director|head)\b/.test(t)) return 'director'
+  if (/\b(principal|staff|lead|manager\s+of)\b/.test(t)) return 'lead'
+  if (/\b(senior|sr\.?)\b/.test(t)) return 'senior'
+  if (/\b(junior|jr\.?|associate|intern|entry|graduate|trainee)\b/.test(t)) return 'entry'
+  return 'mid'
+}
+
 // Map a free-text location string to a JSearch ISO country code.
 // JSearch defaults to the US when no country is given — wrong for non-US users.
 function locationToCountryCode(loc: string | null | undefined): string {
@@ -498,6 +537,11 @@ Deno.serve(async (req) => {
         JSON.stringify(matchedSkillMappings, null, 2)
       : 'NOTE: The user\'s target roles are outside the standard taxonomy (likely software/engineering/AI). Use your own knowledge to evaluate match quality and generate generic suggestions — do NOT suggest roles from unrelated fields like Customer Success or Operations.'
 
+    // Compute the user's experience level once. Used in both the system
+    // prompt's seniority awareness rules and the user prompt header so the
+    // LLM has consistent context for the per-job seniority gap math.
+    const userLevel = inferUserLevel(experiences || [], profile.education_level)
+
     const systemPrompt = [
       'You are the Get-A-Job Smart Match Engine. Your job is to score live job listings against a user\'s profile and generate personalised role recommendations.',
       '',
@@ -517,10 +561,21 @@ Deno.serve(async (req) => {
       `- LOCATION: The user is based in ${userLocation || 'an unspecified market'}${israeliMetro ? ` (${israeliMetro} metro — Israel's ${israeliMetro === 'Tel Aviv' ? 'main tech hub covering Gush Dan / Merkaz: Tel Aviv, Ramat Gan, Herzliya, Petah Tikva, Netanya, Ra\'anana' : israeliMetro + ' region'})` : ''}. When recommending generic roles or naming target companies, prefer employers hiring in that metro over US-centric defaults. Reference local tech companies and offices of multinationals present in the region.`,
       '- LIVE JOB INCLUSION POLICY: If the provided live jobs are remote-friendly or located outside the user\'s preferred metro, INCLUDE them anyway — the user would rather see remote/international opportunities than nothing. Mention in match_reason that the role is remote or outside their metro. Score at least 2-4 jobs unless truly none of them match the target domain at all.',
       '- Do not reject a job solely for being outside the user\'s metro. Only reject for genuine domain mismatch (e.g. a data engineering job for a product management candidate).',
+      '',
+      'SENIORITY AWARENESS:',
+      `- The user's experience level is "${userLevel}".`,
+      '- Each live job has a "detected_seniority" field parsed from its title (entry/mid/senior/lead/director/executive). Apply this penalty schedule when computing match_score:',
+      '  • Job seniority equal to or one rank above the user\'s level: full skill-match credit.',
+      '  • Two ranks above: cap match_score at 50, even if skills overlap perfectly.',
+      '  • Three or more ranks above: cap match_score at 25 — these are aspirational, not hireable now.',
+      '  • Job seniority below the user\'s level: 0.85x credit (under-employment, allowed but ranked lower).',
+      '- Examples for an early_career user: "Associate Product Manager" (entry) → no penalty; "Product Manager" (mid) → no penalty; "Senior Product Manager" (senior) → cap at 50; "Lead Product Manager" (lead) → cap at 25; "VP of Product" (executive) → cap at 25.',
+      '- When the seniority gap caps the score, mention the gap explicitly in match_reason (e.g. "skill match is strong but this is a Senior role and you\'re early-career — focus on closing the experience gap").',
     ].join('\n')
 
     const userPrompt = `USER PROFILE:
 - Location: ${userLocation || 'Not provided'} (country code: ${countryCode}${israeliMetro ? `, metro: ${israeliMetro}` : ''})
+- Experience Level: ${userLevel}
 - Target Roles: ${JSON.stringify(targetTitles)}
 - 5-Year Goal: ${trunc(profile.five_year_role, 100) || 'Not provided'}
 - Skills: ${JSON.stringify((profile.skills || []).slice(0, 50))}
@@ -532,6 +587,7 @@ LIVE JOBS TO SCORE:
 ${JSON.stringify(liveJobs.map(j => ({
   id: j.id,
   title: j.title,
+  detected_seniority: detectJobSeniority(j.title),
   company: j.company,
   location: j.location,
   snippet: trunc(j.description, 300),
