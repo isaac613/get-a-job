@@ -263,12 +263,14 @@ Deno.serve(async (req) => {
     // 5. Global role-only fallback — guarantees at least something
     candidates.push({ query: roleTerm, label: 'role-only-global' })
 
-    // 2. Fetch live jobs. For Israel we prefer Fantastic.Jobs LinkedIn Job Search API
-    //    (much better IL coverage). For everyone else, JSearch is fine.
+    // 2. Fetch live jobs. For Israel we use Techmap's Daily International Job
+    //    Postings API (best IL coverage by a large margin — sources include
+    //    alljobs.co.il which JSearch and the now-disabled Fantastic.Jobs
+    //    LinkedIn API both miss). For everyone else, JSearch is fine.
     let liveJobs: any[] = []
     let usedQuery = ''
     const jsearchKey = Deno.env.get('RAPIDAPI_KEY') || Deno.env.get('JSEARCH_API_KEY')
-    const linkedinKey = Deno.env.get('LINKEDIN_JOBS_API_KEY') || Deno.env.get('RAPIDAPI_KEY')
+    const techmapKey = Deno.env.get('RAPIDAPI_KEY')
 
     // JS3 fix — drop jobs whose apply URL isn't actionable. JSearch's global
     // remote tier returns real company info but anonymised "https://example.com/job/<id>"
@@ -324,95 +326,92 @@ Deno.serve(async (req) => {
       }
     }
 
-    // --- Fantastic.Jobs LinkedIn Job Search mapper/fetcher (best for IL) ---
-    // Response: flat array. Fields in the 7d retention window endpoint:
-    // id, title, organization, locations_derived[], url, description_text,
-    // date_posted, remote_derived, seniority, employment_type[], etc.
-    const mapLinkedInJob = (job: any) => {
-      const loc = Array.isArray(job?.locations_derived) && job.locations_derived.length
-        ? job.locations_derived[0]
-        : (Array.isArray(job?.cities_derived) && job.cities_derived.length ? job.cities_derived[0] : '')
+    // --- Techmap Daily International Job Postings (best for IL coverage) ---
+    // Same RAPIDAPI_KEY auth. Response wrapper is { result: [...] } with each
+    // job containing top-level summary fields plus a Schema.org-style jsonLD
+    // payload. Sources include alljobs.co.il, LinkedIn, indeed.com etc., so
+    // IL coverage is broad — a single-day "product manager" / countryCode=il
+    // probe returned 88 matches against zero from JSearch+LinkedIn.
+    const mapTechmapJob = (job: any) => {
+      const ld = job?.jsonLD || {}
+      const country = ld?.jobLocation?.address?.addressCountry
+      const city = job?.city || ld?.jobLocation?.address?.addressLocality
+      const location = [city, country].filter(Boolean).join(', ')
       return {
-        id: String(job?.id ?? job?.linkedin_id ?? ''),
-        title: job?.title || '',
-        company: job?.organization || '',
-        description: job?.description_text || '',
-        location: loc,
-        job_url: job?.url || '',
-        salary_min: null,
-        salary_max: null,
-        is_remote: Boolean(job?.remote_derived),
-        seniority: job?.seniority || null,
-        date_posted: job?.date_posted || null,
-        source: 'linkedin',
+        id: String(ld?.identifier || job?.title || ''),
+        title: job?.title || ld?.title || '',
+        company: job?.company || ld?.hiringOrganization?.name || '',
+        description: ld?.description || '',
+        location,
+        job_url: ld?.url || '',
+        salary_min: ld?.baseSalary?.minValue ?? null,
+        salary_max: ld?.baseSalary?.maxValue ?? null,
+        is_remote: Array.isArray(job?.workPlace) && job.workPlace.includes('Remote'),
+        seniority: Array.isArray(job?.careerLevel) ? job.careerLevel[0] : null,
+        date_posted: ld?.datePosted || job?.dateCreated || null,
+        source: job?.portal || 'techmap',
       }
     }
 
-    const fetchLinkedInJobs = async (titleFilter: string, locationFilter: string): Promise<any[]> => {
-      if (!linkedinKey) return []
-      const qs = new URLSearchParams({
-        limit: '10',
-        offset: '0',
-        description_type: 'text',
-        title_filter: `"${titleFilter}"`,
-        location_filter: `"${locationFilter}"`,
+    // dateCreated is REQUIRED by Techmap. We query the past 7 days as a single
+    // window using YYYY-MM (month) format — gives much better recall than a
+    // single day, and is well within the API's supported syntax. The free tier
+    // is 100 req/month so we keep this to one call per cascade level.
+    const fetchTechmapJobs = async (title: string, country: string, city?: string): Promise<any[]> => {
+      if (!techmapKey) return []
+      const dateCreated = new Date().toISOString().slice(0, 7) // YYYY-MM
+      const params = new URLSearchParams({
+        dateCreated,
+        page: '1',
+        countryCode: country.toLowerCase(),
       })
-      const url = `https://linkedin-job-search-api.p.rapidapi.com/active-jb-7d?${qs.toString()}`
+      // The "+" prefix in title makes each token a must-include term; this
+      // narrows results to genuine matches even on a broad month window.
+      if (title) params.set('title', title.trim().split(/\s+/).map(t => `+${t}`).join(' '))
+      if (city) params.set('city', city)
+      const url = `https://daily-international-job-postings.p.rapidapi.com/api/v2/jobs/search?${params}`
       try {
         const res = await fetch(url, {
           headers: {
-            'x-rapidapi-host': 'linkedin-job-search-api.p.rapidapi.com',
-            'x-rapidapi-key': linkedinKey,
+            'x-rapidapi-host': 'daily-international-job-postings.p.rapidapi.com',
+            'x-rapidapi-key': techmapKey,
           },
           signal: AbortSignal.timeout(12000),
         })
         if (!res.ok) {
-          console.warn(`[job-suggestions] LinkedIn ${res.status} for title="${titleFilter}" loc="${locationFilter}"`)
+          console.warn(`[job-suggestions] techmap ${res.status} for title="${title}" country="${country}" city="${city ?? '-'}"`)
           return []
         }
         const data = await res.json()
-        return Array.isArray(data) ? data : []
+        return Array.isArray(data?.result) ? data.result : []
       } catch (err) {
-        console.error(`[job-suggestions] LinkedIn fetch error:`, (err as Error).message)
+        console.error(`[job-suggestions] techmap fetch error:`, (err as Error).message)
         return []
       }
     }
 
-    // --- Cascade: LinkedIn for IL first, then JSearch, then remote fallback ---
+    // --- Cascade: Techmap for IL first (city → country), then JSearch global fallback ---
     if (countryCode === 'il') {
-      // LinkedIn's title_filter is strict phrase match — a user's typo'd
-      // five_year_role like "Product managment" returns zero hits. Canonicalise
-      // against the library so typos map to real titles.
-      const liRoleTerm = canonicalizeRoleTitle(roleTerm)
-      console.log("[JOBS] Entering LinkedIn cascade, metro:", locHub, "apiKey present:", !!linkedinKey, "roleTerm:", roleTerm, "canonicalised:", liRoleTerm);
-      // A. LinkedIn: metro (Tel Aviv) — best local match
+      const tmRoleTerm = canonicalizeRoleTitle(roleTerm)
+      console.log("[JOBS] Entering Techmap cascade, metro:", locHub, "apiKey present:", !!techmapKey, "roleTerm:", roleTerm, "canonicalised:", tmRoleTerm);
+      // A. Techmap: city (Tel Aviv) — best local match
       if (locHub) {
-        const jobs = await fetchLinkedInJobs(liRoleTerm, locHub)
-        console.log("[JOBS] LinkedIn returned:", jobs?.length || 0, "jobs")
-        const mapped = jobs.map(mapLinkedInJob).filter(j => isUsableJobUrl(j.job_url))
-        console.log(`[job-suggestions] linkedin metro title="${liRoleTerm}" loc="${locHub}" → ${jobs.length} (${mapped.length} usable)`)
-        if (mapped.length > 0) {
-          // Prioritise user's metro, then include other IL districts
-          const metroFirst = mapped.sort((a: any, b: any) => {
-            const la = (a?.location || '').toLowerCase()
-            const lb = (b?.location || '').toLowerCase()
-            const metroLower = locHub.toLowerCase()
-            const aScore = la.includes(metroLower) ? 0 : 1
-            const bScore = lb.includes(metroLower) ? 0 : 1
-            return aScore - bScore
-          })
-          liveJobs = metroFirst.slice(0, 10)
-          usedQuery = 'linkedin-metro'
-        }
-      }
-      // B. LinkedIn: broader Israel query if metro came back empty
-      if (liveJobs.length === 0) {
-        const jobs = await fetchLinkedInJobs(liRoleTerm, 'Israel')
-        const mapped = jobs.map(mapLinkedInJob).filter(j => isUsableJobUrl(j.job_url))
-        console.log(`[job-suggestions] linkedin country title="${liRoleTerm}" loc="Israel" → ${jobs.length} (${mapped.length} usable)`)
+        const jobs = await fetchTechmapJobs(tmRoleTerm, 'il', locHub)
+        const mapped = jobs.map(mapTechmapJob).filter(j => isUsableJobUrl(j.job_url))
+        console.log(`[job-suggestions] techmap city title="${tmRoleTerm}" city="${locHub}" → ${jobs.length} (${mapped.length} usable)`)
         if (mapped.length > 0) {
           liveJobs = mapped.slice(0, 10)
-          usedQuery = 'linkedin-israel'
+          usedQuery = 'techmap-city'
+        }
+      }
+      // B. Techmap: broader Israel query if city came back empty
+      if (liveJobs.length === 0) {
+        const jobs = await fetchTechmapJobs(tmRoleTerm, 'il')
+        const mapped = jobs.map(mapTechmapJob).filter(j => isUsableJobUrl(j.job_url))
+        console.log(`[job-suggestions] techmap country title="${tmRoleTerm}" country="il" → ${jobs.length} (${mapped.length} usable)`)
+        if (mapped.length > 0) {
+          liveJobs = mapped.slice(0, 10)
+          usedQuery = 'techmap-israel'
         }
       }
     }
