@@ -269,8 +269,22 @@ Deno.serve(async (req) => {
     //    LinkedIn API both miss). For everyone else, JSearch is fine.
     let liveJobs: any[] = []
     let usedQuery = ''
-    const jsearchKey = Deno.env.get('RAPIDAPI_KEY') || Deno.env.get('JSEARCH_API_KEY')
-    const techmapKey = Deno.env.get('RAPIDAPI_KEY')
+    // Both keys are read defensively: trim whitespace/newlines that often
+    // come along on copy-paste, and reject any value containing non-ASCII
+    // bytes (smart quotes, em dashes, BOM) before we try to use it as an
+    // HTTP header. Without this guard, fetch() throws a cryptic
+    // "headers of RequestInit is not a valid ByteString" before the request
+    // ever leaves the function — observed on Techmap calls after a manual
+    // secret re-paste introduced a non-ASCII char into RAPIDAPI_KEY.
+    const sanitizeKey = (v: string | undefined): string => {
+      const s = (v || '').trim()
+      return /^[\x21-\x7e]+$/.test(s) ? s : ''
+    }
+    const jsearchKey = sanitizeKey(Deno.env.get('RAPIDAPI_KEY') || Deno.env.get('JSEARCH_API_KEY'))
+    const techmapKey = sanitizeKey(Deno.env.get('RAPIDAPI_KEY'))
+    if (!jsearchKey && Deno.env.get('RAPIDAPI_KEY')) {
+      console.warn('[job-suggestions] RAPIDAPI_KEY present but invalid (empty after trim, or contains non-ASCII characters). Job APIs disabled.')
+    }
 
     // JS3 fix — drop jobs whose apply URL isn't actionable. JSearch's global
     // remote tier returns real company info but anonymised "https://example.com/job/<id>"
