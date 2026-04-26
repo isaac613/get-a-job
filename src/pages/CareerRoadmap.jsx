@@ -11,6 +11,7 @@ import GeneratingBanner from "@/components/ui/GeneratingBanner";
 import RoleCard from "../components/roadmap/RoleCard";
 import LearningPaths from "../components/roadmap/LearningPaths";
 import ProgressVisualization from "../components/roadmap/ProgressVisualization";
+import { isAnalysisStale } from "@/lib/staleAnalysis";
 
 const ROADMAP_MESSAGES = [
   "Searching LinkedIn & Glassdoor for real job postings…",
@@ -73,7 +74,19 @@ export default function CareerRoadmap() {
     enabled: !!user?.id,
   });
 
+  const { data: projects = [] } = useQuery({
+    queryKey: ["projects", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const { data, error } = await supabase.from("projects").select("*").eq("user_id", user.id);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id,
+  });
+
   const profile = profiles?.[0];
+  const stale = isAnalysisStale({ profile, experiences, certifications, projects });
 
   const tier1 = roles.filter((r) => r.tier === "tier_1");
   const tier2 = roles.filter((r) => r.tier === "tier_2");
@@ -268,6 +281,23 @@ export default function CareerRoadmap() {
           <p className="text-sm text-[#525252]">
             No roles generated yet. Click "Generate Roadmap" to analyze your profile and create your tier-classified career map.
           </p>
+        </div>
+      )}
+
+      {stale && roles.length > 0 && !generating && (
+        <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-center justify-between gap-4">
+          <p className="text-sm text-amber-800">
+            Your profile has changed since this analysis was generated. Refresh to see updated tiers.
+          </p>
+          <Button
+            onClick={handleGenerate}
+            disabled={generating}
+            size="sm"
+            className="bg-amber-600 hover:bg-amber-700 text-white text-xs flex-shrink-0"
+          >
+            <RefreshCw className="w-3 h-3 mr-1.5" />
+            Refresh now
+          </Button>
         </div>
       )}
 

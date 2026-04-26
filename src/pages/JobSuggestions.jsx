@@ -13,6 +13,9 @@ import {
 } from "@/components/ui/select";
 import { Loader2, RefreshCw, ExternalLink, Briefcase, MapPin, CheckCircle2, PlusCircle, Sparkles } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
+import { createPageUrl } from "@/utils";
+import { isAnalysisStale } from "@/lib/staleAnalysis";
 
 const TIER_LABELS = {
   tier_1: "Your Move",
@@ -174,6 +177,41 @@ export default function JobSuggestions() {
     enabled: !!user?.id,
   });
 
+  const { data: experiences = [] } = useQuery({
+    queryKey: ["experiences", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const { data, error } = await supabase.from("experiences").select("*").eq("user_id", user.id);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id,
+  });
+
+  const { data: certifications = [] } = useQuery({
+    queryKey: ["certifications", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const { data, error } = await supabase.from("certifications").select("*").eq("user_id", user.id);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id,
+  });
+
+  const { data: projects = [] } = useQuery({
+    queryKey: ["projects", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const { data, error } = await supabase.from("projects").select("*").eq("user_id", user.id);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id,
+  });
+
+  const stale = isAnalysisStale({ profile, experiences, certifications, projects });
+
   // Career roadmap tiers — source of the role dropdown. Matching the
   // CareerRoadmap page's query key keeps the cache shared.
   const { data: careerRoles = [] } = useQuery({
@@ -301,6 +339,14 @@ export default function JobSuggestions() {
         <p className="text-sm text-[#A3A3A3]">
           Personalised job listings scored against your profile by AI — updated daily.
         </p>
+        {stale && (
+          <p className="text-xs text-amber-700 mt-1">
+            Profile updated since last analysis ·{" "}
+            <Link to={createPageUrl("CareerRoadmap")} className="underline hover:text-amber-800">
+              refresh roadmap
+            </Link>
+          </p>
+        )}
       </div>
 
       {noProfile && (

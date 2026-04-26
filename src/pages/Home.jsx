@@ -9,6 +9,7 @@ import { ArrowRight, Loader2, CheckCircle2, XCircle, AlertCircle, RotateCcw } fr
 import { Button } from "@/components/ui/button";
 import SkillGapCourses from "../components/dashboard/SkillGapCourses";
 import JobMatchChecker from "../components/dashboard/JobMatchChecker";
+import { isAnalysisStale } from "@/lib/staleAnalysis";
 
 export default function Home() {
   const queryClient = useQueryClient();
@@ -67,7 +68,28 @@ export default function Home() {
     enabled: !!user?.id,
   });
 
+  const { data: certifications = [] } = useQuery({
+    queryKey: ["certifications", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("certifications").select("*").eq("user_id", user.id);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id,
+  });
+
+  const { data: projects = [] } = useQuery({
+    queryKey: ["projects", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("projects").select("*").eq("user_id", user.id);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id,
+  });
+
   const profile = profiles?.[0] || null;
+  const stale = isAnalysisStale({ profile, experiences, certifications, projects });
   const isLoading = loadingProfile || loadingRoles || loadingApps;
 
   React.useEffect(() => {
@@ -154,6 +176,14 @@ export default function Home() {
           {profile?.last_reality_check_date && (
             <p className="text-xs text-[#A3A3A3] mt-1">
               Last analysis: {profile.last_reality_check_date}
+              {stale && (
+                <>
+                  {" · "}
+                  <Link to={createPageUrl("CareerRoadmap")} className="text-amber-700 underline hover:text-amber-800">
+                    Profile updated — refresh roadmap
+                  </Link>
+                </>
+              )}
             </p>
           )}
         </div>
