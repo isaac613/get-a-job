@@ -486,7 +486,14 @@ Deno.serve(async (req) => {
     const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${openaiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: MODEL, messages, temperature: 0.7, max_tokens: 1024 }),
+      // temperature 0.4 + max_tokens 2048 (was 0.7 / 1024). Lower temp keeps
+      // SUGGESTED_*_JSON markers + field names verbatim so the frontend's
+      // extractJsonBlock parser doesn't miss them. Higher token cap stops the
+      // CV agent's structured block from being truncated mid-emit, which was
+      // causing the "Generate CV" button to never appear (A1/A2/A3 from the
+      // session-13 audit). Aligned with generate-career-analysis (temp 0.4)
+      // and generate-tasks (max 2048).
+      body: JSON.stringify({ model: MODEL, messages, temperature: 0.4, max_tokens: 2048 }),
     })
 
     if (!openaiResponse.ok) {
