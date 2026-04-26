@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { ChevronDown, ChevronUp, Lock, MessageSquare } from "lucide-react";
+import { ChevronDown, ChevronUp, Lock, MessageSquare, Trash2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -46,6 +46,27 @@ export default function ApplicationRow({ app, onUpdate }) {
     referralAttached !== (app.referral_attached || false);
 
   const status = STATUS_LABELS[app.status] || STATUS_LABELS.interested;
+
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+
+  const handleDelete = async (e) => {
+    e.stopPropagation();
+    if (!confirmingDelete) {
+      setConfirmingDelete(true);
+      return;
+    }
+    // RLS enforces ownership; CAL2 migration's CASCADE on calendar_events
+    // FK cleans up any tied calendar entries automatically.
+    const { error } = await supabase.from("applications").delete().eq("id", app.id);
+    if (error) {
+      console.error("Failed to delete application:", error);
+      toast.error("Failed to delete application: " + error.message);
+      setConfirmingDelete(false);
+      return;
+    }
+    toast.success("Application deleted");
+    onUpdate();
+  };
 
   const handleStatusChange = async (newStatus) => {
     const { error } = await supabase.from("applications").update({ status: newStatus }).eq("id", app.id);
@@ -163,6 +184,32 @@ export default function ApplicationRow({ app, onUpdate }) {
               {Math.round((app.qualification_score || 0) * 100)}%
             </span>
           )}
+          {confirmingDelete ? (
+            <>
+              <button
+                onClick={handleDelete}
+                className="text-xs text-red-600 font-semibold hover:text-red-700"
+                title="Confirm delete"
+              >
+                Delete?
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); setConfirmingDelete(false); }}
+                className="text-xs text-[#A3A3A3] hover:text-[#525252]"
+              >
+                Cancel
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={handleDelete}
+              className="text-[#A3A3A3] hover:text-red-500"
+              title="Delete application"
+              aria-label="Delete application"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
           {expanded ? <ChevronUp className="w-4 h-4 text-[#A3A3A3]" /> : <ChevronDown className="w-4 h-4 text-[#A3A3A3]" />}
         </div>
       </button>
@@ -224,7 +271,7 @@ export default function ApplicationRow({ app, onUpdate }) {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-xs text-[#A3A3A3]">Tier</span>
-                    <span className="text-xs font-medium text-[#0A0A0A]">{app.tier?.replace("_", " ") || "—"}</span>
+                    <span className="text-xs font-medium text-[#0A0A0A]">{app.tier?.replace("_", " ") || "Unclassified"}</span>
                   </div>
                   {app.qualification_score !== undefined && (
                     <div className="flex justify-between">

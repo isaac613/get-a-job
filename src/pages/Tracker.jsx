@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import ApplicationRow from "../components/tracker/ApplicationRow";
+import { matchTier, sortCareerRolesForMatching } from "@/lib/tierMatching";
 
 export default function Tracker() {
   const queryClient = useQueryClient();
@@ -42,14 +43,31 @@ export default function Tracker() {
     enabled: !!user?.id,
   });
 
+  // Loaded only so handleAdd can auto-classify the new application's tier
+  // (TR2 fix). Cache key matches CareerRoadmap.jsx so the data is shared.
+  const { data: careerRoles = [] } = useQuery({
+    queryKey: ["careerRoles", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const { data, error } = await supabase
+        .from("career_roles")
+        .select("title, tier, readiness_score")
+        .eq("user_id", user.id);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id,
+  });
+
   const handleAdd = async () => {
     if (!newApp.role_title) return;
     setAddingApp(true);
     const jd = jobDescription || newApp.job_description || "";
 
-    // Tier is not classified at creation time — Career Roadmap analysis assigns tiers.
-    // null means unclassified; add the role to Career Roadmap to get tier classification.
-    const tier = null;
+    // TR2 fix — auto-classify by matching the typed role_title against the
+    // user's existing career_roles. matchTier returns null if no confident
+    // match, so the row stores null and ApplicationRow displays "Unclassified".
+    const tier = matchTier(newApp.role_title, sortCareerRolesForMatching(careerRoles));
 
     const { error } = await supabase.from("applications").insert({
       user_id: user.id,
