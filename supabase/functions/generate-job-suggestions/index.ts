@@ -270,6 +270,23 @@ Deno.serve(async (req) => {
     const jsearchKey = Deno.env.get('RAPIDAPI_KEY') || Deno.env.get('JSEARCH_API_KEY')
     const linkedinKey = Deno.env.get('LINKEDIN_JOBS_API_KEY') || Deno.env.get('RAPIDAPI_KEY')
 
+    // JS3 fix — drop jobs whose apply URL isn't actionable. JSearch's global
+    // remote tier returns real company info but anonymised "https://example.com/job/<id>"
+    // placeholder URLs that 404 when the user clicks Apply Now. Filtering these
+    // out before AI scoring also frees up the cascade to fall through to the
+    // next level when a query returns mostly-broken URLs.
+    const isUsableJobUrl = (url: unknown): url is string => {
+      if (typeof url !== "string" || url.length === 0) return false;
+      try {
+        const u = new URL(url);
+        if (!/^https?:$/.test(u.protocol)) return false;
+        if (u.hostname === "example.com" || u.hostname.endsWith(".example.com")) return false;
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
     // --- JSearch mapper/fetcher (US + fallback) ---
     const mapJSearchJob = (job: any) => ({
       id: job.job_id,
@@ -372,27 +389,29 @@ Deno.serve(async (req) => {
       if (locHub) {
         const jobs = await fetchLinkedInJobs(liRoleTerm, locHub)
         console.log("[JOBS] LinkedIn returned:", jobs?.length || 0, "jobs")
-        console.log(`[job-suggestions] linkedin metro title="${liRoleTerm}" loc="${locHub}" → ${jobs.length}`)
-        if (jobs.length > 0) {
+        const mapped = jobs.map(mapLinkedInJob).filter(j => isUsableJobUrl(j.job_url))
+        console.log(`[job-suggestions] linkedin metro title="${liRoleTerm}" loc="${locHub}" → ${jobs.length} (${mapped.length} usable)`)
+        if (mapped.length > 0) {
           // Prioritise user's metro, then include other IL districts
-          const metroFirst = jobs.sort((a: any, b: any) => {
-            const la = ((a?.locations_derived?.[0]) || '').toLowerCase()
-            const lb = ((b?.locations_derived?.[0]) || '').toLowerCase()
+          const metroFirst = mapped.sort((a: any, b: any) => {
+            const la = (a?.location || '').toLowerCase()
+            const lb = (b?.location || '').toLowerCase()
             const metroLower = locHub.toLowerCase()
             const aScore = la.includes(metroLower) ? 0 : 1
             const bScore = lb.includes(metroLower) ? 0 : 1
             return aScore - bScore
           })
-          liveJobs = metroFirst.slice(0, 10).map(mapLinkedInJob)
+          liveJobs = metroFirst.slice(0, 10)
           usedQuery = 'linkedin-metro'
         }
       }
       // B. LinkedIn: broader Israel query if metro came back empty
       if (liveJobs.length === 0) {
         const jobs = await fetchLinkedInJobs(liRoleTerm, 'Israel')
-        console.log(`[job-suggestions] linkedin country title="${liRoleTerm}" loc="Israel" → ${jobs.length}`)
-        if (jobs.length > 0) {
-          liveJobs = jobs.slice(0, 10).map(mapLinkedInJob)
+        const mapped = jobs.map(mapLinkedInJob).filter(j => isUsableJobUrl(j.job_url))
+        console.log(`[job-suggestions] linkedin country title="${liRoleTerm}" loc="Israel" → ${jobs.length} (${mapped.length} usable)`)
+        if (mapped.length > 0) {
+          liveJobs = mapped.slice(0, 10)
           usedQuery = 'linkedin-israel'
         }
       }
@@ -402,14 +421,15 @@ Deno.serve(async (req) => {
     if (liveJobs.length === 0 && jsearchKey) {
       for (const c of candidates) {
         const jobs = await fetchJSearch(c.query, c.country)
-        console.log(`[job-suggestions] jsearch ${c.label} "${c.query}" country="${c.country ?? 'global'}" → ${jobs.length}`)
-        if (jobs.length >= 3) {
-          liveJobs = jobs.slice(0, 10).map(mapJSearchJob)
+        const mapped = jobs.map(mapJSearchJob).filter(j => isUsableJobUrl(j.job_url))
+        console.log(`[job-suggestions] jsearch ${c.label} "${c.query}" country="${c.country ?? 'global'}" → ${jobs.length} (${mapped.length} usable)`)
+        if (mapped.length >= 3) {
+          liveJobs = mapped.slice(0, 10)
           usedQuery = `jsearch-${c.label}`
           break
         }
-        if (c === candidates[candidates.length - 1] && jobs.length > 0) {
-          liveJobs = jobs.slice(0, 10).map(mapJSearchJob)
+        if (c === candidates[candidates.length - 1] && mapped.length > 0) {
+          liveJobs = mapped.slice(0, 10)
           usedQuery = `jsearch-${c.label}-partial`
         }
       }
@@ -574,6 +594,24 @@ Return ONLY valid JSON:
         const original = liveJobs.find(j => j.id === sug.id || j.title === sug.title)
         return original ? { ...original, ...sug } : sug
       })
+    }
+
+    // JS2 fix — explain when the cascade fell through to remote/global so the
+    // user understands why they're seeing non-local jobs. The frontend renders
+    // result.message verbatim above the role tabs, so prefixing it here is
+    // enough — no UI changes needed.
+    let cascadeMessage = ''
+    if (liveJobs.length === 0) {
+      cascadeMessage = userLocation
+        ? `No live postings found for "${roleTerm}" in ${userLocation} right now. `
+        : `No live postings found for "${roleTerm}" right now. `
+    } else if (usedQuery.includes('remote') || usedQuery.includes('global')) {
+      cascadeMessage = userLocation
+        ? `No live postings in ${userLocation} for "${roleTerm}" — showing remote and international opportunities instead. `
+        : `Showing remote and international opportunities for "${roleTerm}". `
+    }
+    if (cascadeMessage) {
+      result.message = (cascadeMessage + (result.message || '')).trim()
     }
 
     // 5. Cache to DB using serviceClient (bypasses RLS)
