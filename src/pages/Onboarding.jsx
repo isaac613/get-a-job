@@ -46,7 +46,7 @@ const EMPTY_PROFILE = {
   employment_status: [],
   salary_expectation: "",
   available_start_date: "",
-  biggest_challenge: "",
+  biggest_challenge: [],
   job_search_efforts: "",
   role_clarity_score: null,
   cv_tailoring_strategy: "",
