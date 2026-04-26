@@ -62,15 +62,20 @@ const EVENT_TYPE_LABELS = {
   follow_up: "Follow Up",
 };
 
+// CAL1 fix — tasks live in the pink family so a red dot in the calendar grid
+// only ever means "Interview event" (and an amber dot only "Application
+// Deadline", green only "Follow-up", etc.). Priority is encoded as intensity
+// within pink rather than borrowed from the event-type palette, which had
+// produced two-meaning red/amber/green dots in the legend.
 const TASK_PRIORITY_CHIPS = {
-  high: "bg-red-50 border-red-200 text-red-800",
-  medium: "bg-amber-50 border-amber-200 text-amber-800",
-  low: "bg-emerald-50 border-emerald-200 text-emerald-800",
+  high: "bg-pink-100 border-pink-300 text-pink-900",
+  medium: "bg-pink-50 border-pink-200 text-pink-800",
+  low: "bg-pink-50 border-pink-200 text-pink-700",
 };
 const TASK_PRIORITY_DOTS = {
-  high: "bg-red-500",
-  medium: "bg-amber-500",
-  low: "bg-emerald-500",
+  high: "bg-pink-600",
+  medium: "bg-pink-400",
+  low: "bg-pink-300",
 };
 
 const APP_APPLIED_CHIP = "bg-indigo-50 border-indigo-200 text-indigo-800";
