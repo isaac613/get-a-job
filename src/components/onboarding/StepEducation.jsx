@@ -4,7 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import SkillTagInput from "./SkillTagInput";
 
-export default function StepEducation({ data, onChange, onNext }) {
+export default function StepEducation({ data, onChange, onNext, onBack }) {
   const set = (key, val) => onChange({ ...data, [key]: val });
 
   const canProceed = data.full_name?.trim() && data.education_level;
@@ -100,7 +100,8 @@ export default function StepEducation({ data, onChange, onNext }) {
         />
       </div>
 
-      <div className="flex justify-end">
+      <div className="flex justify-between">
+        <Button variant="outline" onClick={onBack} className="text-sm">Back</Button>
         <Button
           onClick={onNext}
           disabled={!canProceed}
