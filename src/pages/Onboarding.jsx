@@ -425,7 +425,7 @@ export default function Onboarding() {
           skill_gaps: data?.skill_gaps || [],
           qualification_level: data?.qualification_level || "",
           overall_assessment: data?.overall_assessment || "",
-          last_reality_check_date: new Date().toLocaleDateString("sv"),
+          last_reality_check_date: new Date().toISOString(),
           onboarding_step: 7,
         }).eq("id", existingProfileId);
       }

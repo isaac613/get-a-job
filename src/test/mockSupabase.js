@@ -76,7 +76,7 @@ export const MOCK_PROFILE_COMPLETE = {
   qualification_level: 'Junior',
   overall_assessment: 'Strong candidate with good fundamentals.',
   five_year_role: 'Senior Engineer',
-  last_reality_check_date: '2026-03-22',
+  last_reality_check_date: '2026-03-22T12:00:00.000Z',
 };
 
 export const MOCK_PROFILE_INCOMPLETE = {

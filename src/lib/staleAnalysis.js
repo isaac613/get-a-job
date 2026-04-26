@@ -3,10 +3,10 @@
 // banner on Career Roadmap (and hint text on Home / Job Suggestions) so
 // users know their cached career_roles rows no longer reflect their data.
 //
-// Day-precision comparison: profile.last_reality_check_date is stored as
-// YYYY-MM-DD (Swedish locale via toLocaleDateString("sv")). Same-day adds
-// won't trigger the banner — accepted trade-off for not requiring a schema
-// migration to a full timestamp.
+// Exact timestamp comparison: profile.last_reality_check_date is timestamptz
+// (migration 20260426). The frontend writes new Date().toISOString() on each
+// successful analysis, so refreshing immediately clears the banner — no
+// false-positive from same-day pre-existing rows being "newer than midnight".
 export function isAnalysisStale({ profile, experiences, certifications, projects }) {
   if (!profile?.last_reality_check_date) return false;
   const lastCheckMs = new Date(profile.last_reality_check_date).getTime();

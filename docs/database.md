@@ -43,7 +43,7 @@ One row per user. Created by the onboarding flow on first save. The `id` field i
 | `skill_gaps` | text[] | Set by `generate-career-analysis` Edge Function |
 | `qualification_level` | text | e.g. `Junior`, `Mid-Level` — set by `generate-career-analysis` |
 | `overall_assessment` | text | 2–3 sentence AI assessment — set by `generate-career-analysis` |
-| `last_reality_check_date` | date | Date of last career analysis run |
+| `last_reality_check_date` | timestamptz | Timestamp of last career analysis run (migration 20260426) |
 | `five_year_role` | text | User's stated 5-year goal (stored in local state only, not persisted to profiles) |
 | `created_at` | timestamptz | |
 | `updated_at` | timestamptz | |

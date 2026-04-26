@@ -34,7 +34,7 @@ export const MOCK_PROFILE_COMPLETE = {
   qualification_level: 'Junior',
   overall_assessment: 'Good foundational skills with clear growth areas.',
   five_year_role: 'Senior Data Engineer',
-  last_reality_check_date: '2026-03-22',
+  last_reality_check_date: '2026-03-22T12:00:00.000Z',
 };
 
 export const MOCK_PROFILE_INCOMPLETE = {

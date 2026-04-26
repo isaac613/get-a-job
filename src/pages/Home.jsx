@@ -175,7 +175,7 @@ export default function Home() {
           </h1>
           {profile?.last_reality_check_date && (
             <p className="text-xs text-[#A3A3A3] mt-1">
-              Last analysis: {profile.last_reality_check_date}
+              Last analysis: {new Date(profile.last_reality_check_date).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}
               {stale && (
                 <>
                   {" · "}

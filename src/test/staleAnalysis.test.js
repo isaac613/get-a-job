@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { isAnalysisStale } from '@/lib/staleAnalysis';
 
-const dayBefore = '2026-04-25';
-const dayOf = '2026-04-26';
-const dayAfter = '2026-04-27';
+// last_reality_check_date is timestamptz (migration 20260426) — every fixture
+// here uses a full ISO timestamp so tests reflect the production data shape.
 const tsBefore = '2026-04-25T12:00:00.000Z';
+const tsAt = '2026-04-26T12:00:00.000Z';
 const tsAfter = '2026-04-27T12:00:00.000Z';
 
 describe('isAnalysisStale', () => {
@@ -32,7 +32,7 @@ describe('isAnalysisStale', () => {
   it('returns false when all rows are older than last_reality_check_date', () => {
     expect(
       isAnalysisStale({
-        profile: { last_reality_check_date: dayOf },
+        profile: { last_reality_check_date: tsAt },
         experiences: [{ created_at: tsBefore }],
         certifications: [{ created_at: tsBefore }],
         projects: [{ created_at: tsBefore }],
@@ -43,7 +43,7 @@ describe('isAnalysisStale', () => {
   it('returns true when an experience was added after the last analysis', () => {
     expect(
       isAnalysisStale({
-        profile: { last_reality_check_date: dayBefore },
+        profile: { last_reality_check_date: tsAt },
         experiences: [{ created_at: tsAfter }],
         certifications: [],
         projects: [],
@@ -54,7 +54,7 @@ describe('isAnalysisStale', () => {
   it('returns true when a certification was added after the last analysis', () => {
     expect(
       isAnalysisStale({
-        profile: { last_reality_check_date: dayBefore },
+        profile: { last_reality_check_date: tsAt },
         experiences: [],
         certifications: [{ created_at: tsAfter }],
         projects: [],
@@ -65,7 +65,7 @@ describe('isAnalysisStale', () => {
   it('returns true when a project was added after the last analysis', () => {
     expect(
       isAnalysisStale({
-        profile: { last_reality_check_date: dayBefore },
+        profile: { last_reality_check_date: tsAt },
         experiences: [],
         certifications: [],
         projects: [{ created_at: tsAfter }],
@@ -76,7 +76,7 @@ describe('isAnalysisStale', () => {
   it('returns true when at least one row is newer even if others are older', () => {
     expect(
       isAnalysisStale({
-        profile: { last_reality_check_date: dayBefore },
+        profile: { last_reality_check_date: tsAt },
         experiences: [{ created_at: tsBefore }, { created_at: tsAfter }],
         certifications: [{ created_at: tsBefore }],
         projects: [],
@@ -87,7 +87,7 @@ describe('isAnalysisStale', () => {
   it('returns false when all arrays are empty/missing', () => {
     expect(
       isAnalysisStale({
-        profile: { last_reality_check_date: dayOf },
+        profile: { last_reality_check_date: tsAt },
         experiences: undefined,
         certifications: null,
         projects: [],
@@ -100,7 +100,7 @@ describe('isAnalysisStale', () => {
     // we don't want to fire the banner on missing data.
     expect(
       isAnalysisStale({
-        profile: { last_reality_check_date: dayOf },
+        profile: { last_reality_check_date: tsAt },
         experiences: [{ id: 'x' }],
         certifications: [],
         projects: [],
@@ -108,24 +108,27 @@ describe('isAnalysisStale', () => {
     ).toBe(false);
   });
 
-  it('day-precision: same-day adds do NOT trigger the banner (documented trade-off)', () => {
-    // last_reality_check_date is YYYY-MM-DD → midnight UTC. Anything earlier
-    // that day (UTC) parses to a millisecond < midnight, so it's "before"; a
-    // same-day created_at *after* midnight UTC technically beats the check.
-    // This test pins the actual behaviour so future readers know what to
-    // expect rather than guessing.
+  it('exact timestamp comparison: a row created BEFORE the analysis run does not trigger the banner', () => {
+    // Regression guard: pre-migration this case fired falsely because
+    // last_reality_check_date was a date string parsed as midnight UTC, so
+    // any same-day created_at after midnight looked "newer" than the
+    // analysis. With timestamptz + ISO writes, the comparison is exact —
+    // a row created at 15:15 same-day is older than an analysis at 19:33.
     expect(
       isAnalysisStale({
-        profile: { last_reality_check_date: '2026-04-26' },
-        experiences: [{ created_at: '2026-04-26T00:00:00.000Z' }],
+        profile: { last_reality_check_date: '2026-04-26T19:33:00.000Z' },
+        experiences: [{ created_at: '2026-04-26T15:15:05.000Z' }],
         certifications: [],
         projects: [],
       })
     ).toBe(false);
+  });
+
+  it('exact timestamp comparison: a row created AFTER the analysis run triggers the banner', () => {
     expect(
       isAnalysisStale({
-        profile: { last_reality_check_date: '2026-04-26' },
-        experiences: [{ created_at: '2026-04-26T08:00:00.000Z' }],
+        profile: { last_reality_check_date: '2026-04-26T19:33:00.000Z' },
+        experiences: [{ created_at: '2026-04-26T19:34:00.000Z' }],
         certifications: [],
         projects: [],
       })

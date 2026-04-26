@@ -146,7 +146,7 @@ export default function CareerRoadmap() {
         await supabase
           .from("profiles")
           .update({
-            last_reality_check_date: new Date().toLocaleDateString("sv"),
+            last_reality_check_date: new Date().toISOString(),
             qualification_level: data?.qualification_level || profile?.qualification_level || "",
             overall_assessment: data?.overall_assessment || profile?.overall_assessment || "",
             skill_gaps: data?.skill_gaps || [],
