@@ -615,11 +615,29 @@ Return ONLY valid JSON:
       })
     }
 
-    // Merge original job data back into AI suggestions (preserves job_url, salary, etc.)
+    // Merge AI suggestions with the original job rows. Spread order matters:
+    // the AI is asked to return job_url / location / salary / description but
+    // it doesn't actually have the URL in its input prompt — gpt-4o-mini
+    // hallucinates "https://www.example.com/job/<id>" placeholders, then the
+    // sug spread overwrites the real URL we already have. Explicitly preserve
+    // factual fields from `original`; let `sug` win on the AI-generated
+    // fields it actually owns (match_score, match_reason, matched/missing_skills).
     if (Array.isArray(result.live_suggestions)) {
       result.live_suggestions = result.live_suggestions.map((sug: any) => {
         const original = liveJobs.find(j => j.id === sug.id || j.title === sug.title)
-        return original ? { ...original, ...sug } : sug
+        if (!original) return sug
+        return {
+          ...sug,
+          job_url: original.job_url || sug.job_url,
+          location: original.location || sug.location,
+          description: original.description || sug.description,
+          company: original.company || sug.company,
+          salary_min: original.salary_min ?? sug.salary_min,
+          salary_max: original.salary_max ?? sug.salary_max,
+          is_remote: original.is_remote ?? sug.is_remote,
+          date_posted: original.date_posted || sug.date_posted,
+          source: original.source || sug.source,
+        }
       })
     }
 
