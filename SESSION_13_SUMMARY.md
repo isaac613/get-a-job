@@ -219,10 +219,12 @@ curl -s "https://api.supabase.com/v1/projects/ilmqmodklutztuybsvwd/analytics/end
 
 ## Suggested fix order for next session
 
-1. **N-X4** — extend AddInformation to all profile columns. High user impact (no need to re-onboard to change career direction).
-2. **N-K5 / N-X3** — trim oversized system prompts. ~10× latency + cost win.
-3. **N-O39/O44** — add manual UI for institution / dates / secondary_education / languages on Step 1 of onboarding (extraction handles them; manual path missing).
-4. (Product decision) — **N-K2/K6 due_date** — if tasks should have deadlines, plumb through LLM schema + insert sites + UI.
+1. **Home page audit** — surfaced during live walkthrough as the next critical area. Read `src/pages/Home.jsx` end-to-end + the dashboard widgets it composes; produce a bug list mirroring this session's onboarding audit.
+2. **CV upload latency** — profile end-to-end with browser devtools first to identify the bottleneck. Likely candidates: serial `ai-chat` then `extract-proof-signals` calls (could parallelise), the bloated `extract-proof-signals` system prompt (N-X3), and PDF.js worker startup. Measure before fixing.
+3. **N-X4** — extend AddInformation to all profile columns. High user impact (no need to re-onboard to change career direction).
+4. **N-K5 / N-X3** — trim oversized system prompts in `generate-tasks` + `extract-proof-signals`. ~10× latency + cost win on those endpoints. Partially addresses the CV upload latency from #2.
+5. **N-O39/O44** — add manual UI for institution / dates / secondary_education / languages on Step 1 of onboarding (extraction handles them; manual path missing).
+6. (Product decision) — **N-K2/K6 due_date** — if tasks should have deadlines, plumb through LLM schema + insert sites + UI.
 
 ---
 
@@ -238,6 +240,34 @@ curl -s "https://api.supabase.com/v1/projects/ilmqmodklutztuybsvwd/analytics/end
 | `generate-job-suggestions` deployed | ✓ (from session 12) |
 | Test user state | onboarding_step=0, onboarding_complete=false, skills=[], 0 experiences, 0 projects, 0 certifications, resume_url preserved |
 | Dev server | http://localhost:5174/ (background process `bm7lu0j9z`) |
+
+### End-to-end manual walkthrough — all green
+
+After resetting the test user, the developer walked the full Step 0 → 7 onboarding flow twice (once with a PDF CV, once with a DOCX CV). Outcomes:
+
+| Check | Result |
+|---|---|
+| **All three tiers populated** | ✓ **3 Tier 1 + 5 Tier 2 + 4 Tier 3** (Bug 1 fix verified — Tier 3 "Work Toward" finally has roles) |
+| **New StepSkills chip bank UI** | ✓ Toggle behavior works, selected chips stay visible with checkmark, custom-typed skills appear in the "Selected" pill list with a `custom` tag, all entries land in single `profileData.skills` array |
+| **PDF upload + extraction** | ✓ Works — same path as before, no regression |
+| **DOCX upload + extraction** | ✓ Works (N-O37 fix verified — mammoth lazy-loads, parses `.docx` cleanly) |
+| Career analysis runs against fresh DB data | ✓ (N-O20 fix verified — `handleSurveyNext` snapshot+insert+rollback preserves user data even on failure) |
+| Phone number reaches DB | ✓ (N-O3 fix verified) |
+| Step 1 Back button | ✓ (N-O38 fix verified) |
+| Auto-save no longer 400s on fresh users | ✓ (N-O58 + N-O9 + O5 fixes verified — no `malformed array literal` errors in browser console) |
+
+### Issues noted during the walkthrough — for next session
+
+These weren't part of the audit list but surfaced during the live test:
+
+1. **Home page has multiple bugs** — not yet enumerated. Next session should start with a focused audit pass on `src/pages/Home.jsx` and the dashboard widgets it composes (`SkillGapCourses`, `JobMatchChecker`, `ProgressSnapshot`, `WeeklyActions`, `ProfileSummary`, `SkillGaps`).
+2. **CV upload is slow** — perceived latency from "drop file" to "extraction complete" is high enough to feel broken. Likely culprits to investigate:
+   - `extract-proof-signals` runs sequentially after `ai-chat`'s extraction (StepResumeUpload.jsx ~line 251) — could parallelise the two LLM calls.
+   - `extract-proof-signals` system prompt embeds the full skill (397) + signal (625) libraries (~50 KB) on every call — N-X3 from the audit. Hot-path bloat.
+   - Mammoth lazy-load on the first DOCX upload adds a one-time 510 KB chunk fetch. Subsequent uploads are warm.
+   - PDF.js worker initialisation cost.
+
+   Worth profiling end-to-end with browser devtools (Network + Performance tabs) before optimising — assumption-checking the bottleneck first.
 
 ---
 
