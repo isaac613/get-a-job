@@ -13,11 +13,14 @@ const tierConfig = {
   tier_3: { label: "Tier 3", className: "tier-badge-3", border: "border-l-indigo-400" },
 };
 
-// Readiness label is derived from tier — matches the goal-aligned tier semantics.
+// Tier strategy label — mirrors the section headers on the Career Roadmap
+// page ("Tier 1 — Your Move", etc.) so the in-card pill reinforces the same
+// vocabulary instead of inventing a separate readiness scale that contradicts
+// the score (a Tier 1 with low fit shouldn't be labelled "Ready & Aligned").
 const readinessConfig = {
-  tier_1: { label: "Ready & Aligned", bg: "bg-emerald-100", text: "text-emerald-700", dot: "bg-emerald-500" },
-  tier_2: { label: "Ready, Different Path", bg: "bg-amber-100", text: "text-amber-700", dot: "bg-amber-400" },
-  tier_3: { label: "Aspirational", bg: "bg-indigo-100", text: "text-indigo-700", dot: "bg-indigo-400" },
+  tier_1: { label: "Your Move", bg: "bg-emerald-100", text: "text-emerald-700", dot: "bg-emerald-500" },
+  tier_2: { label: "Plan B", bg: "bg-amber-100", text: "text-amber-700", dot: "bg-amber-400" },
+  tier_3: { label: "Work Toward", bg: "bg-indigo-100", text: "text-indigo-700", dot: "bg-indigo-400" },
 };
 
 export default function RoleCard({ role, onTrack }) {

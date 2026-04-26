@@ -4,14 +4,24 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BookOpen, ExternalLink, RefreshCw, Loader2 } from "lucide-react";
 
+// CR1 fix — no frontend invention. Render only fields the LLM actually
+// supplies via generate-learning-paths. Previous version wrapped each path
+// in fictional metadata (priority badge derived from array index, "Package N"
+// framing where each path was just one skill, hardcoded null
+// optional_certification, "8-12 weeks" fallback string) — same trust-eroding
+// pattern AG1's NO_FABRICATION_GUARD targets in agent responses.
+//
+// Edge function returns { skill, why_important, resources: [{title, platform,
+// url, type, time_commitment}], capstone_project }. We map 1:1 and let the
+// UI degrade gracefully when individual fields are missing.
+
 export default function LearningPaths({ skillGaps, targetRole }) {
-  const [courses, setCourses] = useState(null);
-  const [totalWeeks, setTotalWeeks] = useState(null);
+  const [paths, setPaths] = useState(null);
   const [loading, setLoading] = useState(false);
 
   const generateLearningPath = async () => {
     if (!skillGaps || skillGaps.length === 0) return;
-    
+
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("generate-learning-paths", {
@@ -23,39 +33,28 @@ export default function LearningPaths({ skillGaps, targetRole }) {
 
       if (error) throw error;
 
-      // Map learning_paths into the component's expected shape
-      const paths = (data?.learning_paths || []).map((lp, i) => ({
-        package_name: lp.skill || `Learning Path ${i + 1}`,
-        skills_in_package: [lp.skill],
-        priority: i === 0 ? "high" : i < 3 ? "medium" : "low",
+      const mapped = (data?.learning_paths || []).map((lp) => ({
+        skill: lp.skill || "Skill",
         why_needed: lp.why_important || "",
-        estimated_weeks: lp.resources?.reduce((sum, r) => {
-          const match = r.time_commitment?.match(/(\d+)\s*week/i);
-          return sum + (match ? parseInt(match[1]) : 1);
-        }, 0) || 4,
-        courses: (lp.resources || []).map(r => ({
-          title: r.title,
-          platform: r.platform,
-          duration_weeks: r.time_commitment || "Self-paced",
-          url_search: r.title + " " + r.platform,
+        resources: (lp.resources || []).map((r) => ({
+          title: r.title || "",
+          platform: r.platform || "",
+          // Only treat r.url as a real link if it parses as http/https. Otherwise
+          // fall back to an explicit Google search so the user knows it's an
+          // unverified search, not a course URL we can vouch for.
+          url: typeof r.url === "string" && /^https?:\/\//.test(r.url) ? r.url : null,
+          time_commitment: r.time_commitment || "Self-paced",
+          type: r.type || "course",
         })),
         capstone_project: lp.capstone_project || null,
-        optional_certification: null,
       }));
 
-      setCourses(paths.length > 0 ? paths : null);
-      setTotalWeeks(paths.reduce((sum, p) => sum + (p.estimated_weeks || 0), 0));
+      setPaths(mapped.length > 0 ? mapped : null);
     } catch (error) {
       console.error("Failed to generate learning path:", error);
     } finally {
       setLoading(false);
     }
-  };
-
-  const priorityColors = {
-    high: "bg-red-50 border-red-200 text-red-800",
-    medium: "bg-amber-50 border-amber-200 text-amber-800",
-    low: "bg-blue-50 border-blue-200 text-blue-800"
   };
 
   return (
@@ -80,14 +79,14 @@ export default function LearningPaths({ skillGaps, targetRole }) {
             </>
           ) : (
             <>
-              {courses ? <RefreshCw className="w-4 h-4 mr-2" /> : <BookOpen className="w-4 h-4 mr-2" />}
-              {courses ? "Refresh" : "Generate Path"}
+              {paths ? <RefreshCw className="w-4 h-4 mr-2" /> : <BookOpen className="w-4 h-4 mr-2" />}
+              {paths ? "Refresh" : "Generate Path"}
             </>
           )}
         </Button>
       </div>
 
-      {!courses && !loading && (
+      {!paths && !loading && (
         <Card className="border-[#E5E5E5]">
           <CardContent className="pt-6 text-center text-sm text-[#A3A3A3]">
             {!skillGaps || skillGaps.length === 0
@@ -97,109 +96,76 @@ export default function LearningPaths({ skillGaps, targetRole }) {
         </Card>
       )}
 
-      {courses && courses.length > 0 && (
+      {paths && paths.length > 0 && (
         <div className="space-y-4">
-          <div className="bg-[#F5F5F5] rounded-lg p-4 border border-[#E5E5E5]">
-            <p className="text-sm text-[#525252]">
-              <span className="font-semibold">Complete timeline:</span> {totalWeeks || courses.reduce((sum, p) => sum + (p.estimated_weeks || 0), 0) || "8-12"} weeks total
-            </p>
-          </div>
-
-          <div className="space-y-4">
-            {courses.map((pkg, index) => (
-              <Card key={index} className="border-[#E5E5E5]">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs font-bold px-2 py-1 rounded bg-[#0A0A0A] text-white">
-                          Package {index + 1}
-                        </span>
-                        <span className={`text-xs px-2 py-1 rounded-full border ${priorityColors[pkg.priority]}`}>
-                          {pkg.priority} priority
-                        </span>
-                      </div>
-                      <CardTitle className="text-base font-semibold text-[#0A0A0A]">
-                        {pkg.package_name}
-                      </CardTitle>
-                      <p className="text-xs text-[#A3A3A3] mt-2">{pkg.why_needed}</p>
+          {paths.map((pkg, index) => (
+            <Card key={index} className="border-[#E5E5E5]">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-semibold text-[#0A0A0A]">
+                  {pkg.skill}
+                </CardTitle>
+                {pkg.why_needed && (
+                  <p className="text-xs text-[#A3A3A3] mt-2">{pkg.why_needed}</p>
+                )}
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Resources */}
+                {pkg.resources && pkg.resources.length > 0 && (
+                  <div className="bg-[#EFF6FF] rounded-lg p-3 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <BookOpen className="w-4 h-4 text-[#2563EB]" />
+                      <span className="text-xs font-medium text-[#2563EB]">RESOURCE(S)</span>
                     </div>
-                    <div className="text-right text-xs text-[#525252] whitespace-nowrap">
-                      <span className="font-semibold">{pkg.estimated_weeks}</span> weeks
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Skills in package */}
-                  <div className="flex flex-wrap gap-2">
-                    {pkg.skills_in_package?.map((skill, idx) => (
-                      <span
-                        key={idx}
-                        className="text-xs px-2.5 py-1 bg-[#ECFDF5] text-[#059669] rounded-md border border-[#D1FAE5]"
-                      >
-                        {skill}
-                      </span>
-                    ))}
-                  </div>
-
-                  {/* Courses */}
-                  {pkg.courses && pkg.courses.length > 0 && (
-                    <div className="bg-[#EFF6FF] rounded-lg p-3 space-y-3">
-                      <div className="flex items-center gap-2">
-                        <BookOpen className="w-4 h-4 text-[#2563EB]" />
-                        <span className="text-xs font-medium text-[#2563EB]">CORE COURSE(S)</span>
-                      </div>
-                      <div className="space-y-2">
-                        {pkg.courses.map((course, idx) => (
-                          <div key={idx} className="space-y-1">
-                            <h4 className="font-medium text-sm text-[#0A0A0A]">{course.title}</h4>
-                            <div className="flex items-center gap-2 text-xs text-[#525252]">
-                              <span className="font-medium">{course.platform}</span>
-                              <span>•</span>
-                              <span>{course.duration_weeks} weeks</span>
-                            </div>
-                            {course.url_search && (
-                              <a
-                                href={`https://www.google.com/search?q=${encodeURIComponent(course.url_search)}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 text-xs text-[#2563EB] hover:underline"
-                              >
-                                Search <ExternalLink className="w-3 h-3" />
-                              </a>
-                            )}
+                    <div className="space-y-2">
+                      {pkg.resources.map((course, idx) => (
+                        <div key={idx} className="space-y-1">
+                          <h4 className="font-medium text-sm text-[#0A0A0A]">{course.title}</h4>
+                          <div className="flex items-center gap-2 text-xs text-[#525252]">
+                            {course.platform && <span className="font-medium">{course.platform}</span>}
+                            {course.platform && course.time_commitment && <span>•</span>}
+                            {course.time_commitment && <span>{course.time_commitment}</span>}
                           </div>
-                        ))}
-                      </div>
+                          {course.url ? (
+                            <a
+                              href={course.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-xs text-[#2563EB] hover:underline"
+                            >
+                              Open course <ExternalLink className="w-3 h-3" />
+                            </a>
+                          ) : (
+                            <a
+                              href={`https://www.google.com/search?q=${encodeURIComponent(`${course.title} ${course.platform}`)}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-xs text-[#525252] hover:underline"
+                            >
+                              Search Google for this course <ExternalLink className="w-3 h-3" />
+                            </a>
+                          )}
+                        </div>
+                      ))}
                     </div>
-                  )}
+                  </div>
+                )}
 
-                  {/* Capstone Project */}
-                  {pkg.capstone_project && (
-                    <div className="bg-[#FFFBEB] rounded-lg p-3 space-y-2">
-                      <span className="text-xs font-medium text-[#D97706]">CAPSTONE PROJECT</span>
-                      <h4 className="font-medium text-sm text-[#0A0A0A]">{pkg.capstone_project.title}</h4>
-                      <p className="text-xs text-[#525252]">{pkg.capstone_project.description}</p>
+                {/* Capstone Project */}
+                {pkg.capstone_project && (
+                  <div className="bg-[#FFFBEB] rounded-lg p-3 space-y-2">
+                    <span className="text-xs font-medium text-[#D97706]">CAPSTONE PROJECT</span>
+                    <h4 className="font-medium text-sm text-[#0A0A0A]">{pkg.capstone_project.title}</h4>
+                    <p className="text-xs text-[#525252]">{pkg.capstone_project.description}</p>
+                    {pkg.capstone_project.why_it_proves && (
                       <p className="text-xs text-[#D97706] font-medium">
                         Proves: {pkg.capstone_project.why_it_proves}
                       </p>
-                    </div>
-                  )}
-
-                  {/* Optional Certification */}
-                  {pkg.optional_certification && pkg.optional_certification.name && (
-                    <div className="bg-[#F5F5F5] rounded-lg p-3 space-y-1 border border-dashed border-[#D4D4D4]">
-                      <span className="text-xs font-medium text-[#525252]">OPTIONAL: Certification</span>
-                      <h4 className="font-medium text-sm text-[#0A0A0A]">{pkg.optional_certification.name}</h4>
-                      <p className="text-xs text-[#A3A3A3]">
-                        {pkg.optional_certification.issuer} • {pkg.optional_certification.value}
-                      </p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ))}
         </div>
       )}
     </div>
