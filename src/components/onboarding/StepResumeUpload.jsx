@@ -16,6 +16,28 @@ async function extractTextFromPdf(file) {
   return text;
 }
 
+// Extract plain text from a .docx file. mammoth supports modern Word
+// documents (.docx) but NOT legacy binary .doc — those need to be saved as
+// .docx or .pdf first. The default accept attribute on the file input was
+// updated to drop .doc.
+//
+// Dynamic import: mammoth + its dependencies (jszip, xmldom) add ~510 KB to
+// the bundle. Loading on demand keeps that off the initial Vite chunk for
+// the ~50% of users who upload PDF or skip CV entirely.
+async function extractTextFromDocx(file) {
+  const { default: mammoth } = await import("mammoth");
+  const arrayBuffer = await file.arrayBuffer();
+  const result = await mammoth.extractRawText({ arrayBuffer });
+  return result.value || "";
+}
+
+// Detect a .docx by either MIME or extension — some browsers (Safari,
+// older Chrome) leave file.type empty for Office formats.
+function isDocxFile(file) {
+  if (file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") return true;
+  return /\.docx$/i.test(file.name || "");
+}
+
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -146,10 +168,21 @@ export default function StepResumeUpload({ onNext, onExtracted, profileData, onC
       setUploading(false);
       setExtracting(true);
 
-      // Try to extract resume content via LLM
+      // Try to extract resume content via LLM. Branch by format:
+      //   .pdf  → pdfjs-dist (existing path)
+      //   .docx → mammoth (added for N-O37; previously fell through to
+      //           file.text() which read the binary as UTF-8 garbage)
+      //   legacy .doc → reject — mammoth doesn't support the old binary
+      //           format; user must save as .docx or .pdf
+      //   anything else → fall through to file.text() so plain-text uploads
+      //           still work the way they did before
       let fileText = "";
       if (file.type === "application/pdf") {
         fileText = await extractTextFromPdf(file);
+      } else if (isDocxFile(file)) {
+        fileText = await extractTextFromDocx(file);
+      } else if (file.type === "application/msword" || /\.doc$/i.test(file.name || "")) {
+        throw new Error("Legacy .doc files aren't supported. Please save your CV as .docx or .pdf and upload again.");
       } else {
         fileText = await file.text();
       }
@@ -387,7 +420,7 @@ Here is the resume:\n\n${fileText.slice(0, 15000)}`;
           ref={inputRef}
           type="file"
           className="hidden"
-          accept=".pdf,.doc,.docx"
+          accept=".pdf,.docx"
           onChange={(e) => handleFile(e.target.files[0])}
         />
 
@@ -398,7 +431,7 @@ Here is the resume:\n\n${fileText.slice(0, 15000)}`;
             </div>
             <div>
               <p className="text-sm font-medium text-[#0A0A0A]">Drop your CV here or click to browse</p>
-              <p className="text-xs text-[#A3A3A3] mt-1">PDF, DOC, DOCX supported</p>
+              <p className="text-xs text-[#A3A3A3] mt-1">PDF or DOCX supported</p>
             </div>
           </div>
         )}
