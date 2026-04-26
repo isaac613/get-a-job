@@ -263,38 +263,34 @@ Deno.serve(async (req) => {
     // 5. Global role-only fallback — guarantees at least something
     candidates.push({ query: roleTerm, label: 'role-only-global' })
 
-    // 2. Fetch live jobs. For Israel we use Techmap's Daily International Job
-    //    Postings API (best IL coverage by a large margin — sources include
-    //    alljobs.co.il which JSearch and the now-disabled Fantastic.Jobs
-    //    LinkedIn API both miss). For everyone else, JSearch is fine.
+    // 2. Fetch live jobs. For Israel we use Fantastic.Jobs Active Jobs DB
+    //    (real ATS sources: greenhouse, comeet, workday, lever — gives real
+    //    Israeli company names like Unframe, JFrog, Komodor with working
+    //    apply URLs). For everyone else, JSearch is fine.
     let liveJobs: any[] = []
     let usedQuery = ''
-    // Both keys are read defensively: trim whitespace/newlines that often
-    // come along on copy-paste, and reject any value containing non-ASCII
-    // bytes (smart quotes, em dashes, BOM) before we try to use it as an
-    // HTTP header. Without this guard, fetch() throws a cryptic
-    // "headers of RequestInit is not a valid ByteString" before the request
-    // ever leaves the function — observed on Techmap calls after a manual
-    // secret re-paste introduced a non-ASCII char into RAPIDAPI_KEY.
+    // Defensive read of RAPIDAPI_KEY: trim whitespace/newlines that often
+    // come along on copy-paste, strip surrounding quote chars (observed live:
+    // a paste with trailing ' made the value 51 chars and produced 403 "not
+    // subscribed" from RapidAPI), and reject any non-ASCII characters before
+    // we try to use it as an HTTP header. Without this guard, fetch() throws
+    // a cryptic "headers of RequestInit is not a valid ByteString" before
+    // the request ever leaves the function.
     const sanitizeKey = (v: string | undefined): string => {
-      // Strip whitespace + leading/trailing quote chars (', ", `) that often
-      // come along on copy-paste — observed live: a paste of the key with a
-      // trailing ' made the value 51 chars and produced 403 "not subscribed"
-      // from RapidAPI because the apostrophe got sent as part of the header.
       const s = (v || '').trim().replace(/^['"`]+|['"`]+$/g, '')
       return /^[\x21-\x7e]+$/.test(s) ? s : ''
     }
-    const jsearchKey = sanitizeKey(Deno.env.get('RAPIDAPI_KEY') || Deno.env.get('JSEARCH_API_KEY'))
-    const techmapKey = sanitizeKey(Deno.env.get('RAPIDAPI_KEY'))
-    if (!jsearchKey && Deno.env.get('RAPIDAPI_KEY')) {
-      console.warn('[job-suggestions] RAPIDAPI_KEY present but invalid (empty after trim, or contains non-ASCII characters). Job APIs disabled.')
+    const rapidapiKey = sanitizeKey(Deno.env.get('RAPIDAPI_KEY'))
+    const jsearchKey = rapidapiKey || sanitizeKey(Deno.env.get('JSEARCH_API_KEY'))
+    const activeJobsKey = rapidapiKey
+    if (!rapidapiKey && Deno.env.get('RAPIDAPI_KEY')) {
+      console.warn('[job-suggestions] RAPIDAPI_KEY present but invalid (empty after trim/quote-strip, or contains non-ASCII characters). Job APIs disabled.')
     }
     // Diagnostic fingerprint so we can confirm the secret matches the key
-    // intended without ever leaking the value. Compare against the value
-    // pasted into a probe with the same masking format. Drop this line once
-    // the API integration is stable.
+    // intended without ever leaking the value. Drop this line once the API
+    // integration is stable across a few sessions.
     const fingerprint = (k: string) => k ? `${k.slice(0, 8)}...${k.slice(-4)} len=${k.length}` : '(empty)'
-    console.log(`[JOBS] RAPIDAPI_KEY fingerprint: ${fingerprint(techmapKey)}`)
+    console.log(`[JOBS] RAPIDAPI_KEY fingerprint: ${fingerprint(rapidapiKey)}`)
 
     // JS3 fix — drop jobs whose apply URL isn't actionable. JSearch's global
     // remote tier returns real company info but anonymised "https://example.com/job/<id>"
@@ -350,101 +346,96 @@ Deno.serve(async (req) => {
       }
     }
 
-    // --- Techmap Daily International Job Postings (best for IL coverage) ---
-    // Same RAPIDAPI_KEY auth. Response wrapper is { result: [...] } with each
-    // job containing top-level summary fields plus a Schema.org-style jsonLD
-    // payload. Sources include alljobs.co.il, LinkedIn, indeed.com etc., so
-    // IL coverage is broad — a single-day "product manager" / countryCode=il
-    // probe returned 88 matches against zero from JSearch+LinkedIn.
-    const mapTechmapJob = (job: any) => {
-      const ld = job?.jsonLD || {}
-      const country = ld?.jobLocation?.address?.addressCountry
-      const city = job?.city || ld?.jobLocation?.address?.addressLocality
-      const location = [city, country].filter(Boolean).join(', ')
+    // --- Fantastic.Jobs Active Jobs DB (best for IL coverage) ---
+    // Real ATS sources: greenhouse, comeet, workday, lever — gives real
+    // company names like Unframe, JFrog, Komodor with working apply URLs
+    // straight to the employer's career site. A probe for "product manager"
+    // location_filter="Israel" returned 20 distinct IL tech employers
+    // against Techmap's mostly-anonymized 90% alljobs_il response.
+    //
+    // Response shape: flat array (no wrapper). Field names mirror the older
+    // Fantastic.Jobs LinkedIn API since both are from the same vendor:
+    // organization, locations_derived[], url, description_text, etc.
+    const mapActiveJobsDb = (job: any) => {
+      const loc = Array.isArray(job?.locations_derived) && job.locations_derived.length
+        ? job.locations_derived[0]
+        : (Array.isArray(job?.cities_derived) && job.cities_derived.length ? job.cities_derived[0] : '')
       return {
-        id: String(ld?.identifier || job?.title || ''),
-        title: job?.title || ld?.title || '',
-        company: job?.company || ld?.hiringOrganization?.name || '',
-        description: ld?.description || '',
-        location,
-        job_url: ld?.url || '',
-        salary_min: ld?.baseSalary?.minValue ?? null,
-        salary_max: ld?.baseSalary?.maxValue ?? null,
-        is_remote: Array.isArray(job?.workPlace) && job.workPlace.includes('Remote'),
-        seniority: Array.isArray(job?.careerLevel) ? job.careerLevel[0] : null,
-        date_posted: ld?.datePosted || job?.dateCreated || null,
-        source: job?.portal || 'techmap',
+        id: String(job?.id ?? ''),
+        title: job?.title || '',
+        company: job?.organization || '',
+        description: job?.description_text || '',
+        location: loc,
+        job_url: job?.url || '',
+        salary_min: job?.salary_raw?.value?.minValue ?? null,
+        salary_max: job?.salary_raw?.value?.maxValue ?? null,
+        is_remote: Boolean(job?.remote_derived),
+        seniority: null,
+        date_posted: job?.date_posted || null,
+        source: job?.source || 'active-jobs-db',
       }
     }
 
-    // dateCreated is REQUIRED by Techmap. We query the past 7 days as a single
-    // window using YYYY-MM (month) format — gives much better recall than a
-    // single day, and is well within the API's supported syntax. The free tier
-    // is 100 req/month so we keep this to one call per cascade level.
-    const fetchTechmapJobs = async (title: string, country: string, city?: string): Promise<any[]> => {
-      if (!techmapKey) return []
-      const dateCreated = new Date().toISOString().slice(0, 7) // YYYY-MM
-      const params = new URLSearchParams({
-        dateCreated,
-        page: '1',
-        countryCode: country.toLowerCase(),
+    const fetchActiveJobsDb = async (titleFilter: string, locationFilter: string): Promise<any[]> => {
+      if (!activeJobsKey) return []
+      const qs = new URLSearchParams({
+        limit: '10',
+        offset: '0',
+        title_filter: `"${titleFilter}"`,
+        location_filter: `"${locationFilter}"`,
+        description_type: 'text',
       })
-      // Join multi-word titles with literal "+" — Techmap parses that as one
-      // phrase token (verified against the live API: "product+manager"
-      // returned 88 IL hits). The earlier "+token1 +token2 +token3" form was
-      // wrong: Techmap split on whitespace into three separate match clauses,
-      // each requiring an exact word, so a "Product Manager" job didn't match
-      // an "Associate Product Manager" search and recall collapsed to zero.
-      if (title) params.set('title', title.trim().split(/\s+/).join('+'))
-      if (city) params.set('city', city)
-      const url = `https://daily-international-job-postings.p.rapidapi.com/api/v2/jobs/search?${params}`
+      const url = `https://active-jobs-db.p.rapidapi.com/active-ats-7d?${qs.toString()}`
       try {
         const res = await fetch(url, {
           headers: {
-            'x-rapidapi-host': 'daily-international-job-postings.p.rapidapi.com',
-            'x-rapidapi-key': techmapKey,
+            'x-rapidapi-host': 'active-jobs-db.p.rapidapi.com',
+            'x-rapidapi-key': activeJobsKey,
           },
           signal: AbortSignal.timeout(12000),
         })
         if (!res.ok) {
-          console.warn(`[job-suggestions] techmap ${res.status} for title="${title}" country="${country}" city="${city ?? '-'}"`)
+          console.warn(`[job-suggestions] active-jobs-db ${res.status} for title="${titleFilter}" loc="${locationFilter}"`)
           return []
         }
         const data = await res.json()
-        return Array.isArray(data?.result) ? data.result : []
+        return Array.isArray(data) ? data : []
       } catch (err) {
-        console.error(`[job-suggestions] techmap fetch error:`, (err as Error).message)
+        console.error(`[job-suggestions] active-jobs-db fetch error:`, (err as Error).message)
         return []
       }
     }
 
-    // --- Cascade: Techmap for IL first (city → country), then JSearch global fallback ---
+    // --- Cascade: Active Jobs DB for IL (city → country), then JSearch global fallback ---
     if (countryCode === 'il') {
-      const tmRoleTerm = canonicalizeRoleTitle(roleTerm)
-      console.log("[JOBS] Entering Techmap cascade, metro:", locHub, "apiKey present:", !!techmapKey, "roleTerm:", roleTerm, "canonicalised:", tmRoleTerm);
-      // A. Techmap: city (Tel Aviv) — best local match
+      // title_filter is a strict phrase match — canonicalise typos via the
+      // role library so "Product managment" becomes "Product Manager" and
+      // actually returns hits.
+      const ajRoleTerm = canonicalizeRoleTitle(roleTerm)
+      console.log("[JOBS] Entering Active Jobs DB cascade, metro:", locHub, "apiKey present:", !!activeJobsKey, "roleTerm:", roleTerm, "canonicalised:", ajRoleTerm);
+      // A. city (Tel Aviv) — best local match
       if (locHub) {
-        const jobs = await fetchTechmapJobs(tmRoleTerm, 'il', locHub)
-        const mapped = jobs.map(mapTechmapJob).filter(j => isUsableJobUrl(j.job_url))
-        console.log(`[job-suggestions] techmap city title="${tmRoleTerm}" city="${locHub}" → ${jobs.length} (${mapped.length} usable)`)
+        const jobs = await fetchActiveJobsDb(ajRoleTerm, locHub)
+        const mapped = jobs.map(mapActiveJobsDb).filter(j => isUsableJobUrl(j.job_url))
+        console.log(`[job-suggestions] active-jobs-db city title="${ajRoleTerm}" loc="${locHub}" → ${jobs.length} (${mapped.length} usable)`)
         if (mapped.length > 0) {
           liveJobs = mapped.slice(0, 10)
-          usedQuery = 'techmap-city'
+          usedQuery = 'active-jobs-db-city'
         }
       }
-      // B. Techmap: broader Israel query if city came back empty
+      // B. broader Israel query if city came back empty
       if (liveJobs.length === 0) {
-        const jobs = await fetchTechmapJobs(tmRoleTerm, 'il')
-        const mapped = jobs.map(mapTechmapJob).filter(j => isUsableJobUrl(j.job_url))
-        console.log(`[job-suggestions] techmap country title="${tmRoleTerm}" country="il" → ${jobs.length} (${mapped.length} usable)`)
+        const jobs = await fetchActiveJobsDb(ajRoleTerm, 'Israel')
+        const mapped = jobs.map(mapActiveJobsDb).filter(j => isUsableJobUrl(j.job_url))
+        console.log(`[job-suggestions] active-jobs-db country title="${ajRoleTerm}" loc="Israel" → ${jobs.length} (${mapped.length} usable)`)
         if (mapped.length > 0) {
           liveJobs = mapped.slice(0, 10)
-          usedQuery = 'techmap-israel'
+          usedQuery = 'active-jobs-db-israel'
         }
       }
     }
 
-    // Non-IL countries (or IL with no LinkedIn hits) — JSearch cascade
+    // Non-IL countries (or IL with no Active Jobs DB hits) — JSearch cascade
     if (liveJobs.length === 0 && jsearchKey) {
       for (const c of candidates) {
         const jobs = await fetchJSearch(c.query, c.country)
