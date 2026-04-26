@@ -61,6 +61,26 @@ SCOPE RULES:
 - Use this rejection message verbatim: "That's outside what I can help with here. I'm focused on your career — ask me about job searching, interviews, skills, or your CV and I'll be straight onto it."
 - DO NOT reject career-adjacent questions even if they are better suited to a different specialist agent. For those, give a brief helpful answer and use the AGENT REDIRECT block to suggest the right agent.`
 
+const NO_FABRICATION_GUARD = `
+
+NO FABRICATION RULES:
+You must not invent specific facts that sound authoritative but cannot be sourced. This is a hard rule — violating it makes the product less trustworthy than not answering.
+
+Specifically forbidden:
+- Invented statistics about hiring, recruiting, or career outcomes (e.g. "95% of recruiters", "30% better callback rate", "75% of CVs are rejected by ATS"). If you don't have a real source in context, do not write a number.
+- Invented studies, surveys, or research citations (e.g. "a Harvard study shows…", "according to LinkedIn data…"). Do not name research that you cannot verify.
+- Invented company-specific interview practices (e.g. "Google asks system design questions in round 3"). Do not claim specific knowledge of any company's process unless the user pasted it in.
+- Invented salary ranges, time-to-hire, or interview pass rates.
+- Invented user outcomes ("this approach typically increases offers by 40%").
+
+Allowed:
+- Cite the user's own profile data, applications, and skills exactly as shown in your context.
+- Cite any job description, article, or source the user pasted into the conversation.
+- Use qualitative language ("recruiters generally favour quantified achievements", "ATS systems often filter on keyword match") — without numbers.
+- Say "I don't have data on that" or "I'd be guessing" when asked something you don't know.
+
+When in doubt, drop the number. A confident qualitative statement beats a fake quantitative one every time.`
+
 const TASK_SUGGESTION_RULES = `
 
 TASK SUGGESTIONS:
@@ -466,15 +486,15 @@ Deno.serve(async (req) => {
     if (agent === 'resume-extractor') {
       systemPrompt = basePrompt + userContext
     } else if (agent === 'career_agent') {
-      systemPrompt = basePrompt + TASK_SUGGESTION_RULES + ROADMAP_CHANGE_RULES + APPLICATION_ACTIONS_RULES + CAREER_AGENT_REDIRECT_RULES + SCOPE_GUARD + userContext
+      systemPrompt = basePrompt + TASK_SUGGESTION_RULES + ROADMAP_CHANGE_RULES + APPLICATION_ACTIONS_RULES + CAREER_AGENT_REDIRECT_RULES + SCOPE_GUARD + NO_FABRICATION_GUARD + userContext
     } else if (agent === 'interview_coach') {
-      systemPrompt = basePrompt + TASK_SUGGESTION_RULES + INTERVIEW_COACH_REDIRECT_RULES + SCOPE_GUARD + userContext
+      systemPrompt = basePrompt + TASK_SUGGESTION_RULES + INTERVIEW_COACH_REDIRECT_RULES + SCOPE_GUARD + NO_FABRICATION_GUARD + userContext
     } else if (agent === 'skill_development_agent') {
-      systemPrompt = basePrompt + TASK_SUGGESTION_RULES + SKILL_DEV_REDIRECT_RULES + SCOPE_GUARD + userContext
+      systemPrompt = basePrompt + TASK_SUGGESTION_RULES + SKILL_DEV_REDIRECT_RULES + SCOPE_GUARD + NO_FABRICATION_GUARD + userContext
     } else if (agent === 'application_cv_success_agent' || agent === 'cv-helper') {
-      systemPrompt = basePrompt + CV_GENERATION_RULES + TASK_SUGGESTION_RULES + CV_AGENT_REDIRECT_RULES + SCOPE_GUARD + userContext
+      systemPrompt = basePrompt + CV_GENERATION_RULES + TASK_SUGGESTION_RULES + CV_AGENT_REDIRECT_RULES + SCOPE_GUARD + NO_FABRICATION_GUARD + userContext
     } else {
-      systemPrompt = basePrompt + SCOPE_GUARD + userContext
+      systemPrompt = basePrompt + SCOPE_GUARD + NO_FABRICATION_GUARD + userContext
     }
 
     const messages = [
