@@ -400,6 +400,44 @@ function totalYearsOfExperience(experiences: any[]): number {
   return total;
 }
 
+// Resolve role families the user has direct experience in by exact-matching
+// experience titles against library role titles. Output is unioned with the
+// primary_domain-derived families to form userHomeFamilies for the
+// family-experience penalty.
+//
+// Intentionally conservative: exact normalised match only (the same Pass 1
+// matcher resolveGoalRoleId uses). No fuzzy/token-set fallback — a false
+// positive here grants the user an entire family of penalty-free roles, so
+// we'd rather miss a match than mis-credit. "Senior Product Manager" won't
+// match "Product Manager" — accepted trade-off; the penalty merely stays at
+// its pre-fix level for those rows.
+//
+// Filters by CAREER_COUNTABLE_TYPES (full_time | internship | freelance) so
+// volunteering / academic_project rows don't grant family credit. Aligns with
+// totalYearsOfExperience for consistency.
+function rolesFamiliesFromExperiences(experiences: any[]): Set<string> {
+  const families = new Set<string>();
+  for (const exp of experiences || []) {
+    const t = reinferType(exp);
+    if (!CAREER_COUNTABLE_TYPES.has(t)) continue;
+    const norm = String(exp.title || "")
+      .toLowerCase()
+      .replace(/[\s_\-]+/g, " ")
+      .trim();
+    if (!norm) continue;
+    for (const r of allRoles) {
+      const titles = [r.standardized_title, ...(r.alternate_titles || [])]
+        .filter(Boolean)
+        .map((s: string) => String(s).toLowerCase().replace(/[\s_\-]+/g, " ").trim());
+      if (titles.some((s: string) => s === norm)) {
+        if (r.role_family) families.add(r.role_family);
+        break;
+      }
+    }
+  }
+  return families;
+}
+
 // Heuristic for student detection on the profile row. Education level values
 // we've seen in the wild: "high_school", "bachelors", "masters", "phd",
 // "bootcamp", "self_taught". Undergrad in progress is usually stored as
@@ -745,9 +783,10 @@ Deno.serve(async (req) => {
     // onboarding). Used for the family-experience penalty so candidate roles
     // that are a total domain jump (e.g. CS → Product) don't inherit full
     // skill-fit credit just from generic skill overlap.
-    const userHomeFamilies = new Set<string>(
-      PRIMARY_DOMAIN_TO_FAMILIES[String(profile.primary_domain ?? "").toLowerCase()] || []
-    );
+    const userHomeFamilies = new Set<string>([
+      ...(PRIMARY_DOMAIN_TO_FAMILIES[String(profile.primary_domain ?? "").toLowerCase()] || []),
+      ...rolesFamiliesFromExperiences(experiences || []),
+    ]);
 
     // 1d. Score all roles (with goal alignment), filtered by experience-level cap.
     //   - early_career  → excludes Lead/Director/VP (ranks 4–6)
