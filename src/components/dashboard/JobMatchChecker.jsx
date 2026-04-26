@@ -158,7 +158,16 @@ export default function JobMatchChecker() {
           <textarea
             value={jobText}
             onChange={(e) => setJobText(e.target.value)}
-            placeholder="Paste the full job description here..."
+            onKeyDown={(e) => {
+              // Enter submits, Shift+Enter inserts a newline. Pasting a
+              // multi-line JD doesn't fire Enter, so the common flow (paste +
+              // Analyse) works either way.
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleCheck();
+              }
+            }}
+            placeholder="Paste the full job description here... (Enter to analyse, Shift+Enter for newline)"
             className="w-full text-sm border border-[#E5E5E5] rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-[#0A0A0A] min-h-[100px] text-[#0A0A0A] placeholder:text-[#A3A3A3]"
             rows={4}
           />

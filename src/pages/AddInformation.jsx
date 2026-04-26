@@ -261,6 +261,7 @@ export default function AddInformation() {
     }
     setCertForm({ name: "", issuer: "" });
     queryClient.invalidateQueries({ queryKey: ["certifications"] });
+    toast.success("Certification added.");
   };
 
   const addProject = async () => {
@@ -273,6 +274,7 @@ export default function AddInformation() {
     }
     setProjectForm({ name: "", description: "", skills_demonstrated: [], url: "" });
     queryClient.invalidateQueries({ queryKey: ["projects"] });
+    toast.success("Project added.");
   };
 
   const resetExpForm = () => setExpForm({
@@ -299,8 +301,10 @@ export default function AddInformation() {
       toast.error(`Failed to ${id ? "update" : "add"} experience: ${error.message}`);
       return;
     }
+    const wasEdit = Boolean(id);
     resetExpForm();
     queryClient.invalidateQueries({ queryKey: ["experiences"] });
+    toast.success(wasEdit ? "Experience updated." : "Experience added.");
   };
 
   const isLoading = loadingProfile || loadingCerts || loadingProjects || loadingExp;
@@ -538,7 +542,7 @@ export default function AddInformation() {
                       <p className="text-sm font-medium text-[#0A0A0A]">{c.name}</p>
                       <p className="text-xs text-[#A3A3A3]">{c.issuer}</p>
                     </div>
-                    <Button variant="ghost" size="sm" onClick={async () => { const { error } = await supabase.from("certifications").delete().eq("id", c.id).eq("user_id", user.id); if (error) { toast.error("Failed to delete certification."); return; } queryClient.invalidateQueries({ queryKey: ["certifications"] }); }}>
+                    <Button variant="ghost" size="sm" onClick={async () => { const { error } = await supabase.from("certifications").delete().eq("id", c.id).eq("user_id", user.id); if (error) { toast.error("Failed to delete certification."); return; } queryClient.invalidateQueries({ queryKey: ["certifications"] }); toast.success("Certification removed."); }}>
                       <Trash2 className="w-4 h-4 text-[#A3A3A3] hover:text-red-500" />
                     </Button>
                   </div>
@@ -579,7 +583,7 @@ export default function AddInformation() {
                       <p className="text-sm font-medium text-[#0A0A0A]">{p.name}</p>
                       <p className="text-xs text-[#A3A3A3]">{p.description?.substring(0, 60)}{p.description?.length > 60 ? "..." : ""}</p>
                     </div>
-                    <Button variant="ghost" size="sm" onClick={async () => { const { error } = await supabase.from("projects").delete().eq("id", p.id).eq("user_id", user.id); if (error) { toast.error("Failed to delete project."); return; } queryClient.invalidateQueries({ queryKey: ["projects"] }); }}>
+                    <Button variant="ghost" size="sm" onClick={async () => { const { error } = await supabase.from("projects").delete().eq("id", p.id).eq("user_id", user.id); if (error) { toast.error("Failed to delete project."); return; } queryClient.invalidateQueries({ queryKey: ["projects"] }); toast.success("Project removed."); }}>
                       <Trash2 className="w-4 h-4 text-[#A3A3A3] hover:text-red-500" />
                     </Button>
                   </div>
@@ -685,7 +689,7 @@ export default function AddInformation() {
                       >
                         Edit
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={async () => { const { error } = await supabase.from("experiences").delete().eq("id", e.id).eq("user_id", user.id); if (error) { toast.error("Failed to delete experience."); return; } queryClient.invalidateQueries({ queryKey: ["experiences"] }); if (expForm.id === e.id) resetExpForm(); }}>
+                      <Button variant="ghost" size="sm" onClick={async () => { const { error } = await supabase.from("experiences").delete().eq("id", e.id).eq("user_id", user.id); if (error) { toast.error("Failed to delete experience."); return; } queryClient.invalidateQueries({ queryKey: ["experiences"] }); if (expForm.id === e.id) resetExpForm(); toast.success("Experience removed."); }}>
                         <Trash2 className="w-4 h-4 text-[#A3A3A3] hover:text-red-500" />
                       </Button>
                     </div>
