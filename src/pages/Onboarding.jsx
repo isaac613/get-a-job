@@ -81,24 +81,7 @@ export default function Onboarding() {
     if (!existingProfileId) return;
     if (saving || finalising || generatingRoles) return;
     const handle = setTimeout(() => {
-      // Merge skill categories into the bare `skills` field so auto-save
-      // doesn't clobber what saveProgress / handleSurveyNext / handleFinalise
-      // already wrote. StepSkills writes to category arrays only; without this
-      // merge the post-Continue auto-save writes profileData.skills (stale)
-      // and overwrites the freshly-merged set.
-      const mergedSkills = [
-        ...(profileData.hard_skills || []),
-        ...(profileData.tools_software || []),
-        ...(profileData.technical_skills || []),
-        ...(profileData.analytical_skills || []),
-        ...(profileData.communication_skills || []),
-        ...(profileData.leadership_skills || []),
-        ...(profileData.skills || []),
-      ];
-      const payload = cleanProfilePayload({
-        ...profileData,
-        skills: [...new Set(mergedSkills)],
-      });
+      const payload = cleanProfilePayload({ ...profileData });
       // saveProgress is the single source of truth for onboarding_step;
       // letting the debounced auto-save write it too would clobber a newly
       // advanced step with whatever profileData was hydrated with on mount.
@@ -193,13 +176,9 @@ export default function Onboarding() {
       education_dates: extracted.education_dates || prev.education_dates,
       secondary_education: extracted.secondary_education || prev.secondary_education,
       languages: extracted.languages || prev.languages || [],
+      // Single flat skills array — categories dropped in Bug 3 fix. The
+      // extractor returns one combined list; StepSkills writes here too.
       skills: extracted.skills || prev.skills || [],
-      tools_software: extracted.tools_software?.length ? extracted.tools_software : prev.tools_software || [],
-      hard_skills: extracted.hard_skills?.length ? extracted.hard_skills : (extracted.skills || prev.hard_skills || []),
-      technical_skills: extracted.technical_skills?.length ? extracted.technical_skills : prev.technical_skills || [],
-      analytical_skills: extracted.analytical_skills?.length ? extracted.analytical_skills : prev.analytical_skills || [],
-      communication_skills: extracted.communication_skills?.length ? extracted.communication_skills : prev.communication_skills || [],
-      leadership_skills: extracted.leadership_skills?.length ? extracted.leadership_skills : prev.leadership_skills || [],
       volunteering: extracted.volunteering || prev.volunteering || [],
       proof_signals: extracted.proof_signals?.length ? extracted.proof_signals : prev.proof_signals || [],
       primary_domain: extracted.primary_domain || prev.primary_domain || null,
@@ -236,21 +215,12 @@ export default function Onboarding() {
   };
 
   const saveProgress = async (stepNum) => {
-    // Merge all skill-category arrays into the `skills` field so they're
-    // preserved in the DB if the user abandons and returns mid-onboarding.
-    const mergedSkills = [
-      ...(profileData.hard_skills || []),
-      ...(profileData.tools_software || []),
-      ...(profileData.technical_skills || []),
-      ...(profileData.analytical_skills || []),
-      ...(profileData.communication_skills || []),
-      ...(profileData.leadership_skills || []),
-      ...(profileData.skills || []),
-    ];
+    // skills is a single flat array now (Bug 3 fix dropped categories).
+    // Dedupe to guard against accidental duplicate adds in the UI.
     const rawPayload = {
       ...profileData,
       onboarding_step: stepNum,
-      skills: [...new Set(mergedSkills)],
+      skills: [...new Set(profileData.skills || [])],
     };
     const payload = cleanProfilePayload(rawPayload);
     
@@ -294,20 +264,13 @@ export default function Onboarding() {
     setGeneratingRoles(true);
 
     try {
-      // Persist step 7 + merged skills to DB before the career analysis reads them
+      // Persist step 7 to DB before the career analysis reads the row.
+      // skills is already a single flat array (Bug 3 fix dropped categories);
+      // no merge needed.
       if (existingProfileId) {
-        const mergedSkillsForAnalysis = [
-          ...(profileData.hard_skills || []),
-          ...(profileData.tools_software || []),
-          ...(profileData.technical_skills || []),
-          ...(profileData.analytical_skills || []),
-          ...(profileData.communication_skills || []),
-          ...(profileData.leadership_skills || []),
-          ...(profileData.skills || []),
-        ];
         await supabase.from("profiles").update({
           onboarding_step: 7,
-          skills: [...new Set(mergedSkillsForAnalysis)],
+          skills: [...new Set(profileData.skills || [])],
         }).eq("id", existingProfileId);
       }
 
@@ -482,15 +445,9 @@ export default function Onboarding() {
     if (finalising) return;
     setFinalising(true);
 
-    const allSkills = [
-      ...(profileData.hard_skills || []),
-      ...(profileData.tools_software || []),
-      ...(profileData.technical_skills || []),
-      ...(profileData.analytical_skills || []),
-      ...(profileData.communication_skills || []),
-      ...(profileData.leadership_skills || []),
-      ...(profileData.skills || []),
-    ];
+    // skills is now a single flat array (Bug 3 fix dropped categories).
+    // Dedupe before the final write.
+    const allSkills = [...new Set(profileData.skills || [])];
 
     let targetProfileId = existingProfileId;
 
@@ -658,7 +615,7 @@ export default function Onboarding() {
     // Mark onboarding complete
     const finalRawPayload = {
       ...profileData,
-      skills: [...new Set(allSkills)],
+      skills: allSkills,
       onboarding_complete: true,
       onboarding_step: 8,
     };

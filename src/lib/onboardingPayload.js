@@ -26,12 +26,11 @@ export const EMPTY_PROFILE = {
   academic_projects: [],
   gpa: "",
   honors: [],
-  hard_skills: [],
-  tools_software: [],
-  technical_skills: [],
-  analytical_skills: [],
-  communication_skills: [],
-  leadership_skills: [],
+  // skills is the single flat array — categories were dropped (Bug 3 fix).
+  // The CV extractor and StepSkills both write directly here. The career
+  // analysis edge function reads only this field; categories never had a
+  // persistence target.
+  skills: [],
   five_year_role: "",
   target_job_titles: [],
   target_industries: [],

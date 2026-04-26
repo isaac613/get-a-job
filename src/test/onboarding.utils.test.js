@@ -54,17 +54,24 @@ describe('EMPTY_PROFILE', () => {
   });
 
   it('keeps React-only state buckets as arrays even though they have no DB column', () => {
-    // Six skill-category arrays + academic_projects + volunteering live
-    // in React state but NOT in the profiles table. They still need array
-    // defaults because the UI iterates them via .map / .includes.
-    expect(EMPTY_PROFILE.hard_skills).toEqual([]);
-    expect(EMPTY_PROFILE.tools_software).toEqual([]);
-    expect(EMPTY_PROFILE.technical_skills).toEqual([]);
-    expect(EMPTY_PROFILE.analytical_skills).toEqual([]);
-    expect(EMPTY_PROFILE.communication_skills).toEqual([]);
-    expect(EMPTY_PROFILE.leadership_skills).toEqual([]);
+    // academic_projects and volunteering live in React state but NOT in the
+    // profiles table. They still need array defaults because the UI may
+    // iterate them via .map / .includes. The six skill-category arrays
+    // (hard_skills, tools_software, technical_skills, analytical_skills,
+    // communication_skills, leadership_skills) were dropped in the Bug 3
+    // fix — there is now a single flat skills array.
     expect(EMPTY_PROFILE.academic_projects).toEqual([]);
     expect(EMPTY_PROFILE.volunteering).toEqual([]);
+    expect(EMPTY_PROFILE).not.toHaveProperty('hard_skills');
+    expect(EMPTY_PROFILE).not.toHaveProperty('tools_software');
+    expect(EMPTY_PROFILE).not.toHaveProperty('technical_skills');
+    expect(EMPTY_PROFILE).not.toHaveProperty('analytical_skills');
+    expect(EMPTY_PROFILE).not.toHaveProperty('communication_skills');
+    expect(EMPTY_PROFILE).not.toHaveProperty('leadership_skills');
+  });
+
+  it('initialises skills as a single flat array (Bug 3 categories drop)', () => {
+    expect(EMPTY_PROFILE.skills).toEqual([]);
   });
 });
 
@@ -140,29 +147,32 @@ describe('cleanProfilePayload', () => {
   });
 
   it('strips the React-only fields that have no profiles column', () => {
-    // These should never reach Postgres — saveProgress + auto-save call
-    // cleanProfilePayload to drop them. If any leak through, PostgREST
-    // returns a 400 ("column does not exist") and the row update fails.
+    // academic_projects and volunteering live in React state but have no
+    // DB column. cleanProfilePayload must NOT pass them to PostgREST or
+    // the row update fails with "column does not exist". The six former
+    // skill categories (hard_skills, tools_software, ...) were dropped
+    // entirely in the Bug 3 fix; this test still passes legacy values to
+    // confirm they're stripped if any old caller sends them.
     const result = cleanProfilePayload({
       ...EMPTY_PROFILE,
+      academic_projects: ['Capstone Thesis'],
+      volunteering: [{ title: 'Mentor' }],
       hard_skills: ['Excel'],
       tools_software: ['Figma'],
       technical_skills: ['React'],
       analytical_skills: ['Forecasting'],
       communication_skills: ['Public Speaking'],
       leadership_skills: ['Mentoring'],
-      academic_projects: ['Capstone Thesis'],
-      volunteering: [{ title: 'Mentor' }],
     });
 
+    expect(result).not.toHaveProperty('academic_projects');
+    expect(result).not.toHaveProperty('volunteering');
     expect(result).not.toHaveProperty('hard_skills');
     expect(result).not.toHaveProperty('tools_software');
     expect(result).not.toHaveProperty('technical_skills');
     expect(result).not.toHaveProperty('analytical_skills');
     expect(result).not.toHaveProperty('communication_skills');
     expect(result).not.toHaveProperty('leadership_skills');
-    expect(result).not.toHaveProperty('academic_projects');
-    expect(result).not.toHaveProperty('volunteering');
   });
 
   it('preserves array fields without coercing them to strings', () => {
