@@ -221,6 +221,7 @@ export default function Onboarding() {
     setProfileData((prev) => ({
       ...prev,
       full_name: extracted.full_name || prev.full_name,
+      phone_number: extracted.phone_number || prev.phone_number,
       location: extracted.location || prev.location,
       linkedin_url: extracted.linkedin_url || prev.linkedin_url,
       summary: extracted.summary || prev.summary,
