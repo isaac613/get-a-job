@@ -277,7 +277,11 @@ Deno.serve(async (req) => {
     // ever leaves the function — observed on Techmap calls after a manual
     // secret re-paste introduced a non-ASCII char into RAPIDAPI_KEY.
     const sanitizeKey = (v: string | undefined): string => {
-      const s = (v || '').trim()
+      // Strip whitespace + leading/trailing quote chars (', ", `) that often
+      // come along on copy-paste — observed live: a paste of the key with a
+      // trailing ' made the value 51 chars and produced 403 "not subscribed"
+      // from RapidAPI because the apostrophe got sent as part of the header.
+      const s = (v || '').trim().replace(/^['"`]+|['"`]+$/g, '')
       return /^[\x21-\x7e]+$/.test(s) ? s : ''
     }
     const jsearchKey = sanitizeKey(Deno.env.get('RAPIDAPI_KEY') || Deno.env.get('JSEARCH_API_KEY'))
@@ -285,6 +289,12 @@ Deno.serve(async (req) => {
     if (!jsearchKey && Deno.env.get('RAPIDAPI_KEY')) {
       console.warn('[job-suggestions] RAPIDAPI_KEY present but invalid (empty after trim, or contains non-ASCII characters). Job APIs disabled.')
     }
+    // Diagnostic fingerprint so we can confirm the secret matches the key
+    // intended without ever leaking the value. Compare against the value
+    // pasted into a probe with the same masking format. Drop this line once
+    // the API integration is stable.
+    const fingerprint = (k: string) => k ? `${k.slice(0, 8)}...${k.slice(-4)} len=${k.length}` : '(empty)'
+    console.log(`[JOBS] RAPIDAPI_KEY fingerprint: ${fingerprint(techmapKey)}`)
 
     // JS3 fix — drop jobs whose apply URL isn't actionable. JSearch's global
     // remote tier returns real company info but anonymised "https://example.com/job/<id>"
