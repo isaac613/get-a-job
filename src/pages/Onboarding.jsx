@@ -377,47 +377,80 @@ export default function Onboarding() {
         }).eq("id", existingProfileId);
       }
 
-      // Write experiences/projects/certs to DB so the career analysis can read them.
-      // handleFinalise's fetch-old-IDs pattern handles these existing records safely.
+      // Write experiences/projects/certs to DB so the career analysis can read
+      // them. Mirrors handleFinalise's snapshot → insert → delete-old pattern
+      // so a partial failure can't wipe the user's data: if any insert errors
+      // we roll back the inserts that did succeed and leave the existing rows
+      // intact. Worst case the analysis runs against the user's previous DB
+      // state instead of their newest edits — strictly better than empty.
       try {
-        await Promise.all([
-          supabase.from("experiences").delete().eq("user_id", user.id),
-          supabase.from("projects").delete().eq("user_id", user.id),
-          supabase.from("certifications").delete().eq("user_id", user.id),
+        const [existingExpRes, existingProjRes, existingCertRes] = await Promise.all([
+          supabase.from("experiences").select("id").eq("user_id", user.id),
+          supabase.from("projects").select("id").eq("user_id", user.id),
+          supabase.from("certifications").select("id").eq("user_id", user.id),
         ]);
-        if (experiences.length > 0) {
-          await supabase.from("experiences").insert(experiences.map((e) => ({
-            user_id: user.id,
-            title: e.title,
-            company: e.company,
-            type: e.type,
-            start_date: e.start_date,
-            end_date: e.end_date,
-            is_current: e.is_current,
-            responsibilities: e.responsibilities,
-            skills_used: e.skills_used,
-            tools_used: e.tools_used,
-            managed_people: e.managed_people ?? false,
-            cross_functional: e.cross_functional ?? false,
-          })));
+        const oldExpIds = existingExpRes.data?.map((r) => r.id) || [];
+        const oldProjIds = existingProjRes.data?.map((r) => r.id) || [];
+        const oldCertIds = existingCertRes.data?.map((r) => r.id) || [];
+
+        const insertedIds = { exp: [], proj: [], cert: [] };
+        try {
+          if (experiences.length > 0) {
+            const { data, error } = await supabase.from("experiences").insert(experiences.map((e) => ({
+              user_id: user.id,
+              title: e.title,
+              company: e.company,
+              type: e.type,
+              start_date: e.start_date,
+              end_date: e.end_date,
+              is_current: e.is_current,
+              responsibilities: e.responsibilities,
+              skills_used: e.skills_used,
+              tools_used: e.tools_used,
+              managed_people: e.managed_people ?? false,
+              cross_functional: e.cross_functional ?? false,
+            }))).select("id");
+            if (error) throw error;
+            insertedIds.exp = (data || []).map((r) => r.id);
+          }
+          if (projects.length > 0) {
+            const { data, error } = await supabase.from("projects").insert(projects.map((p) => ({
+              user_id: user.id,
+              name: p.name,
+              description: p.description,
+              url: p.url,
+              skills_demonstrated: p.skills_demonstrated || [],
+            }))).select("id");
+            if (error) throw error;
+            insertedIds.proj = (data || []).map((r) => r.id);
+          }
+          if (certifications.length > 0) {
+            const { data, error } = await supabase.from("certifications").insert(certifications.map((c) => ({
+              user_id: user.id,
+              name: c.name,
+              issuer: c.issuer,
+              date_earned: c.date_earned,
+            }))).select("id");
+            if (error) throw error;
+            insertedIds.cert = (data || []).map((r) => r.id);
+          }
+        } catch (insertErr) {
+          // Roll back partial inserts so the next attempt starts clean and
+          // existing rows stay untouched.
+          const rollbacks = [];
+          if (insertedIds.exp.length > 0) rollbacks.push(supabase.from("experiences").delete().in("id", insertedIds.exp));
+          if (insertedIds.proj.length > 0) rollbacks.push(supabase.from("projects").delete().in("id", insertedIds.proj));
+          if (insertedIds.cert.length > 0) rollbacks.push(supabase.from("certifications").delete().in("id", insertedIds.cert));
+          if (rollbacks.length > 0) await Promise.all(rollbacks);
+          throw insertErr;
         }
-        if (projects.length > 0) {
-          await supabase.from("projects").insert(projects.map((p) => ({
-            user_id: user.id,
-            name: p.name,
-            description: p.description,
-            url: p.url,
-            skills_demonstrated: p.skills_demonstrated || [],
-          })));
-        }
-        if (certifications.length > 0) {
-          await supabase.from("certifications").insert(certifications.map((c) => ({
-            user_id: user.id,
-            name: c.name,
-            issuer: c.issuer,
-            date_earned: c.date_earned,
-          })));
-        }
+
+        // All inserts succeeded — now safe to remove the previous rows by ID.
+        const deleteOps = [];
+        if (oldExpIds.length > 0) deleteOps.push(supabase.from("experiences").delete().in("id", oldExpIds));
+        if (oldProjIds.length > 0) deleteOps.push(supabase.from("projects").delete().in("id", oldProjIds));
+        if (oldCertIds.length > 0) deleteOps.push(supabase.from("certifications").delete().in("id", oldCertIds));
+        if (deleteOps.length > 0) await Promise.all(deleteOps);
       } catch (preAnalysisErr) {
         console.error("Pre-analysis data save failed (non-blocking):", preAnalysisErr);
       }
