@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { createPageUrl } from "@/utils";
 import { Loader2 } from "lucide-react";
+import { EMPTY_PROFILE, cleanProfilePayload } from "@/lib/onboardingPayload";
 
 import OnboardingShell from "../components/onboarding/OnboardingShell";
 import StepResumeUpload from "../components/onboarding/StepResumeUpload";
@@ -15,50 +16,6 @@ import StepCareerDirection from "../components/onboarding/StepCareerDirection";
 import StepConstraints from "../components/onboarding/StepConstraints";
 import StepSurvey from "../components/onboarding/StepSurvey";
 import StepTierReveal from "../components/onboarding/StepTierReveal";
-
-const EMPTY_PROFILE = {
-  full_name: "",
-  phone_number: "",
-  summary: "",
-  linkedin_url: "",
-  resume_url: "",
-  degree: "",
-  education_level: "",
-  field_of_study: "",
-  education_dates: "",
-  secondary_education: null,
-  languages: [],
-  relevant_coursework: [],
-  academic_projects: [],
-  gpa: "",
-  honors: [],
-  hard_skills: [],
-  tools_software: [],
-  technical_skills: [],
-  analytical_skills: [],
-  communication_skills: [],
-  leadership_skills: [],
-  five_year_role: "",
-  target_job_titles: [],
-  target_industries: [],
-  work_environment: [],
-  open_to_lateral: false,
-  open_to_outside_degree: false,
-  location: "",
-  work_type: [],
-  employment_status: [],
-  salary_expectation: "",
-  available_start_date: "",
-  biggest_challenge: [],
-  job_search_efforts: "",
-  role_clarity_score: null,
-  cv_tailoring_strategy: "",
-  linkedin_outreach_strategy: "",
-  volunteering: [],
-  proof_signals: [],
-  primary_domain: null,
-  adjacent_fields: [],
-};
 
 // DB chk_experiences_type allows only these values
 const ALLOWED_EXPERIENCE_TYPES = new Set([
@@ -276,39 +233,6 @@ export default function Onboarding() {
     if (extracted.certifications?.length > 0) {
       setCertifications(extracted.certifications);
     }
-  };
-
-  const cleanProfilePayload = (data) => {
-    // Only keep fields that actually exist in the ‘profiles’ DB table schema!
-    const {
-      full_name, phone_number, location, linkedin_url, summary, skills,
-      degree, field_of_study, education_level, gpa, honors, relevant_coursework, resume_url,
-      // Extended education fields populated from CV extraction (N-O22→26)
-      education_dates, secondary_education, languages,
-      onboarding_step, onboarding_complete,
-      skill_gaps, qualification_level, overall_assessment, last_reality_check_date,
-      five_year_role, proof_signals, primary_domain, adjacent_fields,
-      // Survey fields (StepSurvey)
-      biggest_challenge, cv_tailoring_strategy, linkedin_outreach_strategy,
-      role_clarity_score, job_search_efforts,
-      // Preference fields (StepCareerDirection + StepConstraints)
-      target_job_titles, target_industries, work_environment, work_type,
-      employment_status, salary_expectation, available_start_date,
-      open_to_lateral, open_to_outside_degree,
-    } = data;
-    return {
-      full_name, phone_number, location, linkedin_url, summary, skills,
-      degree, field_of_study, education_level, gpa, honors, relevant_coursework, resume_url,
-      education_dates, secondary_education, languages,
-      onboarding_step, onboarding_complete,
-      skill_gaps, qualification_level, overall_assessment, last_reality_check_date,
-      five_year_role, proof_signals, primary_domain, adjacent_fields,
-      biggest_challenge, cv_tailoring_strategy, linkedin_outreach_strategy,
-      role_clarity_score, job_search_efforts,
-      target_job_titles, target_industries, work_environment, work_type,
-      employment_status, salary_expectation, available_start_date,
-      open_to_lateral, open_to_outside_degree,
-    };
   };
 
   const saveProgress = async (stepNum) => {

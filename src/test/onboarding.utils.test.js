@@ -1,77 +1,247 @@
 import { describe, it, expect } from 'vitest';
+import { EMPTY_PROFILE, cleanProfilePayload } from '@/lib/onboardingPayload';
 
-// Replicate the cleanProfilePayload logic for testing
-function cleanProfilePayload(data) {
-  const {
-    full_name, phone_number, location, linkedin_url, summary, skills,
-    degree, field_of_study, education_level, gpa, honors, relevant_coursework, resume_url,
-    onboarding_step, onboarding_complete,
-    skill_gaps, qualification_level, overall_assessment, last_reality_check_date
-  } = data;
-  return {
-    full_name, phone_number, location, linkedin_url, summary, skills,
-    degree, field_of_study, education_level, gpa, honors, relevant_coursework, resume_url,
-    onboarding_step, onboarding_complete,
-    skill_gaps, qualification_level, overall_assessment, last_reality_check_date
-  };
-}
+// These tests now exercise the REAL cleanProfilePayload + EMPTY_PROFILE
+// from src/lib/onboardingPayload.js (extracted from Onboarding.jsx as part
+// of audit fix U1). The previous file held an inline stub copy that drifted
+// out of sync with the production whitelist over many sessions; tests passed
+// against the stub regardless of whether the real function regressed.
 
-describe('cleanProfilePayload', () => {
-  it('strips unknown fields not in the profiles table schema', () => {
-    const input = {
-      full_name: 'Isaac',
-      hard_skills: ['Excel'],
-      tools_software: ['Figma'],
-      five_year_role: 'CTO',
-      employment_status: ['employed'],
-    };
-    const result = cleanProfilePayload(input);
-    expect(result).not.toHaveProperty('hard_skills');
-    expect(result).not.toHaveProperty('tools_software');
-    expect(result).not.toHaveProperty('five_year_role');
-    expect(result).not.toHaveProperty('employment_status');
+describe('EMPTY_PROFILE', () => {
+  // Many DB columns are text[] / jsonb. Sending the wrong JS shape (e.g. ""
+  // for a text[] column) makes PostgREST reject the entire row update with
+  // "malformed array literal" — exactly the failure mode behind several
+  // session-13 audit findings (work_environment, work_type, employment_status,
+  // biggest_challenge, honors).
+  it('initialises every text[] DB column as an array', () => {
+    expect(EMPTY_PROFILE.employment_status).toEqual([]);
+    expect(EMPTY_PROFILE.biggest_challenge).toEqual([]);
+    expect(EMPTY_PROFILE.work_environment).toEqual([]);
+    expect(EMPTY_PROFILE.work_type).toEqual([]);
+    expect(EMPTY_PROFILE.honors).toEqual([]);
+    expect(EMPTY_PROFILE.target_job_titles).toEqual([]);
+    expect(EMPTY_PROFILE.target_industries).toEqual([]);
+    expect(EMPTY_PROFILE.relevant_coursework).toEqual([]);
   });
 
-  it('preserves all known profile fields', () => {
+  it('initialises jsonb columns with the correct default shape', () => {
+    // null is correct for an optional jsonb column (vs "" which would error)
+    expect(EMPTY_PROFILE.secondary_education).toBeNull();
+    // arrays are valid jsonb
+    expect(EMPTY_PROFILE.languages).toEqual([]);
+    expect(EMPTY_PROFILE.proof_signals).toEqual([]);
+    expect(EMPTY_PROFILE.adjacent_fields).toEqual([]);
+  });
+
+  it('initialises text columns as empty strings', () => {
+    expect(EMPTY_PROFILE.full_name).toBe('');
+    expect(EMPTY_PROFILE.phone_number).toBe('');
+    expect(EMPTY_PROFILE.location).toBe('');
+    expect(EMPTY_PROFILE.education_dates).toBe('');
+    expect(EMPTY_PROFILE.salary_expectation).toBe('');
+    expect(EMPTY_PROFILE.cv_tailoring_strategy).toBe('');
+    expect(EMPTY_PROFILE.linkedin_outreach_strategy).toBe('');
+  });
+
+  it('initialises boolean columns as false', () => {
+    expect(EMPTY_PROFILE.open_to_lateral).toBe(false);
+    expect(EMPTY_PROFILE.open_to_outside_degree).toBe(false);
+  });
+
+  it('initialises nullable scalar columns as null', () => {
+    expect(EMPTY_PROFILE.role_clarity_score).toBeNull();
+    expect(EMPTY_PROFILE.primary_domain).toBeNull();
+  });
+
+  it('keeps React-only state buckets as arrays even though they have no DB column', () => {
+    // Six skill-category arrays + academic_projects + volunteering live
+    // in React state but NOT in the profiles table. They still need array
+    // defaults because the UI iterates them via .map / .includes.
+    expect(EMPTY_PROFILE.hard_skills).toEqual([]);
+    expect(EMPTY_PROFILE.tools_software).toEqual([]);
+    expect(EMPTY_PROFILE.technical_skills).toEqual([]);
+    expect(EMPTY_PROFILE.analytical_skills).toEqual([]);
+    expect(EMPTY_PROFILE.communication_skills).toEqual([]);
+    expect(EMPTY_PROFILE.leadership_skills).toEqual([]);
+    expect(EMPTY_PROFILE.academic_projects).toEqual([]);
+    expect(EMPTY_PROFILE.volunteering).toEqual([]);
+  });
+});
+
+describe('cleanProfilePayload', () => {
+  // Build a fully-populated input using EMPTY_PROFILE + a few overrides so
+  // the test stays in lockstep with the schema. Adding a new field to
+  // EMPTY_PROFILE no longer silently passes — if it should be persisted the
+  // test below will catch the missing whitelist entry.
+  const buildFullInput = (overrides = {}) => ({
+    ...EMPTY_PROFILE,
+    full_name: 'Isaac',
+    five_year_role: 'CTO',
+    skills: ['React', 'TypeScript'],
+    onboarding_step: 4,
+    onboarding_complete: false,
+    ...overrides,
+  });
+
+  it('whitelists every column that maps to the profiles DB table', () => {
+    const result = cleanProfilePayload(buildFullInput());
+
+    // Identity + contact
+    expect(result).toHaveProperty('full_name');
+    expect(result).toHaveProperty('phone_number');
+    expect(result).toHaveProperty('location');
+    expect(result).toHaveProperty('linkedin_url');
+    expect(result).toHaveProperty('summary');
+
+    // Education core + extended (from N-O22→26)
+    expect(result).toHaveProperty('degree');
+    expect(result).toHaveProperty('field_of_study');
+    expect(result).toHaveProperty('education_level');
+    expect(result).toHaveProperty('gpa');
+    expect(result).toHaveProperty('honors');
+    expect(result).toHaveProperty('relevant_coursework');
+    expect(result).toHaveProperty('education_dates');
+    expect(result).toHaveProperty('secondary_education');
+    expect(result).toHaveProperty('languages');
+
+    // Combined skills + assessment
+    expect(result).toHaveProperty('skills');
+    expect(result).toHaveProperty('skill_gaps');
+    expect(result).toHaveProperty('qualification_level');
+    expect(result).toHaveProperty('overall_assessment');
+    expect(result).toHaveProperty('last_reality_check_date');
+    expect(result).toHaveProperty('proof_signals');
+    expect(result).toHaveProperty('primary_domain');
+    expect(result).toHaveProperty('adjacent_fields');
+
+    // Career direction
+    expect(result).toHaveProperty('five_year_role');
+    expect(result).toHaveProperty('target_job_titles');
+    expect(result).toHaveProperty('target_industries');
+    expect(result).toHaveProperty('work_environment');
+    expect(result).toHaveProperty('work_type');
+    expect(result).toHaveProperty('employment_status');
+    expect(result).toHaveProperty('salary_expectation');
+    expect(result).toHaveProperty('available_start_date');
+    expect(result).toHaveProperty('open_to_lateral');
+    expect(result).toHaveProperty('open_to_outside_degree');
+
+    // Survey
+    expect(result).toHaveProperty('biggest_challenge');
+    expect(result).toHaveProperty('cv_tailoring_strategy');
+    expect(result).toHaveProperty('linkedin_outreach_strategy');
+    expect(result).toHaveProperty('role_clarity_score');
+    expect(result).toHaveProperty('job_search_efforts');
+
+    // Onboarding flow control
+    expect(result).toHaveProperty('onboarding_step');
+    expect(result).toHaveProperty('onboarding_complete');
+    expect(result).toHaveProperty('resume_url');
+  });
+
+  it('strips the React-only fields that have no profiles column', () => {
+    // These should never reach Postgres — saveProgress + auto-save call
+    // cleanProfilePayload to drop them. If any leak through, PostgREST
+    // returns a 400 ("column does not exist") and the row update fails.
+    const result = cleanProfilePayload({
+      ...EMPTY_PROFILE,
+      hard_skills: ['Excel'],
+      tools_software: ['Figma'],
+      technical_skills: ['React'],
+      analytical_skills: ['Forecasting'],
+      communication_skills: ['Public Speaking'],
+      leadership_skills: ['Mentoring'],
+      academic_projects: ['Capstone Thesis'],
+      volunteering: [{ title: 'Mentor' }],
+    });
+
+    expect(result).not.toHaveProperty('hard_skills');
+    expect(result).not.toHaveProperty('tools_software');
+    expect(result).not.toHaveProperty('technical_skills');
+    expect(result).not.toHaveProperty('analytical_skills');
+    expect(result).not.toHaveProperty('communication_skills');
+    expect(result).not.toHaveProperty('leadership_skills');
+    expect(result).not.toHaveProperty('academic_projects');
+    expect(result).not.toHaveProperty('volunteering');
+  });
+
+  it('preserves array fields without coercing them to strings', () => {
+    // Regression guard: a previous workaround for the employment_status
+    // text-vs-text[] mismatch coerced array → comma-joined string at the
+    // payload boundary. After the proper text[] migration that workaround
+    // was removed; this test ensures arrays make it through untouched.
     const input = {
-      full_name: 'Isaac',
-      email: 'i@example.com',
-      phone_number: '07700000000',
-      location: 'London',
-      linkedin_url: 'https://linkedin.com/in/isaac',
-      summary: 'Software engineer',
-      skills: ['React', 'TypeScript'],
-      degree: 'BSc',
-      field_of_study: 'Computer Science',
-      education_level: 'bachelors',
-      gpa: '3.8',
-      honors: ['First Class'],
+      ...EMPTY_PROFILE,
+      employment_status: ['student', 'looking_for_job'],
+      biggest_challenge: ["I don't know which roles to target"],
+      target_job_titles: ['Product Manager', 'Data Analyst'],
+      target_industries: ['Fintech'],
+      work_environment: ['Startup', 'Hybrid'],
+      work_type: ['Remote'],
+      honors: ["Dean's List"],
+      languages: [{ language: 'English', proficiency: 'Native' }],
       relevant_coursework: ['Algorithms'],
-      resume_url: 'https://example.com/cv.pdf',
-      onboarding_step: 4,
-      onboarding_complete: false,
+      skills: ['React'],
       skill_gaps: ['Docker'],
-      qualification_level: 'Junior',
-      overall_assessment: 'Strong candidate',
-      last_reality_check_date: '2026-03-22',
     };
     const result = cleanProfilePayload(input);
-    expect(result.full_name).toBe('Isaac');
-    expect(result.skills).toEqual(['React', 'TypeScript']);
-    expect(result.onboarding_step).toBe(4);
-    expect(result.skill_gaps).toEqual(['Docker']);
+
+    expect(Array.isArray(result.employment_status)).toBe(true);
+    expect(result.employment_status).toEqual(['student', 'looking_for_job']);
+
+    expect(Array.isArray(result.biggest_challenge)).toBe(true);
+    expect(result.biggest_challenge).toEqual(["I don't know which roles to target"]);
+
+    expect(Array.isArray(result.target_job_titles)).toBe(true);
+    expect(Array.isArray(result.target_industries)).toBe(true);
+    expect(Array.isArray(result.work_environment)).toBe(true);
+    expect(Array.isArray(result.work_type)).toBe(true);
+    expect(Array.isArray(result.honors)).toBe(true);
+    expect(Array.isArray(result.languages)).toBe(true);
+    expect(Array.isArray(result.relevant_coursework)).toBe(true);
+    expect(Array.isArray(result.skills)).toBe(true);
+    expect(Array.isArray(result.skill_gaps)).toBe(true);
+  });
+
+  it('preserves jsonb object shapes (secondary_education)', () => {
+    const secondary = {
+      institution: 'Torah Academy of Bergen County',
+      dates: '2014 – 2018',
+      location: 'New Jersey, USA',
+      highlights: ['President of Israel Advocacy Club'],
+    };
+    const result = cleanProfilePayload({ ...EMPTY_PROFILE, secondary_education: secondary });
+    expect(result.secondary_education).toEqual(secondary);
+  });
+
+  it('preserves boolean and nullable scalar fields', () => {
+    const result = cleanProfilePayload({
+      ...EMPTY_PROFILE,
+      open_to_lateral: true,
+      open_to_outside_degree: true,
+      role_clarity_score: 4,
+      primary_domain: 'product',
+    });
+    expect(result.open_to_lateral).toBe(true);
+    expect(result.open_to_outside_degree).toBe(true);
+    expect(result.role_clarity_score).toBe(4);
+    expect(result.primary_domain).toBe('product');
   });
 
   it('does not mutate the input object', () => {
-    const input = { full_name: 'Isaac', hard_skills: ['Excel'] };
-    const original = { ...input };
+    const input = { ...EMPTY_PROFILE, full_name: 'Isaac', hard_skills: ['Excel'] };
+    const original = JSON.parse(JSON.stringify(input));
     cleanProfilePayload(input);
     expect(input).toEqual(original);
   });
 
-  it('returns undefined for fields not present in the input', () => {
+  it('returns undefined for fields not present in the input rather than dropping the key', () => {
+    // The fields are always present on the returned object (whitelist is
+    // explicit). Missing-from-input values come back as undefined, which the
+    // caller then strips with Object.keys(payload).forEach delete-undefined.
     const result = cleanProfilePayload({ full_name: 'Isaac' });
     expect(result.full_name).toBe('Isaac');
+    expect(result).toHaveProperty('phone_number');
     expect(result.phone_number).toBeUndefined();
   });
 });
