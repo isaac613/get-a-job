@@ -365,9 +365,13 @@ Deno.serve(async (req) => {
         page: '1',
         countryCode: country.toLowerCase(),
       })
-      // The "+" prefix in title makes each token a must-include term; this
-      // narrows results to genuine matches even on a broad month window.
-      if (title) params.set('title', title.trim().split(/\s+/).map(t => `+${t}`).join(' '))
+      // Join multi-word titles with literal "+" — Techmap parses that as one
+      // phrase token (verified against the live API: "product+manager"
+      // returned 88 IL hits). The earlier "+token1 +token2 +token3" form was
+      // wrong: Techmap split on whitespace into three separate match clauses,
+      // each requiring an exact word, so a "Product Manager" job didn't match
+      // an "Associate Product Manager" search and recall collapsed to zero.
+      if (title) params.set('title', title.trim().split(/\s+/).join('+'))
       if (city) params.set('city', city)
       const url = `https://daily-international-job-postings.p.rapidapi.com/api/v2/jobs/search?${params}`
       try {
