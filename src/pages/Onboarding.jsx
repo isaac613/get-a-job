@@ -121,7 +121,24 @@ export default function Onboarding() {
     if (!existingProfileId) return;
     if (saving || finalising || generatingRoles) return;
     const handle = setTimeout(() => {
-      const payload = cleanProfilePayload({ ...profileData });
+      // Merge skill categories into the bare `skills` field so auto-save
+      // doesn't clobber what saveProgress / handleSurveyNext / handleFinalise
+      // already wrote. StepSkills writes to category arrays only; without this
+      // merge the post-Continue auto-save writes profileData.skills (stale)
+      // and overwrites the freshly-merged set.
+      const mergedSkills = [
+        ...(profileData.hard_skills || []),
+        ...(profileData.tools_software || []),
+        ...(profileData.technical_skills || []),
+        ...(profileData.analytical_skills || []),
+        ...(profileData.communication_skills || []),
+        ...(profileData.leadership_skills || []),
+        ...(profileData.skills || []),
+      ];
+      const payload = cleanProfilePayload({
+        ...profileData,
+        skills: [...new Set(mergedSkills)],
+      });
       // saveProgress is the single source of truth for onboarding_step;
       // letting the debounced auto-save write it too would clobber a newly
       // advanced step with whatever profileData was hydrated with on mount.
