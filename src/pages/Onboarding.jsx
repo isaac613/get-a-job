@@ -43,7 +43,7 @@ const EMPTY_PROFILE = {
   open_to_outside_degree: false,
   location: "",
   work_type: [],
-  employment_status: "",
+  employment_status: [],
   salary_expectation: "",
   available_start_date: "",
   biggest_challenge: "",

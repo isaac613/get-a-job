@@ -650,7 +650,7 @@ Deno.serve(async (req) => {
       target_job_titles: (profile.target_job_titles || []).slice(0, 10).map((t: unknown) => trunc(t, 100)),
       target_industries: (profile.target_industries || []).slice(0, 10).map((i: unknown) => trunc(i, 100)),
       location: trunc(profile.location, 100),
-      employment_status: trunc(profile.employment_status, 50),
+      employment_status: (profile.employment_status || []).join(', ').slice(0, 100),
       open_to_lateral: profile.open_to_lateral ?? false,
       open_to_outside_degree: profile.open_to_outside_degree ?? false,
     };

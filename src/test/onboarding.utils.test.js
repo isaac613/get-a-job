@@ -23,7 +23,7 @@ describe('cleanProfilePayload', () => {
       hard_skills: ['Excel'],
       tools_software: ['Figma'],
       five_year_role: 'CTO',
-      employment_status: 'employed',
+      employment_status: ['employed'],
     };
     const result = cleanProfilePayload(input);
     expect(result).not.toHaveProperty('hard_skills');

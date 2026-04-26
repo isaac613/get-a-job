@@ -115,7 +115,7 @@ Deno.serve(async (req) => {
     else if (interviewingApplications.length > 0) jobSearchStage = 'active_interviewing'
     else if (noResponseApplications.length >= 3) jobSearchStage = 'applying_no_response'
     else if (totalApplications > 0) jobSearchStage = 'early_search'
-    else if (profile?.employment_status === 'employed') jobSearchStage = 'transitioning_while_employed'
+    else if (profile?.employment_status?.includes('employed')) jobSearchStage = 'transitioning_while_employed'
 
     // --- Build sanitised user data ---
     const sanitisedProfile = {
@@ -123,7 +123,7 @@ Deno.serve(async (req) => {
       skills: (profile?.skills || []).slice(0, 50).map((s: unknown) => trunc(s, 60)),
       five_year_role: trunc(profile?.five_year_role, 100),
       target_job_titles: (profile?.target_job_titles || []).slice(0, 10).map((t: unknown) => trunc(t, 100)),
-      employment_status: trunc(profile?.employment_status, 50),
+      employment_status: (profile?.employment_status || []).join(', ').slice(0, 100),
       biggest_challenge: trunc(profile?.biggest_challenge, 300),
       role_clarity_score: profile?.role_clarity_score ?? null,
       cv_tailoring_strategy: trunc(profile?.cv_tailoring_strategy, 100),
