@@ -165,10 +165,37 @@ Deno.serve(async (req) => {
       interview_stage: trunc(a.interview_stage, 50),
     }))
 
+    // N-K5 fix — filter the role library + skill mapping down to ONLY the
+    // user's existing career_roles. Tasks are generated for the user's
+    // already-known roadmap (sanitisedRoles), not for role discovery, so the
+    // LLM doesn't need the full ~170-role / ~400KB library context. The
+    // pattern mirrors generate-job-suggestions's matchedRoles.slice(0, 10).
+    //
+    // Matching: case-insensitive title match against standardized_title or
+    // alternate_titles. If filter is empty (user's roles aren't in the
+    // taxonomy), fall back to empty arrays — the LLM still has the user's
+    // sanitisedRoles in the user prompt with their missing_skills explicitly
+    // listed, so it can generate tasks without the broader library.
+    const userRoleTitles = new Set(
+      (sanitisedRoles || [])
+        .map((r: { title: string }) => String(r.title || '').toLowerCase().trim())
+        .filter(Boolean)
+    )
+    const matchesUserRoles = (role: any): boolean => {
+      const candidates = [role?.standardized_title, role?.title, ...(role?.alternate_titles || [])]
+        .filter(Boolean)
+        .map((s: string) => String(s).toLowerCase().trim())
+      return candidates.some((c: string) => userRoleTitles.has(c))
+    }
+    const filteredRoles = ((roleLibrary as any).roles as any[]).filter(matchesUserRoles)
+    const filteredRoleIds = new Set(filteredRoles.map((r: any) => r.id || r.role_id))
+    const filteredMappings = ((roleSkillMapping as any).role_skill_mapping as any[])
+      .filter((m: any) => filteredRoleIds.has(m.role_id))
+
     // --- Build System Prompt with Library Context ---
     const systemPrompt = `You are a Task Generation Engine for the "Get A Job" Career Operating System.
 
-You have access to the following logic libraries. Use them as your source of truth when generating tasks ΓÇö do not invent task types, categories, or priorities outside of what these libraries define.
+You have access to the following logic libraries. Use them as your source of truth when generating tasks — do not invent task types, categories, or priorities outside of what these libraries define.
 
 TASK GENERATION LOGIC (use these rules to generate stage-aware, personalized tasks):
 ${JSON.stringify(taskGenerationLogic, null, 2)}
@@ -179,11 +206,11 @@ ${JSON.stringify(courseRecommendationLogic, null, 2)}
 JOB SEARCH STAGE LOGIC (use this to understand what stage the user is in and what tasks are most relevant):
 ${JSON.stringify(jobSearchStageLogic, null, 2)}
 
-ROLE LIBRARY (use to ensure tasks reference real, standardized role titles):
-${JSON.stringify(roleLibrary, null, 2)}
+ROLE LIBRARY (filtered to the user's existing career_roles — ${filteredRoles.length} entries, scoped for relevance):
+${JSON.stringify(filteredRoles, null, 2)}
 
-ROLE-SKILL MAPPING (use to identify which skills are most important to close for each target role):
-${JSON.stringify(roleSkillMapping, null, 2)}
+ROLE-SKILL MAPPING (filtered to the same role set — ${filteredMappings.length} entries):
+${JSON.stringify(filteredMappings, null, 2)}
 
 TASK GENERATION RULES:
 - Always determine the user's job_search_stage first ΓÇö it drives which tasks are most relevant

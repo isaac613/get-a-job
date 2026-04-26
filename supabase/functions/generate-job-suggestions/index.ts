@@ -13,7 +13,11 @@ const corsHeaders = {
   'Access-Control-Max-Age': '86400',
 }
 
-const MODEL = 'gpt-4o-mini'
+// gpt-4o (not -mini): job-match AI scoring was 16s p50, 49s max on -mini.
+// Higher-volume function (~2000 calls/mo at 100 students) so the cost
+// delta is real (+$52/mo) — revisit post-demo if budget is tight, can
+// safely roll back to -mini without breaking the data shape.
+const MODEL = 'gpt-4o'
 const RATE_LIMIT_CALLS = 10
 const RATE_LIMIT_WINDOW = 3600
 

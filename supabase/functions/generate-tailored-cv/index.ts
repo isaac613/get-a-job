@@ -32,6 +32,13 @@ const corsHeaders = {
   "Access-Control-Max-Age": "86400",
 };
 
+// gpt-4o (not -mini): two-step LLM pipeline (JD keyword extract + CV gen)
+// was 28s p50 / 35s max on -mini. -4o brings the full pipeline to ~14s
+// for +$45/mo at ~500 CV-gen calls/mo across 100 students. Per-application
+// click — moderate volume, latency matters because users wait synchronously
+// for the docx download to be ready.
+const MODEL = "gpt-4o";
+
 // Helper so every response path picks up CORS headers without having to thread
 // them manually. Replaces Response.json() — which does NOT merge custom headers
 // the way we need for cross-origin browser calls from the Vite dev server.
@@ -69,7 +76,7 @@ async function extractJDKeywords(jd: string, openaiKey: string): Promise<JDKeywo
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: MODEL,
         temperature: 0,
         max_tokens: 600,
         response_format: { type: "json_object" },
@@ -715,7 +722,7 @@ Return ONLY valid JSON. No markdown, no prose outside the JSON object.`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: MODEL,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt }

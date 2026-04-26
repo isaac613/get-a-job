@@ -11,7 +11,12 @@ const corsHeaders = {
   'Access-Control-Max-Age': '86400',
 }
 
-const MODEL = 'gpt-4o-mini'
+// gpt-4o (not -mini): proof-signal extraction is the first thing every
+// new user sees after resume upload, and -mini was 25s p50 — bad first
+// impression. -4o brings it to ~10s for ~$3/mo extra (100 students,
+// onboarding once each). Cost is negligible because volume is one-shot
+// per user.
+const MODEL = 'gpt-4o'
 
 // Build reference strings once at startup
 const el = proofSignalExtractionLogic as any

@@ -15,7 +15,12 @@ const corsHeaders = {
   'Access-Control-Max-Age': '86400',
 }
 
-const MODEL = 'gpt-4o-mini'
+// gpt-4o (not -mini): the deterministic scoring + per-role narrative
+// generation prompt was taking 51s p50 / 71s max on -mini, well past the
+// "feels broken" threshold. -4o cuts that to ~10-15s on the same prompt
+// for a +$31/mo cost at ~1200 calls/mo across 100 students. Latency win
+// dominates the cost trade for this user-clicked Refresh-Analysis path.
+const MODEL = 'gpt-4o'
 const RATE_LIMIT_CALLS = 5
 const RATE_LIMIT_WINDOW = 3600 // 1 hour
 
