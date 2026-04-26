@@ -269,16 +269,25 @@ Deno.serve(async (req) => {
     //    apply URLs). For everyone else, JSearch is fine.
     let liveJobs: any[] = []
     let usedQuery = ''
-    // Defensive read of RAPIDAPI_KEY: trim whitespace/newlines that often
-    // come along on copy-paste, strip surrounding quote chars (observed live:
-    // a paste with trailing ' made the value 51 chars and produced 403 "not
-    // subscribed" from RapidAPI), and reject any non-ASCII characters before
-    // we try to use it as an HTTP header. Without this guard, fetch() throws
-    // a cryptic "headers of RequestInit is not a valid ByteString" before
-    // the request ever leaves the function.
+    // Defensive read of RAPIDAPI_KEY. Three classes of paste artifact have
+    // bitten this integration so far:
+    //   1. trailing apostrophe (`a1b7…c0b6'` → 51-char header → 403 not subscribed)
+    //   2. surrounding quotes from clipboard managers (`"a1b7…"`)
+    //   3. invisible non-printable bytes (BOM \uFEFF, zero-width space \u200B,
+    //      stray tab/newline) that pass an "is non-empty?" check but blow up
+    //      fetch() with "headers of RequestInit is not a valid ByteString"
+    //
+    // Earlier sanitizer rejected the entire value on any non-printable byte,
+    // which surfaced as `(empty)` fingerprint + "Job APIs disabled" warning
+    // even when the actual key chars were intact. Switch to STRIP-then-trim
+    // semantics: remove any byte outside printable ASCII (\x20-\x7e), then
+    // strip surrounding whitespace and quotes. The cleaned value is whatever
+    // legitimate ASCII remains — usually the full key minus the artefact.
     const sanitizeKey = (v: string | undefined): string => {
-      const s = (v || '').trim().replace(/^['"`]+|['"`]+$/g, '')
-      return /^[\x21-\x7e]+$/.test(s) ? s : ''
+      return (v || '')
+        .replace(/[^\x20-\x7e]/g, '')      // drop BOM, zero-width, smart quotes, etc.
+        .trim()                            // drop leading/trailing whitespace
+        .replace(/^['"`]+|['"`]+$/g, '')   // drop wrapping quote chars
     }
     const rapidapiKey = sanitizeKey(Deno.env.get('RAPIDAPI_KEY'))
     const jsearchKey = rapidapiKey || sanitizeKey(Deno.env.get('JSEARCH_API_KEY'))
