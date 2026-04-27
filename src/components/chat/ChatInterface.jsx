@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Send, Loader2, Plus, ListTodo, CheckCircle2, ArrowRight, Route, Briefcase, ChevronDown, Trash2, MessageSquare, FileText, Download } from "lucide-react";
+import { Send, Loader2, Plus, ListTodo, CheckCircle2, ArrowRight, Route, Briefcase, ChevronDown, Trash2, MessageSquare, FileText, Download, RefreshCw } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -371,6 +371,8 @@ export default function ChatInterface({ agentName, title, description, applicati
           suggestedApplicationActions: Array.isArray(m.suggested_application_actions) && m.suggested_application_actions.length > 0 ? m.suggested_application_actions : null,
           suggestedCVGeneration: m.suggested_cv_generation || null,
           suggestedAgent: m.suggested_agent || null,
+          isError: m.is_error || false,
+          userMessageText: m.original_user_message || null,
         })));
         // Rehydrate CV generation card states from any stored result so a
         // re-opened conversation still shows its download link + fit analysis.
@@ -484,8 +486,9 @@ export default function ChatInterface({ agentName, title, description, applicati
         },
       });
       if (error) throw error;
+      if (!data?.reply) throw new Error("The AI returned an empty response.");
 
-      const assistantContent = data.reply || "Sorry, I could not generate a response.";
+      const assistantContent = data.reply;
       const assistantPayload = {
         conversation_id: convoId,
         role: "assistant",
@@ -527,10 +530,91 @@ export default function ChatInterface({ agentName, title, description, applicati
       );
     } catch (err) {
       console.error("Chat error:", err);
-      const errMsg = { role: "assistant", content: "Something went wrong. Please try again.", id: crypto.randomUUID() };
+      const errMsg = {
+        role: "assistant",
+        content: "I couldn't reach the AI service. This is usually temporary — tap Retry to try again.",
+        id: crypto.randomUUID(),
+        isError: true,
+        userMessageText: text,
+      };
       setMessages((prev) => [...prev, errMsg]);
       await supabase.from("chat_messages").insert({
-        conversation_id: convoId, role: "assistant", content: errMsg.content,
+        conversation_id: convoId,
+        role: "assistant",
+        content: errMsg.content,
+        is_error: true,
+        original_user_message: text,
+      });
+    }
+    setSending(false);
+  };
+
+  // Re-invoke ai-chat with the same user text after a failure. Mirrors the
+  // call+persist+render block at the bottom of sendMessage; intentionally
+  // duplicated rather than abstracted into a helper, since refactoring the
+  // happy path of sendMessage carries higher regression risk than the
+  // duplication does.
+  const retryLastSend = async (errorMessageId, userText) => {
+    if (sending || !user?.id || !activeConversationId || !userText) return;
+    setMessages((prev) => prev.filter((m) => m.id !== errorMessageId));
+    setSending(true);
+    try {
+      const historyForCall = messages
+        .filter((m) => m.id !== errorMessageId && m.role !== "system")
+        .slice(-20);
+      const { data, error } = await supabase.functions.invoke("ai-chat", {
+        body: {
+          message: userText,
+          agent: agentName || "career-coach",
+          conversation_history: historyForCall,
+          ...(applicationId && { application_id: applicationId }),
+        },
+      });
+      if (error) throw error;
+      if (!data?.reply) throw new Error("The AI returned an empty response.");
+
+      const assistantPayload = {
+        conversation_id: activeConversationId,
+        role: "assistant",
+        content: data.reply,
+        suggested_tasks: data.suggested_tasks?.length > 0 ? data.suggested_tasks : null,
+        suggested_roadmap_changes: data.suggested_roadmap_changes?.length > 0 ? data.suggested_roadmap_changes : null,
+        suggested_application_actions: data.suggested_application_actions?.length > 0 ? data.suggested_application_actions : null,
+        suggested_cv_generation: data.suggested_cv_generation || null,
+        suggested_agent: data.suggested_agent || null,
+      };
+      const { data: savedAssistant } = await supabase
+        .from("chat_messages")
+        .insert(assistantPayload)
+        .select("id")
+        .single();
+
+      setMessages((prev) => [...prev, {
+        id: savedAssistant?.id || crypto.randomUUID(),
+        role: "assistant",
+        content: data.reply,
+        suggestedTasks: assistantPayload.suggested_tasks,
+        suggestedRoadmapChanges: assistantPayload.suggested_roadmap_changes,
+        suggestedApplicationActions: assistantPayload.suggested_application_actions,
+        suggestedCVGeneration: assistantPayload.suggested_cv_generation,
+        suggestedAgent: assistantPayload.suggested_agent,
+      }]);
+    } catch (err) {
+      console.error("Chat retry error:", err);
+      const errMsg = {
+        role: "assistant",
+        content: "Still couldn't reach the AI. Please check your connection and try again.",
+        id: crypto.randomUUID(),
+        isError: true,
+        userMessageText: userText,
+      };
+      setMessages((prev) => [...prev, errMsg]);
+      await supabase.from("chat_messages").insert({
+        conversation_id: activeConversationId,
+        role: "assistant",
+        content: errMsg.content,
+        is_error: true,
+        original_user_message: userText,
       });
     }
     setSending(false);
@@ -835,6 +919,19 @@ export default function ChatInterface({ agentName, title, description, applicati
                   suggestion={msg.suggestedAgent}
                   onSwitch={handleSwitchAgent}
                 />
+              )}
+              {msg.isError && msg.userMessageText && (
+                <div className="ml-10 mt-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => retryLastSend(msg.id, msg.userMessageText)}
+                    disabled={sending}
+                    className="text-xs h-7"
+                  >
+                    <RefreshCw className="w-3 h-3 mr-1.5" /> Retry
+                  </Button>
+                </div>
               )}
             </React.Fragment>
           ))}
