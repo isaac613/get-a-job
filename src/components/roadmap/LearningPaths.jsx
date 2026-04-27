@@ -3,6 +3,7 @@ import { supabase } from "@/api/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BookOpen, ExternalLink, RefreshCw, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 // CR1 fix — no frontend invention. Render only fields the LLM actually
 // supplies via generate-learning-paths. Previous version wrapped each path
@@ -18,11 +19,13 @@ import { BookOpen, ExternalLink, RefreshCw, Loader2 } from "lucide-react";
 export default function LearningPaths({ skillGaps, targetRole }) {
   const [paths, setPaths] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   const generateLearningPath = async () => {
     if (!skillGaps || skillGaps.length === 0) return;
 
     setLoading(true);
+    setError(null);
     try {
       const { data, error } = await supabase.functions.invoke("generate-learning-paths", {
         body: {
@@ -52,6 +55,9 @@ export default function LearningPaths({ skillGaps, targetRole }) {
       setPaths(mapped.length > 0 ? mapped : null);
     } catch (error) {
       console.error("Failed to generate learning path:", error);
+      const msg = error?.message || "Couldn't generate learning paths. Please try again.";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -85,6 +91,14 @@ export default function LearningPaths({ skillGaps, targetRole }) {
           )}
         </Button>
       </div>
+
+      {error && !loading && (
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="pt-6 text-center text-sm text-red-600">
+            {error}
+          </CardContent>
+        </Card>
+      )}
 
       {!paths && !loading && (
         <Card className="border-[#E5E5E5]">

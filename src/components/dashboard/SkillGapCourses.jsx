@@ -2,13 +2,16 @@ import React, { useState } from "react";
 import { ExternalLink, Loader2, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/api/supabaseClient";
+import { toast } from "sonner";
 
 export default function SkillGapCourses({ skillGaps }) {
   const [courses, setCourses] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   const fetchCourses = async () => {
     setLoading(true);
+    setError(null);
     try {
       const { data, error } = await supabase.functions.invoke("generate-learning-paths", {
         body: { skill_gaps: skillGaps },
@@ -19,6 +22,9 @@ export default function SkillGapCourses({ skillGaps }) {
       setCourses(data?.courses || []);
     } catch (err) {
       console.error("Course recommendations error:", err);
+      const msg = err?.message || "Couldn't load recommendations. Please try again.";
+      setError(msg);
+      toast.error(msg);
     }
     setLoading(false);
   };
@@ -51,6 +57,12 @@ export default function SkillGapCourses({ skillGaps }) {
           </Button>
         )}
       </div>
+
+      {error && !loading && (
+        <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2.5 mt-3">
+          {error}
+        </div>
+      )}
 
       {courses && courses.length > 0 && (
         <div className="space-y-3 mt-4">
