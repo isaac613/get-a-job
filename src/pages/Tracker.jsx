@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Plus, Sparkles } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -23,7 +23,6 @@ export default function Tracker() {
   const [filter, setFilter] = useState("all");
   const [newApp, setNewApp] = useState({ role_title: "", company: "", status: "interested" });
 
-  const [jobUrl, setJobUrl] = useState("");
   const [jobDescription, setJobDescription] = useState("");
   const [importError, setImportError] = useState("");
   const [addingApp, setAddingApp] = useState(false);
@@ -86,7 +85,6 @@ export default function Tracker() {
 
 
     setNewApp({ role_title: "", company: "", status: "interested" });
-    setJobUrl("");
     setJobDescription("");
     setShowAdd(false);
     setAddingApp(false);
@@ -206,33 +204,6 @@ export default function Tracker() {
             {importError && (
               <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{importError}</p>
             )}
-            {/* URL Import */}
-            <div className="bg-[#F5F5F5] rounded-lg p-3">
-              <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium">
-                Import from LinkedIn / Glassdoor URL
-              </label>
-              <div className="flex gap-2 mt-1.5">
-                <Input
-                  value={jobUrl}
-                  onChange={(e) => setJobUrl(e.target.value)}
-                  placeholder="Paste job posting URL..."
-                  className="text-sm bg-white"
-                  disabled
-                />
-                <Button
-                  disabled
-                  className="bg-[#0A0A0A] opacity-50 cursor-not-allowed whitespace-nowrap"
-                  size="sm"
-                >
-                  <Sparkles className="w-3.5 h-3.5 mr-1" />Coming soon
-                </Button>
-              </div>
-              <p className="text-xs text-[#A3A3A3] mt-1.5">URL import is coming soon — paste the job description manually below.</p>
-              {newApp.job_description && <p className="text-xs text-emerald-600 mt-1.5">✓ Job details auto-filled below</p>}
-            </div>
-
-            <div className="text-[11px] text-center text-[#A3A3A3] font-medium">— or fill in manually —</div>
-
             <div>
               <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium">
                 Role Title

@@ -306,7 +306,7 @@ Here is the resume:\n\n${fileText.slice(0, 15000)}`;
                 adjacentFields = psData.adjacent_fields || [];
               }
             } catch (psErr) {
-              console.warn("Proof signal extraction failed (non-fatal):", psErr);
+              console.debug("Proof signal extraction failed (non-fatal):", psErr);
             }
 
             onExtracted({ ...extracted, proof_signals: proofSignals, primary_domain: primaryDomain, adjacent_fields: adjacentFields });
@@ -318,7 +318,7 @@ Here is the resume:\n\n${fileText.slice(0, 15000)}`;
       }
 
       // File uploaded but extraction failed — still a success
-      console.warn("Extraction fallback. Response was:", extractData);
+      console.debug("Extraction fallback. Response was:", extractData);
       setExtracting(false);
       setDone(true);
       setError(`Resume uploaded successfully! However, automatic extraction wasn't possible. Please fill in your details manually.`);

@@ -89,9 +89,14 @@ export default function Onboarding() {
       delete payload.onboarding_step;
       delete payload.onboarding_complete;
       Object.keys(payload).forEach((k) => payload[k] === undefined && delete payload[k]);
-      supabase.from("profiles").update(payload).eq("id", existingProfileId).then(({ error }) => {
-        if (error) console.warn("Auto-save failed:", error.message);
-      });
+      supabase.from("profiles").update(payload).eq("id", existingProfileId)
+        .then(({ error }) => {
+          if (error) console.warn("Auto-save failed:", error.message);
+        })
+        .catch((err) => {
+          // Network error etc. — log so it doesn't surface as an unhandled rejection.
+          console.warn("Auto-save network error:", err?.message || err);
+        });
     }, 800);
     return () => clearTimeout(handle);
     // eslint-disable-next-line react-hooks/exhaustive-deps

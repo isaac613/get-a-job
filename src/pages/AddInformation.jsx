@@ -68,8 +68,6 @@ export default function AddInformation() {
     enabled: !!user?.id,
   });
 
-  // Courses table not yet implemented — placeholder to avoid changing tab structure
-  const courses = [];
 
   const { data: certifications, isLoading: loadingCerts } = useQuery({
     queryKey: ["certifications", user?.id],
@@ -151,7 +149,6 @@ export default function AddInformation() {
 
   const [skillInput, setSkillInput] = useState("");
 
-  const [courseForm, setCourseForm] = useState({ name: "", provider: "", skills_gained: [], completion_status: "completed" });
   const [certForm, setCertForm] = useState({ name: "", issuer: "" });
   const [projectForm, setProjectForm] = useState({ name: "", description: "", skills_demonstrated: [], url: "" });
   const [expForm, setExpForm] = useState({
@@ -166,7 +163,6 @@ export default function AddInformation() {
     skills_used: [],
   });
 
-  const [tempSkillCourse, setTempSkillCourse] = useState("");
   const [tempSkill, setTempSkill] = useState("");
 
   const saveProfile = async () => {
@@ -241,10 +237,6 @@ export default function AddInformation() {
       toast.error("Failed to upload resume: " + err.message);
     }
     setUploading(false);
-  };
-
-  const addCourse = () => {
-    toast.info("Course tracking is coming soon.");
   };
 
   const addCert = async () => {
@@ -329,7 +321,6 @@ export default function AddInformation() {
       <Tabs defaultValue="profile" className="space-y-6">
         <TabsList className="bg-[#F5F5F5] w-full justify-start overflow-x-auto">
           <TabsTrigger value="profile" className="text-xs">Profile</TabsTrigger>
-          <TabsTrigger value="courses" className="text-xs">Courses</TabsTrigger>
           <TabsTrigger value="certifications" className="text-xs">Certifications</TabsTrigger>
           <TabsTrigger value="projects" className="text-xs">Projects</TabsTrigger>
           <TabsTrigger value="experience" className="text-xs">Experience</TabsTrigger>
@@ -503,15 +494,6 @@ export default function AddInformation() {
             <Button onClick={saveProfile} disabled={saving} className="bg-[#0A0A0A] hover:bg-[#262626] text-sm">
               {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving...</> : "Save Profile"}
             </Button>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="courses">
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center">
-            <p className="text-sm font-semibold text-amber-800 mb-1">Course Tracking — Coming Soon</p>
-            <p className="text-xs text-amber-700">
-              You'll be able to log courses, track completion, and map skills gained directly to your profile. Check back soon.
-            </p>
           </div>
         </TabsContent>
 
