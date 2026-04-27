@@ -538,7 +538,7 @@ D. What you MAY do:
     • bucket === "military"     → military_experiences[]
     • bucket === "volunteering" → volunteering_experiences[]
     • bucket === "leadership"   → leadership_experiences[]
-- About Me: variable length based on content volume (see ONE PAGE RULE above). FACTUAL style with no pronouns and no candidate-speak. The subject of every sentence is the USER (their experience, work, skills) — NOT the target company. The target company may appear AT MOST once, by name only. NEVER quote, paraphrase, or recite the company's tagline, mission statement, slogan, or marketing language. Connection to the target role is made through CONTENT (the user's experience maps to what the role actually does), not by name-dropping or pitching the company back to itself. Length 2-4 sentences depending on volume. GOOD: "Business Administration student specializing in Digital Innovation with hands-on experience in VIP customer success, operational leadership, and cross-functional coordination. Currently supporting high-value users at a cybersecurity startup while leading educational programs. Strong ability to understand user needs through direct interaction and communicate insights across teams." BAD: "Excited to join Acme's mission to revolutionize payroll." BAD: "Aligns with the company's vision of seamless workforce solutions."
+- About Me: variable length based on content volume (see ONE PAGE RULE above). FACTUAL style with no pronouns and no candidate-speak. The subject of every sentence is the USER (their experience, work, skills) — NOT the target company. JD domain terms, tools, and skill names ARE allowed when they describe the user's real experience ("two years building AI-powered features at a fintech startup" is OK if true). What is NEVER allowed is the company's own MISSION / TAGLINE / MARKETING / SLOGAN language. The distinction: domain / tool / skill words = OK if grounded in real user experience; company-pitch language = always wrong. The target company name may appear AT MOST once. Length 2-4 sentences depending on volume. GOOD: "Business Administration student specializing in Digital Innovation with hands-on experience in VIP customer success, operational leadership, and cross-functional coordination. Currently supporting high-value users at a cybersecurity startup while leading educational programs." GOOD: "Two years operating AI-powered customer support tools at a B2B SaaS startup, with hands-on experience deploying Salesforce and Notion integrations." BAD: "Excited to join Acme's mission to revolutionize payroll." BAD: "Aligns with the company's vision of seamless workforce solutions."
 - Experience bullets: action verb + what you did. Factual, concrete. No invented metrics. PREFER the XYZ structure when the source has measurable outcomes: "Accomplished X (impact Y) by doing Z" — e.g. "Reduced ticket resolution time by 40% by building a triage workflow in Zendesk". The metric Y MUST come verbatim from the user's source data. When source has no metric, fall back to action-verb + concrete-outcome (NEVER fabricate a number to fit the XYZ shape — the truthfulness rules above always win).
 - Skills & Tools: categorize as Domain (role-specific capabilities) and Tools (software/platforms/systems). Languages do NOT go here.
 - Languages: human spoken/written languages only. Draw them from the user's skills list if language-like entries are there; draw also from language_hints[] which flags likely languages based on location. Include a proficiency level (Native | Fluent | Professional | Conversational | Basic) when the source or hint supports it, otherwise omit level.
@@ -550,6 +550,7 @@ D. What you MAY do:
 
     const TAILORING_RULES = `
 TAILORING (apply aggressively — this is the most important part of your job):
+- TAILORING SCORE TARGET: at least 6 of the must_include_phrases (or close variants) MUST appear across your CV — distributed across bullets, Skills section, and About Me where they describe real user experience. If a phrase reflects something the user has actually done, it MUST appear in their bullets. Truthfulness still wins — never invent experience to hit the count, but if a phrase genuinely applies to the user's real work, you MUST use it.
 - REPHRASE every bullet point to use language from the job description. "Managed customer cases" becomes "Owned customer relationships and drove adoption" if the JD uses those terms.
 - REORDER bullets within each experience: put the most JD-relevant responsibility first.
 - About Me must read like it was written FOR this specific role through the USER's relevant experience — not by quoting the company's mission or marketing language. Domain reference is OK ("fintech", "B2B SaaS", "developer tools"); reciting the company's tagline or mission is NOT.
@@ -614,7 +615,7 @@ REWRITE RULES:
 - "Led a team" → "Led cross-functional initiatives" (if JD uses "cross-functional")
 - "Tracked attendance" → "Monitored adoption dashboards and engagement metrics" (if JD uses those terms)
 - Every bullet point must be REWRITTEN to incorporate at least one JD keyword. Do not just copy the user's original bullet text.
-- JD keywords belong in BULLET POINTS and the SKILLS section where they describe real user experience. The About Me must NOT be padded with JD vocabulary or company marketing phrases. Domain reference is OK ("fintech", "B2B SaaS"); reciting the company's tagline or mission is NOT — see About Me rule in STRUCTURE_RULES.
+- JD keywords (must_include_phrases, action_verbs, domain_terms, tools_and_platforms) belong primarily in BULLET POINTS and the SKILLS section where they describe real user experience. They MAY ALSO appear in About Me when they describe what the user has actually done. What's BANNED in About Me is RECITING the company's mission / tagline / marketing language — see About Me rule in STRUCTURE_RULES.
 - Truthfulness still applies: never invent experiences or tools the user doesn't have. Rephrasing what they DID do in JD language is mandatory; fabricating new responsibilities is forbidden.
 `
       : "";
@@ -643,7 +644,9 @@ ${JSON.stringify(relevantSignals, null, 2)}
       STRUCTURE_RULES + `\n` +
       TAILORING_RULES + `\n` +
       LIBRARY_CONTEXT + `\n` +
-      `REMINDER: Truthfulness beats polish AND one-page fit is non-negotiable. If a bullet needs a metric to sound impressive but you have no metric in the source, leave it without. Do not invent. If content is overflowing, shorten bullets rather than dropping entries.`;
+      `REMINDER: Truthfulness beats polish AND one-page fit is non-negotiable. If a bullet needs a metric to sound impressive but you have no metric in the source, leave it without. Do not invent. If content is overflowing, shorten bullets rather than dropping entries.
+
+BEFORE FINALIZING THE JSON: count how many of the must_include_phrases appear anywhere in your output (case-insensitive substring match in any field). If fewer than 6 of 10 — or fewer than 60% of however many were provided — rewrite bullets to incorporate more, but ONLY where the user actually has the underlying experience. The factual-integrity rules above always win.`;
     // KEYWORD_INJECTION_BLOCK is appended to the END of the user prompt below
     // so it's the last instruction the LLM sees before producing output.
 
