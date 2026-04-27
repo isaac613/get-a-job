@@ -538,8 +538,8 @@ D. What you MAY do:
     • bucket === "military"     → military_experiences[]
     • bucket === "volunteering" → volunteering_experiences[]
     • bucket === "leadership"   → leadership_experiences[]
-- About Me: variable length based on content volume (see ONE PAGE RULE above). Write in FACTUAL style with no pronouns (no "he", "she", "his", "her") and no candidate-speak ("strong candidate", "well-suited", "eager to", "making him/her a great fit"). Describe the user's actual skills and current work as facts and tie them to the target role through CONTENT, not self-promotion. Example to emulate: "Business Administration student specializing in Digital Innovation with hands-on experience in VIP customer success, operational leadership, and cross-functional coordination. Currently supporting high-value users at a cybersecurity startup while leading educational programs. Strong ability to understand user needs through direct interaction and communicate insights across teams." Referencing the target company by name is fine where it fits naturally, but do NOT say "strong candidate for X role at Y".
-- Experience bullets: action verb + what you did. Factual, concrete. No invented metrics.
+- About Me: variable length based on content volume (see ONE PAGE RULE above). FACTUAL style with no pronouns and no candidate-speak. The subject of every sentence is the USER (their experience, work, skills) — NOT the target company. The target company may appear AT MOST once, by name only. NEVER quote, paraphrase, or recite the company's tagline, mission statement, slogan, or marketing language. Connection to the target role is made through CONTENT (the user's experience maps to what the role actually does), not by name-dropping or pitching the company back to itself. Length 2-4 sentences depending on volume. GOOD: "Business Administration student specializing in Digital Innovation with hands-on experience in VIP customer success, operational leadership, and cross-functional coordination. Currently supporting high-value users at a cybersecurity startup while leading educational programs. Strong ability to understand user needs through direct interaction and communicate insights across teams." BAD: "Excited to join Acme's mission to revolutionize payroll." BAD: "Aligns with the company's vision of seamless workforce solutions."
+- Experience bullets: action verb + what you did. Factual, concrete. No invented metrics. PREFER the XYZ structure when the source has measurable outcomes: "Accomplished X (impact Y) by doing Z" — e.g. "Reduced ticket resolution time by 40% by building a triage workflow in Zendesk". The metric Y MUST come verbatim from the user's source data. When source has no metric, fall back to action-verb + concrete-outcome (NEVER fabricate a number to fit the XYZ shape — the truthfulness rules above always win).
 - Skills & Tools: categorize as Domain (role-specific capabilities) and Tools (software/platforms/systems). Languages do NOT go here.
 - Languages: human spoken/written languages only. Draw them from the user's skills list if language-like entries are there; draw also from language_hints[] which flags likely languages based on location. Include a proficiency level (Native | Fluent | Professional | Conversational | Basic) when the source or hint supports it, otherwise omit level.
 - Education: include every entry from USER DATA.education and — if present — USER DATA.secondary_education as a second education entry. Do not drop pre-university education.
@@ -552,12 +552,32 @@ D. What you MAY do:
 TAILORING (apply aggressively — this is the most important part of your job):
 - REPHRASE every bullet point to use language from the job description. "Managed customer cases" becomes "Owned customer relationships and drove adoption" if the JD uses those terms.
 - REORDER bullets within each experience: put the most JD-relevant responsibility first.
-- About Me must read like it was written FOR this specific role. Reference the company's domain and the role's core focus.
+- About Me must read like it was written FOR this specific role through the USER's relevant experience — not by quoting the company's mission or marketing language. Domain reference is OK ("fintech", "B2B SaaS", "developer tools"); reciting the company's tagline or mission is NOT.
 - Skills section must lead with skills that match the JD, then list others.
 - DO NOT just clean up the existing CV. ACTIVELY REWRITE using JD vocabulary.
 - If you are not sure whether a rephrasing is truthful, keep the original wording but try to use at least one JD keyword per bullet.
 - Reorder the experiences list itself so the role most relevant to the target comes first within its bucket.
 - NEVER invent experiences, skills, tools, certifications, or metrics. Rephrasing is allowed; fabrication is not. "Managed multiple cases" can become "Prioritised and managed a backlog of concurrent cases" if that's what actually happened, but CANNOT become "Managed a product backlog" if the user didn't work on one.
+`;
+
+    const BANNED_VOCAB_RULES = `AI-FINGERPRINT VOCABULARY — DO NOT USE THESE WORDS OR PHRASES:
+
+The following are strong AI-tells. They signal LLM-written copy to recruiters and ATS systems. Substitute concrete, user-specific verbs and outcomes.
+
+BANNED VERBS (when generic — OK in proper nouns or with specific quantified context):
+leverage, leveraged, spearhead, spearheaded, orchestrate, orchestrated, utilize, utilized, utilise, utilised, drive, drove (when generic e.g. "drove growth"), facilitate, facilitated, navigate, navigated, deliver (when generic), enable, enabled, empower, empowered, harness, harnessed, streamline, streamlined.
+
+BANNED ADJECTIVES:
+robust, seamless, seamlessly, dynamic, proactive, results-driven, results-oriented, detail-oriented, self-motivated, passionate, passion, innovative, comprehensive, scalable (when generic), strategic (when generic), holistic, end-to-end (when generic), best-in-class, world-class, cutting-edge.
+
+BANNED PHRASES:
+"team player", "go-getter", "think outside the box", "synergy", "synergies", "value-add", "value add", "core competencies", "wheelhouse", "deep dive", "circle back", "low-hanging fruit", "moving the needle", "track record of", "passionate about", "eager to", "driven by", "thrive in", "well-versed", "well-suited", "strong candidate", "perfect fit", "ideal candidate".
+
+EXCEPTIONS:
+- A banned word is OK when it appears as a proper noun (company name, product name), as a literal job title from the source data, or with substantive quantified context.
+- "Drove $1M in pipeline" with a real source metric is OK.
+- "Orchestrated Kubernetes deployment of 12 microservices" with substantive detail is OK.
+- Test: if you remove the word, does the sentence still convey the same specific information? If yes, the word is filler — replace it with a more concrete verb. If the word adds vague impressiveness without specifics, drop it entirely.
 `;
 
     // Extracted keywords — the single most effective lever for forcing
@@ -594,7 +614,7 @@ REWRITE RULES:
 - "Led a team" → "Led cross-functional initiatives" (if JD uses "cross-functional")
 - "Tracked attendance" → "Monitored adoption dashboards and engagement metrics" (if JD uses those terms)
 - Every bullet point must be REWRITTEN to incorporate at least one JD keyword. Do not just copy the user's original bullet text.
-- The About Me must mention the target company's domain and use at least 3 must-include phrases.
+- JD keywords belong in BULLET POINTS and the SKILLS section where they describe real user experience. The About Me must NOT be padded with JD vocabulary or company marketing phrases. Domain reference is OK ("fintech", "B2B SaaS"); reciting the company's tagline or mission is NOT — see About Me rule in STRUCTURE_RULES.
 - Truthfulness still applies: never invent experiences or tools the user doesn't have. Rephrasing what they DID do in JD language is mandatory; fabricating new responsibilities is forbidden.
 `
       : "";
@@ -619,6 +639,7 @@ ${JSON.stringify(relevantSignals, null, 2)}
       `You are generating a TAILORED CV. The CV must be specifically customized for the target job description. Generic CVs that don't incorporate JD-specific language will be rejected.\n\n` +
       ONE_PAGE_RULE + `\n` +
       TRUTHFULNESS_RULES + `\n` +
+      BANNED_VOCAB_RULES + `\n` +
       STRUCTURE_RULES + `\n` +
       TAILORING_RULES + `\n` +
       LIBRARY_CONTEXT + `\n` +
