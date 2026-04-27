@@ -737,11 +737,16 @@ export default function Onboarding() {
       {step === 7 && (
         <>
           {tierRevealError && (
-            <div className="mx-auto max-w-lg mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between gap-3">
-              <p className="text-sm text-red-700">{tierRevealError}</p>
-              <div className="flex gap-3 flex-shrink-0">
+            <div className="mx-auto max-w-lg mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm text-red-700">
+                {tierRevealError} You can also continue without it — your roadmap will be empty for now, and you can re-run the analysis from the Career Roadmap page once you're set up.
+              </p>
+              <div className="flex gap-4 mt-2">
                 <button onClick={() => { setTierRevealError(null); handleSurveyNext(); }} className="text-xs font-medium text-red-800 underline underline-offset-2 whitespace-nowrap">
                   Try Again
+                </button>
+                <button onClick={() => { setTierRevealError(null); handleFinalise(); }} className="text-xs font-medium text-red-800 underline underline-offset-2 whitespace-nowrap">
+                  Skip — initialise anyway
                 </button>
                 <button onClick={() => { setTierRevealError(null); goTo(6); }} className="text-xs font-medium text-red-800 underline underline-offset-2 whitespace-nowrap">
                   Go back
