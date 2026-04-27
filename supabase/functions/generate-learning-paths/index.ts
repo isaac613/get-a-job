@@ -113,9 +113,16 @@ async function validateYouTubeUrl(url: string): Promise<boolean> {
 // a small chance of 404 than to null every link and force users into
 // a Google search for the same course.
 const TRUSTED_DOMAINS = new Set([
-  'udemy.com', 'freecodecamp.org', 'edx.org', 'khanacademy.org',
+  'freecodecamp.org', 'edx.org', 'khanacademy.org',
   'pluralsight.com', 'linkedin.com', 'codecademy.com', 'datacamp.com',
 ])
+
+// Domains we know reject all probes AND have no public validator AND
+// are hallucination-prone enough that a 404 risk isn't acceptable for
+// a demo. URLs here always get nulled; frontend shows the "Search
+// Google for this course" fallback. Deterministic — never relies on
+// the HEAD probe happening to succeed or fail.
+const UNTRUSTED_DOMAINS = new Set(['udemy.com'])
 
 async function validateOrTrust(url: string): Promise<boolean> {
   if (!url || !/^https?:\/\//i.test(url)) return false
@@ -125,6 +132,7 @@ async function validateOrTrust(url: string): Promise<boolean> {
   } catch {
     return false
   }
+  if (UNTRUSTED_DOMAINS.has(host)) return false
   if (host === 'coursera.org' || host.endsWith('.coursera.org')) return await validateCourseraUrl(url)
   if (host === 'youtube.com' || host === 'youtu.be') return await validateYouTubeUrl(url)
   if (TRUSTED_DOMAINS.has(host)) return true
