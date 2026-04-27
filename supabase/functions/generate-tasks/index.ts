@@ -320,13 +320,16 @@ Return ONLY valid JSON. Generate 5-8 tasks unless overwhelm signals are present,
 
     if (!openaiResponse.ok) {
       const errText = await openaiResponse.text()
+      // D2 — keep upstream detail server-side only (log_error RPC + console.error
+      // backup); client gets generic message.
       await serviceClient.rpc('log_error', {
         p_user_id: user.id,
         p_function_name: 'generate-tasks',
         p_error_message: 'OpenAI API error',
         p_error_details: { status: openaiResponse.status, details: errText },
       })
-      return new Response(JSON.stringify({ error: 'AI service error', details: errText }), {
+      console.error(`[generate-tasks] OpenAI ${openaiResponse.status}: ${errText}`)
+      return new Response(JSON.stringify({ error: 'AI service temporarily unavailable. Please try again.' }), {
         status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }

@@ -162,7 +162,9 @@ Return ONLY valid JSON.`
 
     if (!openaiResponse.ok) {
       const errText = await openaiResponse.text()
-      return new Response(JSON.stringify({ error: 'AI service error', details: errText }), {
+      // D2 — keep upstream detail server-side only; client gets generic message.
+      console.error(`[generate-learning-paths] OpenAI ${openaiResponse.status}: ${errText}`)
+      return new Response(JSON.stringify({ error: 'AI service temporarily unavailable. Please try again.' }), {
         status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
