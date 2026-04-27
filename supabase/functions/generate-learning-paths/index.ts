@@ -235,7 +235,7 @@ USER CONTEXT:
 TASK: Generate learning paths to help close the user's skill gaps and prepare for their target roles.
 
 For each skill gap, recommend:
-- Specific free or affordable courses (prioritize: Coursera, Udemy, freeCodeCamp, YouTube, edX)
+- Specific free or affordable courses. PREFER these platforms in this order: Coursera, freeCodeCamp, YouTube, edX, Khan Academy. AVOID Udemy unless the user explicitly asks for it — Udemy URLs are less reliable in our system.
 - A capstone project idea that proves the skill
 - Estimated time commitment
 
