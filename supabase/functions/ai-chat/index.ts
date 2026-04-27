@@ -110,7 +110,7 @@ SUGGESTED_ROADMAP_CHANGES_JSON:{"changes":[{"action":"update_tier","role_title":
 
 Each change must use one of these shapes:
 - {"action":"update_tier","role_title":"EXACT role title from their roadmap","new_tier":"tier_1","reason":"short explanation"}
-- {"action":"add_role","title":"Role Title","tier":"tier_2","reason":"short explanation"}
+- {"action":"add_role","title":"Role Title","tier":"tier_2","matched_skills_proposed":["..."],"missing_skills_proposed":["..."],"reason":"short explanation"}
 - {"action":"remove_role","role_title":"EXACT role title from their roadmap","reason":"short explanation"}
 
 Valid tiers: "tier_1" (Your Move), "tier_2" (Plan B), "tier_3" (Work Toward)
@@ -118,7 +118,12 @@ Rules:
 - Use the EXACT role title from their CAREER ROADMAP — do not paraphrase or rename
 - Only propose changes the user explicitly requested OR that are clearly justified by their actual skill data
 - Always mention the proposed changes in your response text before the JSON block
-- Omit this block entirely if no roadmap changes are needed`
+- Omit this block entirely if no roadmap changes are needed
+
+For add_role specifically — populate the two skills arrays:
+- matched_skills_proposed: skills FROM THE USER'S PROFILE.skills (the SKILLS context above) that genuinely apply to this role. Copy the EXACT strings from their profile, do not paraphrase or invent. If the user has "Customer Success" and the role values customer-facing communication, list "Customer Success". If you cannot find a real match in their profile, leave this array empty rather than fabricating.
+- missing_skills_proposed: skills typical for this role that the user does NOT have in their profile. Use display-friendly format ("Customer Communication", "Stakeholder Management") — not snake_case identifiers.
+- Both keys must be present in the JSON, even if their arrays are empty. The frontend distinguishes "you provided no matches" from "you didn't try" by key presence.`
 
 const APPLICATION_ACTIONS_RULES = `
 
@@ -569,18 +574,30 @@ Deno.serve(async (req) => {
       reply = roadmapResult.cleaned
       const parsed = roadmapResult.parsed
       const changes = parsed && typeof parsed === 'object' && Array.isArray((parsed as any).changes)
-        ? (parsed as any).changes as Array<{ action: string; role_title?: string; title?: string; new_tier?: string; tier?: string; reason: string }>
+        ? (parsed as any).changes as Array<{ action: string; role_title?: string; title?: string; new_tier?: string; tier?: string; matched_skills_proposed?: string[]; missing_skills_proposed?: string[]; reason: string }>
         : Array.isArray(parsed) ? parsed as any[] : null
       if (Array.isArray(changes) && changes.length > 0) {
         const VALID_TIERS = new Set(['tier_1', 'tier_2', 'tier_3'])
         const VALID_ACTIONS = new Set(['update_tier', 'add_role', 'remove_role'])
+        const sanitiseSkillArray = (arr: any): string[] | undefined => {
+          if (!Array.isArray(arr)) return undefined
+          return arr.filter((s: any) => typeof s === 'string' && s.trim().length > 0)
+                    .slice(0, 20)
+                    .map((s: string) => s.trim())
+        }
         const validChanges = changes
           .filter(c => c && VALID_ACTIONS.has(c.action))
-          .map(c => ({
-            ...c,
-            ...(c.new_tier && { new_tier: VALID_TIERS.has(c.new_tier) ? c.new_tier : 'tier_2' }),
-            ...(c.tier && { tier: VALID_TIERS.has(c.tier) ? c.tier : 'tier_2' }),
-          }))
+          .map(c => {
+            const out: any = { ...c }
+            if (c.new_tier) out.new_tier = VALID_TIERS.has(c.new_tier) ? c.new_tier : 'tier_2'
+            if (c.tier) out.tier = VALID_TIERS.has(c.tier) ? c.tier : 'tier_2'
+            // Preserve key presence: if AI emitted matched_skills_proposed (even
+            // as an empty array), keep the key so the handler can distinguish
+            // "AI tried, found 0 matches" from "AI didn't try at all".
+            if ('matched_skills_proposed' in c) out.matched_skills_proposed = sanitiseSkillArray(c.matched_skills_proposed) ?? []
+            if ('missing_skills_proposed' in c) out.missing_skills_proposed = sanitiseSkillArray(c.missing_skills_proposed) ?? []
+            return out
+          })
         if (validChanges.length > 0) suggested_roadmap_changes = validChanges
       }
     }

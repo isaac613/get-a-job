@@ -92,6 +92,28 @@ export default function Home() {
   const stale = isAnalysisStale({ profile, experiences, certifications, projects });
   const isLoading = loadingProfile || loadingRoles || loadingApps;
 
+  // Defensive guard for the Skills — Confirmed vs Missing card. The card
+  // can fall into one of three "no data" states and we want each to look
+  // distinct rather than collapsing them into "Generate your roadmap":
+  //   1. Never had roles → "Generate your roadmap..." (existing copy)
+  //   2. Had roles before but careerRoles is now empty → "Refreshing skill
+  //      analysis…" (covers brief refetch windows, intentional resets that
+  //      haven't completed re-onboarding yet, etc.)
+  //   3. tier1Role exists but its matched_skills + missing_skills are both
+  //      empty (chat agent added a role without skills, falling to the
+  //      Path C branch in handleApplyRoadmapChanges) → "Skills computing —
+  //      click Refresh Analysis…" pointing at the recovery action.
+  React.useEffect(() => {
+    if (roles.length > 0 && user?.id) {
+      try { localStorage.setItem(`careerRoles:${user.id}:hadData`, "1"); } catch { /* localStorage unavailable */ }
+    }
+  }, [roles.length, user?.id]);
+
+  const hadRolesPreviously = (() => {
+    if (!user?.id || typeof window === "undefined") return false;
+    try { return localStorage.getItem(`careerRoles:${user.id}:hadData`) === "1"; } catch { return false; }
+  })();
+
   React.useEffect(() => {
     if (!user || !profileFetched) return;
     if (profileError) return; // don't redirect if the query failed
@@ -126,6 +148,12 @@ export default function Home() {
     }
     setResetConfirming(false);
     setResetError(null);
+    // Clear the "had roles" flag so the post-reset UI doesn't show
+    // "Refreshing skill analysis…" forever when the user genuinely
+    // intends to start over.
+    if (user?.id) {
+      try { localStorage.removeItem(`careerRoles:${user.id}:hadData`); } catch { /* ignore */ }
+    }
     const { error: rpcError } = await supabase.rpc("reset_user_data", {
       p_user_id: user.id,
     });
@@ -285,6 +313,11 @@ export default function Home() {
             Skills — Confirmed vs Missing
           </p>
           {tier1Role ? (
+            (matchedSkills.length === 0 && missingSkills.length === 0) ? (
+              <p className="text-sm text-[#A3A3A3]">
+                Skills computing — open Career Roadmap and click Refresh Analysis to populate this role's skill breakdown.
+              </p>
+            ) : (
             <div className="space-y-3">
               {matchedSkills.length > 0 && (
                 <div>
@@ -311,6 +344,9 @@ export default function Home() {
                 </div>
               )}
             </div>
+            )
+          ) : hadRolesPreviously ? (
+            <p className="text-sm text-[#A3A3A3]">Refreshing skill analysis…</p>
           ) : (
             <p className="text-sm text-[#A3A3A3]">Generate your roadmap to see skill analysis.</p>
           )}

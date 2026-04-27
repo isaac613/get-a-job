@@ -15,6 +15,13 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { createPageUrl } from "@/utils";
 import { resolveDueDate } from "@/lib/taskDueDate";
+import {
+  validTier,
+  validStatus,
+  validInterviewStage,
+  validateMatchedSkills,
+  sanitizeMissingSkills,
+} from "@/lib/applyHandlerValidation";
 import MessageBubble from "./MessageBubble";
 
 const TIER_LABELS = {
@@ -290,6 +297,23 @@ export default function ChatInterface({ agentName, title, description, applicati
         .eq("user_id", user.id);
       if (error) throw error;
       return data || [];
+    },
+    enabled: !!user?.id,
+  });
+
+  // Profile query — same key as Home.jsx so the cache is shared. We only
+  // read profile.skills here, used to validate AI-proposed matched_skills
+  // in handleApplyRoadmapChanges (anti-fabrication guard).
+  const { data: profile = null } = useQuery({
+    queryKey: ["userProfile", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id);
+      if (error) throw error;
+      return data?.[0] || null;
     },
     enabled: !!user?.id,
   });
@@ -649,30 +673,85 @@ export default function ChatInterface({ agentName, title, description, applicati
 
   const handleApplyRoadmapChanges = async (messageId, changes) => {
     if (!user?.id || appliedRoadmapSets[messageId]) return;
+    const userSkills = (profile?.skills || []).filter((s) => typeof s === "string");
     let hasError = false;
+    const pathCRoles = [];
+
     for (const change of changes) {
       if (change.action === "update_tier") {
-        const { error } = await supabase
+        const newTier = validTier(change.new_tier);
+        if (!newTier) { console.error("Roadmap update_tier: invalid tier", change.new_tier); hasError = true; continue; }
+        const { data: matches, error: lookupErr } = await supabase
           .from("career_roles")
-          .update({ tier: change.new_tier })
+          .select("id")
           .eq("user_id", user.id)
           .ilike("title", change.role_title);
+        if (lookupErr) { console.error("Roadmap update_tier lookup error:", lookupErr); hasError = true; continue; }
+        if (!matches || matches.length === 0) { console.error("Roadmap update_tier: role not found", change.role_title); hasError = true; continue; }
+        // Multi-match: update all (the user said "move PM to tier_1" — if they
+        // have two PMs, moving both is the natural intent). For remove_role
+        // we're stricter because delete is irreversible.
+        const ids = matches.map((m) => m.id);
+        const { error } = await supabase
+          .from("career_roles")
+          .update({ tier: newTier })
+          .in("id", ids);
         if (error) { console.error("Roadmap update_tier error:", error); hasError = true; }
       } else if (change.action === "add_role") {
+        const tier = validTier(change.tier);
+        if (!tier) { console.error("Roadmap add_role: invalid tier", change.tier); hasError = true; continue; }
+
+        // Path B: use AI-proposed skills if the agent emitted them (key
+        // existence check — distinguishes "agent provided 0 matches" from
+        // "agent didn't try"). Validation strips any matched_skills the
+        // user doesn't actually have in their profile.
+        let matched_skills = [];
+        let missing_skills = [];
+        let usedAIProposed = false;
+        if ("matched_skills_proposed" in change) {
+          matched_skills = validateMatchedSkills(change.matched_skills_proposed, userSkills);
+          usedAIProposed = true;
+        }
+        if ("missing_skills_proposed" in change) {
+          missing_skills = sanitizeMissingSkills(change.missing_skills_proposed);
+          usedAIProposed = true;
+        }
+
         const { error } = await supabase.from("career_roles").insert({
           user_id: user.id,
           title: change.title,
-          tier: change.tier,
+          tier,
+          matched_skills,
+          missing_skills,
         });
-        if (error) { console.error("Roadmap add_role error:", error); hasError = true; }
+        if (error) { console.error("Roadmap add_role error:", error); hasError = true; continue; }
+
+        // Path C: if the AI didn't emit either skills array, the row landed
+        // with empty arrays. Surface a soft notification pointing the user
+        // at Refresh Analysis to compute skills properly. Home's defensive
+        // guard handles the empty UI in the meantime.
+        if (!usedAIProposed) pathCRoles.push(change.title);
       } else if (change.action === "remove_role") {
+        const { data: matches, error: lookupErr } = await supabase
+          .from("career_roles")
+          .select("id")
+          .eq("user_id", user.id)
+          .ilike("title", change.role_title);
+        if (lookupErr) { console.error("Roadmap remove_role lookup error:", lookupErr); hasError = true; continue; }
+        if (!matches || matches.length === 0) { console.error("Roadmap remove_role: role not found", change.role_title); hasError = true; continue; }
+        // Strict on multi-match for delete — irreversible, ambiguity should
+        // reject rather than wipe multiple rows the user didn't intend.
+        if (matches.length > 1) { console.error("Roadmap remove_role: ambiguous match", change.role_title); hasError = true; continue; }
         const { error } = await supabase
           .from("career_roles")
           .delete()
-          .eq("user_id", user.id)
-          .ilike("title", change.role_title);
+          .eq("id", matches[0].id);
         if (error) { console.error("Roadmap remove_role error:", error); hasError = true; }
       }
+    }
+
+    if (pathCRoles.length > 0) {
+      toast.info(`Added ${pathCRoles.join(", ")} to your roadmap. Click "Refresh Analysis" on Career Roadmap to compute the skill breakdown.`);
     }
     if (hasError) {
       toast.error("Some changes could not be applied. Please try again.");
@@ -680,39 +759,67 @@ export default function ChatInterface({ agentName, title, description, applicati
     }
     setAppliedRoadmapSets((prev) => ({ ...prev, [messageId]: true }));
     queryClient.invalidateQueries({ queryKey: ["careerRoles"] });
-    toast.success("Roadmap updated");
+    if (pathCRoles.length === 0) toast.success("Roadmap updated");
   };
 
   const handleApplyApplicationActions = async (messageId, actions) => {
     if (!user?.id || appliedAppActionSets[messageId]) return;
     let hasError = false;
+
     for (const a of actions) {
       if (a.action === "add_application") {
+        const status = validStatus(a.status) || "interested";
+        const tier = validTier(a.tier);
         const row = {
           user_id: user.id,
           company: a.company,
           role_title: a.role_title,
-          status: a.status || "interested",
-          ...(a.tier && { tier: a.tier }),
+          status,
+          ...(tier && { tier }),
           ...(a.url && { url: a.url }),
           ...(a.location && { location: a.location }),
           ...(a.notes && { notes: a.notes }),
+          // Auto-set applied_date so the Calendar surfaces it (parallel to
+          // the B4 fix on tasks). Only fires when the agent's add request
+          // is for an already-applied role.
+          ...(status === "applied" && { applied_date: new Date().toISOString() }),
         };
         const { error } = await supabase.from("applications").insert(row);
         if (error) { console.error("add_application error:", error); hasError = true; }
       } else if (a.action === "update_application") {
         const patch = {};
-        if (a.new_status) patch.status = a.new_status;
-        if (a.new_interview_stage) patch.interview_stage = a.new_interview_stage;
-        if (a.new_tier) patch.tier = a.new_tier;
-        if (a.new_notes) patch.notes = a.new_notes;
+        const newStatus = validStatus(a.new_status);
+        const newTier = validTier(a.new_tier);
+        const newStage = validInterviewStage(a.new_interview_stage);
+        if (newStatus) patch.status = newStatus;
+        if (newStage) patch.interview_stage = newStage;
+        if (newTier) patch.tier = newTier;
+        if (a.new_notes && typeof a.new_notes === "string") patch.notes = a.new_notes;
         if (Object.keys(patch).length === 0) continue;
-        const { error } = await supabase
+
+        // Pre-check so we know whether to set applied_date and to surface
+        // multi-match ambiguity rather than silently updating multiple rows.
+        const { data: matches, error: lookupErr } = await supabase
           .from("applications")
-          .update(patch)
+          .select("id, applied_date")
           .eq("user_id", user.id)
           .ilike("company", a.match_company)
           .ilike("role_title", a.match_role_title);
+        if (lookupErr) { console.error("update_application lookup error:", lookupErr); hasError = true; continue; }
+        if (!matches || matches.length === 0) { console.error("update_application: not found", a.match_company, a.match_role_title); hasError = true; continue; }
+        if (matches.length > 1) { console.error("update_application: ambiguous match"); hasError = true; continue; }
+        const target = matches[0];
+
+        // Auto-set applied_date when transitioning to "applied" and the row
+        // doesn't already have one. Don't overwrite existing applied_date.
+        if (newStatus === "applied" && !target.applied_date) {
+          patch.applied_date = new Date().toISOString();
+        }
+
+        const { error } = await supabase
+          .from("applications")
+          .update(patch)
+          .eq("id", target.id);
         if (error) { console.error("update_application error:", error); hasError = true; }
       }
     }

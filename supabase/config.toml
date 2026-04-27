@@ -39,6 +39,9 @@ verify_jwt = false
 [functions.analyze-job-match]
 verify_jwt = false
 
+[functions.lookup-role-skills]
+verify_jwt = false
+
 # Legacy camelCase duplicates still deployed — keep covered until retired.
 [functions.generateApplicationTasks]
 verify_jwt = false
