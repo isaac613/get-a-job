@@ -632,6 +632,16 @@ export default function Onboarding() {
     const finalPayload = cleanProfilePayload(finalRawPayload);
     Object.keys(finalPayload).forEach(key => finalPayload[key] === undefined && delete finalPayload[key]);
 
+    // handleSurveyNext (step 7) already wrote these fields from the live
+    // career-analysis output. profileData (the React state) is stale —
+    // it never received the analysis values, so cleanProfilePayload would
+    // include them as null and clobber the real values from step 7.
+    // Strip them here so handleFinalise can't overwrite step 7's writes.
+    delete finalPayload.qualification_level;
+    delete finalPayload.skill_gaps;
+    delete finalPayload.overall_assessment;
+    delete finalPayload.last_reality_check_date;
+
     const { error: finalUpdateError } = await supabase.from("profiles").update(finalPayload).eq("id", targetProfileId);
     if (finalUpdateError) {
       console.error("Failed to mark onboarding complete:", finalUpdateError);

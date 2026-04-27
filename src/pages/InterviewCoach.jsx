@@ -30,6 +30,10 @@ export default function InterviewCoach() {
       return data || [];
     },
     enabled: !!user?.id,
+    // Fresh fetch every page open — fixes the case where user added
+    // an application elsewhere then opened Interview Coach and saw
+    // an empty dropdown from a stale TanStack cache.
+    refetchOnMount: "always",
   });
 
   const selectedApp = applications.find((a) => a.id === selectedAppId);

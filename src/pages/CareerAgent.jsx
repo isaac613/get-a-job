@@ -1,7 +1,11 @@
-import React from "react";
+import React, { useState } from "react";
+import { supabase } from "@/api/supabaseClient";
+import { useAuth } from "@/lib/AuthContext";
+import { useQuery } from "@tanstack/react-query";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import ChatInterface from "../components/chat/ChatInterface";
 
-const SUGGESTED_PROMPTS = [
+const GENERAL_PROMPTS = [
   "Am I ready to apply for my Tier 1 roles?",
   "What should I focus on this week?",
   "Which role should I target first and why?",
@@ -10,14 +14,75 @@ const SUGGESTED_PROMPTS = [
 ];
 
 export default function CareerAgent() {
+  const { user } = useAuth();
+  const [selectedAppId, setSelectedAppId] = useState("general");
+
+  const { data: applications = [] } = useQuery({
+    queryKey: ["applications", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const { data, error } = await supabase
+        .from("applications")
+        .select("id, role_title, company, status")
+        .eq("user_id", user.id)
+        .order("updated_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id,
+    refetchOnMount: "always",
+  });
+
+  const selectedApp = applications.find((a) => a.id === selectedAppId);
+  const appLabel = selectedApp
+    ? `${selectedApp.role_title}${selectedApp.company ? ` at ${selectedApp.company}` : ""}`
+    : null;
+  const title = selectedApp
+    ? `AI Career Agent — ${appLabel}`
+    : "AI Career Agent";
+  const description = selectedApp
+    ? "Career strategy scoped to this specific role and your fit for it."
+    : "Honest, data-driven career strategy based on your actual profile and roadmap.";
+
+  const APPLICATION_PROMPTS = [
+    "What's my biggest gap for this role?",
+    "Should I apply to this role now or wait?",
+    "What can I do this week to prepare for this application?",
+    "How does my profile compare to what this role requires?",
+  ];
+  const suggestedPrompts = selectedApp ? APPLICATION_PROMPTS : GENERAL_PROMPTS;
+
   return (
     <div className="h-screen flex flex-col overflow-hidden">
-      <ChatInterface
-        agentName="career_agent"
-        title="AI Career Agent"
-        description="Honest, data-driven career strategy based on your actual profile and roadmap."
-        suggestedPrompts={SUGGESTED_PROMPTS}
-      />
+      <div className="px-6 py-3 border-b border-[#E5E5E5] bg-white flex items-center gap-3 shrink-0">
+        <span className="text-xs font-medium text-[#525252] shrink-0">Discussing:</span>
+        <Select value={selectedAppId} onValueChange={setSelectedAppId}>
+          <SelectTrigger className="h-8 text-xs max-w-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="general">General career strategy</SelectItem>
+            {applications.map((app) => (
+              <SelectItem key={app.id} value={app.id}>
+                {app.role_title}{app.company ? ` at ${app.company}` : ""}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="flex-1 overflow-hidden">
+        {/* key resets messages when the selected application changes — same
+            pattern as CVAgent / InterviewCoach to prevent context bleed. */}
+        <ChatInterface
+          key={selectedAppId}
+          agentName="career_agent"
+          title={title}
+          description={description}
+          applicationId={selectedAppId === "general" ? null : selectedAppId}
+          suggestedPrompts={suggestedPrompts}
+        />
+      </div>
     </div>
   );
 }
