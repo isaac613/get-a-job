@@ -34,7 +34,7 @@ export default function InterviewCoach() {
 
   const selectedApp = applications.find((a) => a.id === selectedAppId);
   const title = selectedApp
-    ? `Interview Coach — ${selectedApp.role_title} at ${selectedApp.company}`
+    ? `Interview Coach — ${selectedApp.role_title}${selectedApp.company ? ` at ${selectedApp.company}` : ""}`
     : "Interview Coach";
   const description = selectedApp
     ? "Coaching tailored to this role, your skill gaps, and your experience."

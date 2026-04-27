@@ -186,13 +186,15 @@ export default function ApplicationRow({ app, onUpdate }) {
               {app.tier?.replace("_", " ")}
             </span>
           )}
-          {app.qualification_score !== undefined && app.qualification_score !== null && (
+          {app.qualification_score !== undefined && app.qualification_score !== null ? (
             <span className={cn("text-[11px] font-semibold",
               app.qualification_score >= 0.45 ? "text-emerald-600" : "text-red-500"
             )}>
               {Math.round((app.qualification_score || 0) * 100)}%
             </span>
-          )}
+          ) : (app.job_description && app.job_description.trim()) ? (
+            <span className="text-[11px] text-[#A3A3A3] italic">Calculating fit…</span>
+          ) : null}
           {confirmingDelete ? (
             <>
               <button
@@ -282,7 +284,7 @@ export default function ApplicationRow({ app, onUpdate }) {
                     <span className="text-xs text-[#A3A3A3]">Tier</span>
                     <span className="text-xs font-medium text-[#0A0A0A]">{app.tier?.replace("_", " ") || "Unclassified"}</span>
                   </div>
-                  {app.qualification_score !== undefined && app.qualification_score !== null && (
+                  {app.qualification_score !== undefined && app.qualification_score !== null ? (
                     <div className="flex justify-between">
                       <span className="text-xs text-[#A3A3A3]">AI Confidence</span>
                       <span className={cn("text-xs font-semibold",
@@ -291,7 +293,12 @@ export default function ApplicationRow({ app, onUpdate }) {
                         {Math.round(app.qualification_score * 100)}%
                       </span>
                     </div>
-                  )}
+                  ) : (app.job_description && app.job_description.trim()) ? (
+                    <div className="flex justify-between">
+                      <span className="text-xs text-[#A3A3A3]">AI Confidence</span>
+                      <span className="text-xs text-[#A3A3A3] italic">Calculating fit…</span>
+                    </div>
+                  ) : null}
                 </div>
                 <div className="space-y-2">
                   <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium">
