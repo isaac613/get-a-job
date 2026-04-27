@@ -41,7 +41,7 @@ export default function CareerRoadmap() {
     enabled: !!user?.id,
   });
 
-  const { data: profiles = [] } = useQuery({
+  const { data: profiles = [], isLoading: profileLoading, isError: profileError } = useQuery({
     queryKey: ["userProfile", user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
@@ -201,7 +201,7 @@ export default function CareerRoadmap() {
     }
   };
 
-  if (isLoading) {
+  if (isLoading || profileLoading) {
     return (
       <div className="flex items-center justify-center h-full min-h-[60vh]">
         <Loader2 className="w-5 h-5 animate-spin text-[#A3A3A3]" />
@@ -209,7 +209,7 @@ export default function CareerRoadmap() {
     );
   }
 
-  if (rolesError) {
+  if (rolesError || profileError) {
     return (
       <div className="flex items-center justify-center h-full min-h-[60vh]">
         <div className="flex items-center gap-2 text-sm text-red-600">
