@@ -337,9 +337,9 @@ export default function ChatInterface({ agentName, title, description, applicati
       const { data, error } = await query;
       if (error) { console.error("Failed to load conversations:", error); return; }
       setConversations(data || []);
-      if (data && data.length > 0 && !activeConversationId) {
-        setActiveConversationId(data[0].id);
-      }
+      // Don't auto-resume the most recent conversation on cold mount —
+      // every fresh agent open starts a clean chat. Past conversations
+      // remain accessible from the picker; users opt in by selecting one.
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, agentName, applicationId]);
@@ -955,6 +955,16 @@ export default function ChatInterface({ agentName, title, description, applicati
 
       {/* Input */}
       <div className="px-6 py-4 border-t border-[#E5E5E5] bg-white">
+        {messages.length > 0 && (
+          <div className="flex justify-end mb-2">
+            <button
+              onClick={startNewConversation}
+              className="text-xs text-[#525252] hover:text-[#0A0A0A] flex items-center gap-1 transition-colors"
+            >
+              <Plus className="w-3 h-3" /> New chat
+            </button>
+          </div>
+        )}
         <div className="flex items-end gap-2">
           <textarea
             value={input}
