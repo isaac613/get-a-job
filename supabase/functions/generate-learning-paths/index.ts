@@ -12,6 +12,56 @@ const MODEL = 'gpt-4o-mini'
 const RATE_LIMIT_CALLS = 10
 const RATE_LIMIT_WINDOW = 3600
 
+// HEAD-validate URLs the LLM emits in learning paths. The LLM regularly
+// hallucinates plausible-looking URLs that 404; LearningPaths.jsx already
+// has a "Search Google for this course" fallback when r.url is null, so
+// we null out anything that fails validation and let the frontend
+// degrade gracefully.
+async function validateUrl(url: string): Promise<boolean> {
+  if (!url || typeof url !== 'string') return false
+  if (!/^https?:\/\//i.test(url)) return false
+  const headers = { 'User-Agent': 'Mozilla/5.0 (compatible; GetAJobBot/1.0)' }
+  try {
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), 5000)
+    let r = await fetch(url, { method: 'HEAD', signal: ctrl.signal, redirect: 'follow', headers })
+    clearTimeout(timer)
+    if (r.ok) return true
+    // Some sites (CDNs, certain hosting platforms) return 405 for HEAD —
+    // retry with a Range GET that fetches one byte.
+    if (r.status === 405) {
+      const ctrl2 = new AbortController()
+      const timer2 = setTimeout(() => ctrl2.abort(), 5000)
+      r = await fetch(url, {
+        method: 'GET',
+        signal: ctrl2.signal,
+        redirect: 'follow',
+        headers: { ...headers, Range: 'bytes=0-0' },
+      })
+      clearTimeout(timer2)
+      return r.ok || r.status === 206
+    }
+    return false
+  } catch {
+    return false
+  }
+}
+
+// Bounded-concurrency map. Keeps total HEAD-check time bounded
+// (worst case ceil(N/limit) × timeout) when validating a batch of URLs.
+async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const results: R[] = new Array(items.length)
+  let i = 0
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (i < items.length) {
+      const idx = i++
+      results[idx] = await fn(items[idx])
+    }
+  })
+  await Promise.all(workers)
+  return results
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -193,6 +243,20 @@ Return ONLY valid JSON.`
     }
 
     if (!Array.isArray(result.learning_paths)) result.learning_paths = []
+
+    // URL validation — strip URLs that 404 / time out. LearningPaths.jsx
+    // shows "Search Google for this course" when r.url is null, so failed
+    // validation downgrades to a usable fallback rather than a dead link.
+    const allResources: any[] = []
+    for (const lp of (result.learning_paths as any[])) {
+      for (const r of (lp?.resources || [])) {
+        if (r && typeof r === 'object') allResources.push(r)
+      }
+    }
+    if (allResources.length > 0) {
+      const validations = await mapWithConcurrency(allResources, 5, (r) => validateUrl(r?.url || ''))
+      allResources.forEach((r, i) => { if (!validations[i]) r.url = null })
+    }
 
     // Synthesize the flat `courses` array from learning_paths so existing
     // consumers (e.g. SkillGapCourses.jsx) keep working without asking the
