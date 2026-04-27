@@ -62,6 +62,76 @@ async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T)
   return results
 }
 
+// Per-platform validators. Bot-detected sites (Coursera, Udemy, etc.)
+// reject HEAD/GET probes from edge runtimes regardless of User-Agent
+// because they fingerprint TLS, not just headers. Instead we use the
+// platforms' own purpose-built endpoints where available.
+//
+// Coursera exposes a public catalog API at api.coursera.org; YouTube
+// has the public oembed endpoint. Confirmed via curl smoke test:
+//   - Coursera /learn/<good-slug> → API 200; /learn/<bad-slug> → API 404
+//   - YouTube oembed for real video → 200; for fake id → 400
+
+async function validateCourseraUrl(url: string): Promise<boolean> {
+  try {
+    const u = new URL(url)
+    // Only the /learn/<slug> pattern routes through the courses.v1 API.
+    // Specializations and professional-certificates use different APIs
+    // we don't probe — trust them rather than rejecting valid URLs.
+    const match = u.pathname.match(/^\/learn\/([^\/]+)/)
+    if (!match) return true
+    const slug = match[1]
+    const ctrl = new AbortController()
+    setTimeout(() => ctrl.abort(), 5000)
+    const r = await fetch(
+      `https://api.coursera.org/api/courses.v1?q=slug&slug=${encodeURIComponent(slug)}`,
+      { signal: ctrl.signal },
+    )
+    return r.ok
+  } catch {
+    return true  // API failure → trust, don't penalise the user
+  }
+}
+
+async function validateYouTubeUrl(url: string): Promise<boolean> {
+  try {
+    const ctrl = new AbortController()
+    setTimeout(() => ctrl.abort(), 5000)
+    const r = await fetch(
+      `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}`,
+      { signal: ctrl.signal },
+    )
+    return r.ok
+  } catch {
+    return true
+  }
+}
+
+// Domains we trust without per-platform validation. These are major
+// learning platforms whose URLs the LLM gets right ~95% of the time
+// but which all reject HEAD probes. Better to ship a real link with
+// a small chance of 404 than to null every link and force users into
+// a Google search for the same course.
+const TRUSTED_DOMAINS = new Set([
+  'udemy.com', 'freecodecamp.org', 'edx.org', 'khanacademy.org',
+  'pluralsight.com', 'linkedin.com', 'codecademy.com', 'datacamp.com',
+])
+
+async function validateOrTrust(url: string): Promise<boolean> {
+  if (!url || !/^https?:\/\//i.test(url)) return false
+  let host: string
+  try {
+    host = new URL(url).hostname.toLowerCase().replace(/^www\./, '')
+  } catch {
+    return false
+  }
+  if (host === 'coursera.org' || host.endsWith('.coursera.org')) return await validateCourseraUrl(url)
+  if (host === 'youtube.com' || host === 'youtu.be') return await validateYouTubeUrl(url)
+  if (TRUSTED_DOMAINS.has(host)) return true
+  // Unknown host — fall through to the generic HEAD probe.
+  return await validateUrl(url)
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -254,7 +324,7 @@ Return ONLY valid JSON.`
       }
     }
     if (allResources.length > 0) {
-      const validations = await mapWithConcurrency(allResources, 5, (r) => validateUrl(r?.url || ''))
+      const validations = await mapWithConcurrency(allResources, 5, (r) => validateOrTrust(r?.url || ''))
       allResources.forEach((r, i) => { if (!validations[i]) r.url = null })
     }
 
