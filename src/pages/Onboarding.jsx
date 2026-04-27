@@ -6,6 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { createPageUrl } from "@/utils";
 import { Loader2 } from "lucide-react";
 import { EMPTY_PROFILE, cleanProfilePayload } from "@/lib/onboardingPayload";
+import { resolveDueDate, defaultDueDateFor } from "@/lib/taskDueDate";
 
 import OnboardingShell from "../components/onboarding/OnboardingShell";
 import StepResumeUpload from "../components/onboarding/StepResumeUpload";
@@ -558,23 +559,27 @@ export default function Onboarding() {
         });
         if (taskInvokeError) throw taskInvokeError;
         if (taskData?.tasks?.length > 0) {
-          tasksToInsert = taskData.tasks.map((t) => ({
-            title: t.title,
-            description: t.description,
-            category: normCategory(t.category),
-            priority: normPriority(t.priority),
-            role_title: t.role_title || null,
-            is_complete: false,
-            user_id: user.id,
-          }));
+          tasksToInsert = taskData.tasks.map((t) => {
+            const priority = normPriority(t.priority);
+            return {
+              title: t.title,
+              description: t.description,
+              category: normCategory(t.category),
+              priority,
+              role_title: t.role_title || null,
+              due_date: resolveDueDate(t.due_date, priority),
+              is_complete: false,
+              user_id: user.id,
+            };
+          });
         }
       } catch (err) {
         console.error("Task generation error during onboarding:", err);
       }
       if (tasksToInsert.length === 0) {
         tasksToInsert = [
-          { title: "Update your CV for target roles", description: "Tailor your CV based on skill gaps.", category: "cv", priority: "high", is_complete: false, user_id: user.id },
-          { title: "Research target companies", description: "Find active job postings.", category: "application", priority: "high", is_complete: false, user_id: user.id },
+          { title: "Update your CV for target roles", description: "Tailor your CV based on skill gaps.", category: "cv", priority: "high", due_date: defaultDueDateFor("high"), is_complete: false, user_id: user.id },
+          { title: "Research target companies", description: "Find active job postings.", category: "application", priority: "high", due_date: defaultDueDateFor("high"), is_complete: false, user_id: user.id },
         ];
       }
       const { data: taskInsertData, error: taskInsertError } = await supabase.from("tasks")

@@ -192,6 +192,8 @@ Deno.serve(async (req) => {
     const filteredMappings = ((roleSkillMapping as any).role_skill_mapping as any[])
       .filter((m: any) => filteredRoleIds.has(m.role_id))
 
+    const today = new Date().toISOString().slice(0, 10);
+
     // --- Build System Prompt with Library Context ---
     const systemPrompt = `You are a Task Generation Engine for the "Get A Job" Career Operating System.
 
@@ -221,7 +223,14 @@ TASK GENERATION RULES:
 - If the user shows overwhelm signals (low clarity score, low activity), limit to 3 top-priority tasks
 - Only recommend course tasks for structured skill gaps (technical, tools, frameworks) ΓÇö not behavioral gaps
 - Always end with at least one networking or application task unless the user is in interview stage
-- Use the task structure format exactly: task_title, task_description, suggested_specific_action, reason, category, priority
+- Use the task structure format exactly: task_title, task_description, suggested_specific_action, reason, category, priority, due_date
+
+DUE DATE GUIDANCE (today is ${today}):
+- high priority: pick a date 1-5 days from today
+- medium priority: pick a date 5-14 days from today
+- low priority: pick a date 14-30 days from today
+- Format: ISO date string YYYY-MM-DD (e.g. "${today}")
+- Do not invent past dates, do not skip the field — every task must have a due_date.
 
 TASK CATEGORIES (use EXACTLY one of these — any other value is invalid):
 - application — applying to roles, finding opportunities, interview prep (prep for an upcoming interview belongs here)
@@ -295,7 +304,8 @@ Return a JSON object:
       "reason": "string (why this matters right now for this specific user)",
       "category": "application|cv|skill|project|networking",
       "priority": "high|medium|low",
-      "role_title": "string (target role this relates to, if any ΓÇö use exact title from role library)"
+      "role_title": "string (target role this relates to, if any ΓÇö use exact title from role library)",
+      "due_date": "string (ISO date YYYY-MM-DD, required for every task)"
     }
   ]
 }

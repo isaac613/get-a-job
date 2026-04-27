@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { createPageUrl } from "@/utils";
+import { resolveDueDate } from "@/lib/taskDueDate";
 import MessageBubble from "./MessageBubble";
 
 const TIER_LABELS = {
@@ -622,12 +623,14 @@ export default function ChatInterface({ agentName, title, description, applicati
 
   const handleAddTasks = async (messageId, task, taskIndex) => {
     if (!user?.id || addedTaskSets[messageId]?.[taskIndex]) return;
+    const priority = task.priority || "medium";
     const { error } = await supabase.from("tasks").insert({
       title: task.title,
       description: task.description || "",
       category: task.category || "application",
-      priority: task.priority || "medium",
+      priority,
       role_title: task.role_title || "",
+      due_date: resolveDueDate(task.due_date, priority),
       user_id: user.id,
       is_complete: false,
     });

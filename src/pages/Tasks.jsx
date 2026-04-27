@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import GeneratingBanner from "@/components/ui/GeneratingBanner";
+import { resolveDueDate } from "@/lib/taskDueDate";
 
 const TASK_MESSAGES = [
   "Searching LinkedIn & Glassdoor for real active job postings…",
@@ -97,15 +98,19 @@ export default function Tasks() {
       const normPriority = (p) => PRIORITY_MAP[p] || "medium";
       const normCategory = (c) => CATEGORY_MAP[c] || "application";
 
-      const generatedTasks = (data?.tasks || []).map((t) => ({
-        title: t.title,
-        description: t.description,
-        category: normCategory(t.category),
-        priority: normPriority(t.priority),
-        role_title: t.role_title || null,
-        is_complete: false,
-        user_id: user.id,
-      }));
+      const generatedTasks = (data?.tasks || []).map((t) => {
+        const priority = normPriority(t.priority);
+        return {
+          title: t.title,
+          description: t.description,
+          category: normCategory(t.category),
+          priority,
+          role_title: t.role_title || null,
+          due_date: resolveDueDate(t.due_date, priority),
+          is_complete: false,
+          user_id: user.id,
+        };
+      });
 
       if (generatedTasks.length > 0) {
         const { error: insertError } = await supabase.from("tasks").insert(generatedTasks);
