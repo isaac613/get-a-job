@@ -76,3 +76,33 @@ export function sanitizeMissingSkills(proposed) {
   }
   return out.slice(0, 20);
 }
+
+// Coerces an AI-emitted readiness/match score to a number in [0, 1].
+// Returns null if the value isn't a number — caller decides whether to
+// drop the field or substitute a default.
+export function clampScore(n) {
+  const v = Number(n);
+  if (Number.isNaN(v)) return null;
+  return Math.max(0, Math.min(1, v));
+}
+
+// Trims a string and caps its length. Used for AI-emitted reasoning,
+// alignment_to_goal, and similar prose fields. Returns empty string
+// for non-string input rather than null so the field renders empty
+// instead of breaking conditional checks.
+export function sanitizeText(s, maxLen = 500) {
+  if (typeof s !== "string") return "";
+  return s.trim().slice(0, maxLen);
+}
+
+// Sanitises AI-emitted action_items. Each item is trimmed and capped
+// at maxItemLen; empty items are dropped; the array is capped at
+// maxItems. Mirrors the analysis pipeline's expected shape (string[]).
+export function sanitizeActionItems(arr, maxItems = 5, maxItemLen = 200) {
+  if (!Array.isArray(arr)) return [];
+  return arr
+    .filter((s) => typeof s === "string")
+    .map((s) => s.trim().slice(0, maxItemLen))
+    .filter(Boolean)
+    .slice(0, maxItems);
+}

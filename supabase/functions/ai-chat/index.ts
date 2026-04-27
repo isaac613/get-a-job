@@ -110,7 +110,7 @@ SUGGESTED_ROADMAP_CHANGES_JSON:{"changes":[{"action":"update_tier","role_title":
 
 Each change must use one of these shapes:
 - {"action":"update_tier","role_title":"EXACT role title from their roadmap","new_tier":"tier_1","reason":"short explanation"}
-- {"action":"add_role","title":"Role Title","tier":"tier_2","matched_skills_proposed":["..."],"missing_skills_proposed":["..."],"reason":"short explanation"}
+- {"action":"add_role","title":"Role Title","tier":"tier_2","matched_skills_proposed":["..."],"missing_skills_proposed":["..."],"readiness_score":0.55,"reasoning":"...","alignment_to_goal":"...","action_items":["..."],"reason":"short explanation"}
 - {"action":"remove_role","role_title":"EXACT role title from their roadmap","reason":"short explanation"}
 
 Valid tiers: "tier_1" (Your Move), "tier_2" (Plan B), "tier_3" (Work Toward)
@@ -120,10 +120,14 @@ Rules:
 - Always mention the proposed changes in your response text before the JSON block
 - Omit this block entirely if no roadmap changes are needed
 
-For add_role specifically — populate the two skills arrays:
+For add_role specifically — populate the full role analysis. The user's role cards display all of these fields:
 - matched_skills_proposed: skills FROM THE USER'S PROFILE.skills (the SKILLS context above) that genuinely apply to this role. Copy the EXACT strings from their profile, do not paraphrase or invent. If the user has "Customer Success" and the role values customer-facing communication, list "Customer Success". If you cannot find a real match in their profile, leave this array empty rather than fabricating.
 - missing_skills_proposed: skills typical for this role that the user does NOT have in their profile. Use display-friendly format ("Customer Communication", "Stakeholder Management") — not snake_case identifiers.
-- Both keys must be present in the JSON, even if their arrays are empty. The frontend distinguishes "you provided no matches" from "you didn't try" by key presence.`
+- readiness_score: number 0.0–1.0 estimating how qualified the user is for this role TODAY. Roughly matched_count / (matched_count + missing_count). 0.7+ = ready (tier_1 territory), 0.4–0.7 = transitional (tier_2), <0.4 = long-term goal (tier_3). Should agree with the tier you choose.
+- reasoning: 1–2 sentences explaining WHY this role suits the user, citing their actual experience or skills. Plain text, no quotes or marketing language.
+- alignment_to_goal: 1 sentence connecting this role to the user's stated 5-year career goal (from their profile). If they haven't stated a goal, omit this key entirely.
+- action_items: array of 3–5 short, concrete next-step strings the user could take to be more qualified for this role (e.g. "Complete an SQL course on freeCodeCamp", "Build one ETL pipeline as a portfolio project"). Each action max 200 chars.
+- All these keys (except alignment_to_goal when no goal exists) should be present. The frontend uses key presence to distinguish "you provided" from "you didn't try"; missing keys fall back to empty/null.`
 
 const APPLICATION_ACTIONS_RULES = `
 
@@ -574,7 +578,7 @@ Deno.serve(async (req) => {
       reply = roadmapResult.cleaned
       const parsed = roadmapResult.parsed
       const changes = parsed && typeof parsed === 'object' && Array.isArray((parsed as any).changes)
-        ? (parsed as any).changes as Array<{ action: string; role_title?: string; title?: string; new_tier?: string; tier?: string; matched_skills_proposed?: string[]; missing_skills_proposed?: string[]; reason: string }>
+        ? (parsed as any).changes as Array<{ action: string; role_title?: string; title?: string; new_tier?: string; tier?: string; matched_skills_proposed?: string[]; missing_skills_proposed?: string[]; readiness_score?: number; reasoning?: string; alignment_to_goal?: string; action_items?: string[]; reason: string }>
         : Array.isArray(parsed) ? parsed as any[] : null
       if (Array.isArray(changes) && changes.length > 0) {
         const VALID_TIERS = new Set(['tier_1', 'tier_2', 'tier_3'])
@@ -585,17 +589,39 @@ Deno.serve(async (req) => {
                     .slice(0, 20)
                     .map((s: string) => s.trim())
         }
+        const sanitiseTextSrv = (s: any, maxLen = 500): string => {
+          if (typeof s !== 'string') return ''
+          return s.trim().slice(0, maxLen)
+        }
+        const clampScoreSrv = (n: any): number | null => {
+          const v = Number(n)
+          if (Number.isNaN(v)) return null
+          return Math.max(0, Math.min(1, v))
+        }
+        const sanitiseActionItemsSrv = (arr: any): string[] | undefined => {
+          if (!Array.isArray(arr)) return undefined
+          return arr.filter((s: any) => typeof s === 'string' && s.trim().length > 0)
+                    .map((s: string) => s.trim().slice(0, 200))
+                    .slice(0, 5)
+        }
         const validChanges = changes
           .filter(c => c && VALID_ACTIONS.has(c.action))
           .map(c => {
             const out: any = { ...c }
             if (c.new_tier) out.new_tier = VALID_TIERS.has(c.new_tier) ? c.new_tier : 'tier_2'
             if (c.tier) out.tier = VALID_TIERS.has(c.tier) ? c.tier : 'tier_2'
-            // Preserve key presence: if AI emitted matched_skills_proposed (even
-            // as an empty array), keep the key so the handler can distinguish
-            // "AI tried, found 0 matches" from "AI didn't try at all".
+            // Preserve key presence: if AI emitted any of these (even as an
+            // empty array/null), keep the key so the handler distinguishes
+            // "AI provided" from "AI didn't try".
             if ('matched_skills_proposed' in c) out.matched_skills_proposed = sanitiseSkillArray(c.matched_skills_proposed) ?? []
             if ('missing_skills_proposed' in c) out.missing_skills_proposed = sanitiseSkillArray(c.missing_skills_proposed) ?? []
+            if ('readiness_score' in c) {
+              const v = clampScoreSrv(c.readiness_score)
+              if (v !== null) out.readiness_score = v
+            }
+            if ('reasoning' in c) out.reasoning = sanitiseTextSrv(c.reasoning, 500)
+            if ('alignment_to_goal' in c) out.alignment_to_goal = sanitiseTextSrv(c.alignment_to_goal, 500)
+            if ('action_items' in c) out.action_items = sanitiseActionItemsSrv(c.action_items) ?? []
             return out
           })
         if (validChanges.length > 0) suggested_roadmap_changes = validChanges

@@ -21,6 +21,9 @@ import {
   validInterviewStage,
   validateMatchedSkills,
   sanitizeMissingSkills,
+  clampScore,
+  sanitizeText,
+  sanitizeActionItems,
 } from "@/lib/applyHandlerValidation";
 import MessageBubble from "./MessageBubble";
 
@@ -717,13 +720,32 @@ export default function ChatInterface({ agentName, title, description, applicati
           usedAIProposed = true;
         }
 
-        const { error } = await supabase.from("career_roles").insert({
+        // Match the shape generate-career-analysis writes via
+        // replace_career_roles RPC, so AI-added roles render the same
+        // expanded card content (reasoning, alignment, action items,
+        // % match) as analysis-generated ones. Each field is added only
+        // if the AI provided it; missing keys fall through to NULL/empty.
+        const insertPayload = {
           user_id: user.id,
           title: change.title,
           tier,
           matched_skills,
           missing_skills,
-        });
+          // skills_gap mirrors missing_skills (matches the analysis pattern)
+          skills_gap: missing_skills,
+        };
+        if ("readiness_score" in change) {
+          const score = clampScore(change.readiness_score);
+          if (score !== null) {
+            insertPayload.readiness_score = score;
+            insertPayload.match_score = score; // legacy column kept in sync
+          }
+        }
+        if ("reasoning" in change) insertPayload.reasoning = sanitizeText(change.reasoning, 500);
+        if ("alignment_to_goal" in change) insertPayload.alignment_to_goal = sanitizeText(change.alignment_to_goal, 500);
+        if ("action_items" in change) insertPayload.action_items = sanitizeActionItems(change.action_items);
+
+        const { error } = await supabase.from("career_roles").insert(insertPayload);
         if (error) { console.error("Roadmap add_role error:", error); hasError = true; continue; }
 
         // Path C: if the AI didn't emit either skills array, the row landed
