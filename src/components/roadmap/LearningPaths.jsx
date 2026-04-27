@@ -4,6 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BookOpen, ExternalLink, RefreshCw, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import GeneratingBanner from "@/components/ui/GeneratingBanner";
+
+const LEARNING_PATH_MESSAGES = [
+  "Matching your skill gaps to courses…",
+  "Selecting platforms with strong free options…",
+  "Building capstone project ideas…",
+  "Almost ready — finalising your path…",
+];
 
 // CR1 fix — no frontend invention. Render only fields the LLM actually
 // supplies via generate-learning-paths. Previous version wrapped each path
@@ -91,6 +99,10 @@ export default function LearningPaths({ skillGaps, targetRole }) {
           )}
         </Button>
       </div>
+
+      {loading && (
+        <GeneratingBanner messages={LEARNING_PATH_MESSAGES} subtitle="Generating your learning path — this takes ~10 seconds" />
+      )}
 
       {error && !loading && (
         <Card className="border-red-200 bg-red-50">

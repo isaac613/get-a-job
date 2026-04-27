@@ -3,6 +3,13 @@ import { ExternalLink, Loader2, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/api/supabaseClient";
 import { toast } from "sonner";
+import GeneratingBanner from "@/components/ui/GeneratingBanner";
+
+const COURSE_MESSAGES = [
+  "Matching your skill gaps to courses…",
+  "Selecting free & affordable options…",
+  "Almost ready — finalising recommendations…",
+];
 
 export default function SkillGapCourses({ skillGaps }) {
   const [courses, setCourses] = useState(null);
@@ -57,6 +64,10 @@ export default function SkillGapCourses({ skillGaps }) {
           </Button>
         )}
       </div>
+
+      {loading && (
+        <GeneratingBanner messages={COURSE_MESSAGES} subtitle="Loading recommendations — this takes ~10 seconds" />
+      )}
 
       {error && !loading && (
         <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2.5 mt-3">
