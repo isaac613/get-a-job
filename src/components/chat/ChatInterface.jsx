@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { createPageUrl } from "@/utils";
 import { resolveDueDate } from "@/lib/taskDueDate";
+import { scoreApplication } from "@/lib/scoreApplication";
 import {
   validTier,
   validStatus,
@@ -806,8 +807,14 @@ export default function ChatInterface({ agentName, title, description, applicati
           // is for an already-applied role.
           ...(status === "applied" && { applied_date: new Date().toISOString() }),
         };
-        const { error } = await supabase.from("applications").insert(row);
-        if (error) { console.error("add_application error:", error); hasError = true; }
+        const { data: inserted, error } = await supabase.from("applications").insert(row).select("id").single();
+        if (error) { console.error("add_application error:", error); hasError = true; continue; }
+        // Background-score against the JD if the agent provided one
+        // (handleApplyApplicationActions doesn't currently capture JD from
+        // the agent payload — separate enhancement).
+        if (inserted?.id && a.job_description) {
+          scoreApplication(supabase, queryClient, inserted.id, a.job_description);
+        }
       } else if (a.action === "update_application") {
         const patch = {};
         const newStatus = validStatus(a.new_status);

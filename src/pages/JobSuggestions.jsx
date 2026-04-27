@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/api/supabaseClient";
+import { scoreApplication } from "@/lib/scoreApplication";
 import { useAuth } from "@/lib/AuthContext";
 import { Button } from "@/components/ui/button";
 import {
@@ -54,18 +55,19 @@ function JobCard({ job }) {
       setAdded(true);
       return;
     }
-    const { error: insertError } = await supabase.from("applications").insert({
+    const jd = job.description_snippet || "";
+    const { data: inserted, error: insertError } = await supabase.from("applications").insert({
       user_id: user.id,
       role_title: job.title,
       company: job.company || "Unknown",
       tier: matchScore >= 70 ? "tier_1" : "tier_2",
       status: "interested",
       cv_skills_emphasized: job.matched_skills || [],
-      job_description: job.description_snippet || "",
+      job_description: jd,
       url: job.job_url || "",
       location: job.location || "",
       notes: job.match_reason || "",
-    });
+    }).select("id").single();
     setAdding(false);
     if (insertError) {
       console.error("Failed to add to tracker:", insertError);
@@ -73,6 +75,8 @@ function JobCard({ job }) {
     }
     queryClient.invalidateQueries({ queryKey: ["applications"] });
     setAdded(true);
+    // Background-score against the JD so AI Confidence appears ~5s later.
+    if (inserted?.id) scoreApplication(supabase, queryClient, inserted.id, jd);
   };
 
   const matchColor = matchScore >= 75 ? "text-emerald-600 bg-emerald-50" : matchScore >= 50 ? "text-amber-600 bg-amber-50" : "text-red-600 bg-red-50";

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
+import { scoreApplication } from "@/lib/scoreApplication";
 import { cn } from "@/lib/utils";
 import { ChevronDown, ChevronUp, Lock, MessageSquare, Trash2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
@@ -28,6 +30,7 @@ const STATUS_LABELS = {
 
 export default function ApplicationRow({ app, onUpdate }) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [expanded, setExpanded] = useState(false);
 
   const handleOpenCVAgent = () => {
@@ -86,6 +89,12 @@ export default function ApplicationRow({ app, onUpdate }) {
       return;
     }
     onUpdate();
+    // Re-score against the new JD. This is also how existing applications
+    // (added before background scoring landed) get backfilled — user pastes
+    // a JD and the score fills in ~5s later.
+    if (jdText && jdText.trim()) {
+      scoreApplication(supabase, queryClient, app.id, jdText);
+    }
   };
 
   const handleSaveApplicationDetails = async () => {
@@ -273,7 +282,7 @@ export default function ApplicationRow({ app, onUpdate }) {
                     <span className="text-xs text-[#A3A3A3]">Tier</span>
                     <span className="text-xs font-medium text-[#0A0A0A]">{app.tier?.replace("_", " ") || "Unclassified"}</span>
                   </div>
-                  {app.qualification_score !== undefined && (
+                  {app.qualification_score !== undefined && app.qualification_score !== null && (
                     <div className="flex justify-between">
                       <span className="text-xs text-[#A3A3A3]">AI Confidence</span>
                       <span className={cn("text-xs font-semibold",

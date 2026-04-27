@@ -15,6 +15,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import ApplicationRow from "../components/tracker/ApplicationRow";
 import { matchTier, sortCareerRolesForMatching } from "@/lib/tierMatching";
+import { scoreApplication } from "@/lib/scoreApplication";
 
 export default function Tracker() {
   const queryClient = useQueryClient();
@@ -68,14 +69,14 @@ export default function Tracker() {
     // match, so the row stores null and ApplicationRow displays "Unclassified".
     const tier = matchTier(newApp.role_title, sortCareerRolesForMatching(careerRoles));
 
-    const { error } = await supabase.from("applications").insert({
+    const { data: inserted, error } = await supabase.from("applications").insert({
       user_id: user.id,
       role_title: newApp.role_title,
       company: newApp.company,
       status: newApp.status,
       tier,
       ...(jd && { job_description: jd }),
-    });
+    }).select("id").single();
     if (error) {
       console.error("Error adding application:", error);
       setImportError(`Could not add application: ${error.message}`);
@@ -89,6 +90,7 @@ export default function Tracker() {
     setShowAdd(false);
     setAddingApp(false);
     queryClient.invalidateQueries({ queryKey: ["applications"] });
+    if (inserted?.id && jd) scoreApplication(supabase, queryClient, inserted.id, jd);
   };
 
   const filtered =
