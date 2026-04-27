@@ -338,11 +338,6 @@ Deno.serve(async (req) => {
     if (!rapidapiKey && Deno.env.get('RAPIDAPI_KEY')) {
       console.warn('[job-suggestions] RAPIDAPI_KEY present but invalid (empty after trim/quote-strip, or contains non-ASCII characters). Job APIs disabled.')
     }
-    // Diagnostic fingerprint so we can confirm the secret matches the key
-    // intended without ever leaking the value. Drop this line once the API
-    // integration is stable across a few sessions.
-    const fingerprint = (k: string) => k ? `${k.slice(0, 8)}...${k.slice(-4)} len=${k.length}` : '(empty)'
-    console.log(`[JOBS] RAPIDAPI_KEY fingerprint: ${fingerprint(rapidapiKey)}`)
 
     // JS3 fix — drop jobs whose apply URL isn't actionable. JSearch's global
     // remote tier returns real company info but anonymised "https://example.com/job/<id>"
