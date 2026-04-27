@@ -330,6 +330,51 @@ URL discipline: Do NOT include URLs to specific courses. You don't have a real-t
   'resume-extractor': `You are a strict data extraction AI. Extract the requested fields from the resume text and format exactly as a valid JSON object. Do not include markdown formatting or commentary.`
 }
 
+// Server-side retry on transient OpenAI errors. Pairs with the B7
+// frontend Retry button: 1 server attempt + 1 silent server retry +
+// 1 manual frontend retry. Catches the common case where OpenAI 429s
+// or 503s once and recovers immediately, invisible to the user.
+//
+// Permanent errors (4xx auth/validation) are NOT retried — retry
+// won't help and just doubles latency / cost.
+const RETRYABLE_STATUSES = new Set([408, 429, 500, 502, 503, 504])
+
+async function fetchOpenAIWithRetry(
+  url: string,
+  init: RequestInit,
+  options: { timeoutMs?: number; retries?: number; backoffMs?: number } = {},
+): Promise<Response> {
+  const { timeoutMs = 45000, retries = 1, backoffMs = 1200 } = options
+  let lastError: Response | Error | null = null
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs)
+    try {
+      const res = await fetch(url, { ...init, signal: ctrl.signal })
+      clearTimeout(timer)
+      // Success or permanent failure — return immediately, no retry.
+      if (res.ok || !RETRYABLE_STATUSES.has(res.status)) return res
+      // Transient failure — log and (if attempts remain) retry after backoff.
+      console.warn(`[ai-chat] OpenAI ${res.status} on attempt ${attempt + 1}/${retries + 1}`)
+      lastError = res
+    } catch (err: any) {
+      clearTimeout(timer)
+      console.warn(`[ai-chat] OpenAI fetch error on attempt ${attempt + 1}/${retries + 1}:`, err?.message || err)
+      lastError = err instanceof Error ? err : new Error(String(err))
+    }
+    if (attempt < retries) {
+      // Jittered backoff to avoid thundering-herd on a transient outage.
+      await new Promise((r) => setTimeout(r, backoffMs + Math.random() * 500))
+    }
+  }
+
+  // All attempts exhausted. Return the last Response if we have one so the
+  // caller's existing error path handles it. Otherwise throw the network error.
+  if (lastError instanceof Response) return lastError
+  throw lastError ?? new Error('OpenAI fetch failed (no response)')
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -518,7 +563,7 @@ Deno.serve(async (req) => {
       { role: 'user', content: message },
     ]
 
-    const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+    const openaiResponse = await fetchOpenAIWithRetry('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${openaiKey}`, 'Content-Type': 'application/json' },
       // temperature 0.4 + max_tokens 2048 (was 0.7 / 1024). Lower temp keeps
