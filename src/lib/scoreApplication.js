@@ -29,15 +29,25 @@ export function tierFromScore(score) {
 }
 
 // Goal-aware tier derivation. Mirrors assignTierWithGoal in
-// generate-career-analysis. Both inputs are 0-1.
+// generate-career-analysis but with stricter alignment thresholds — the
+// scores here come from an LLM rating a free-text JD (noisy), not from
+// the deterministic skill_transfer matrix in generate-career-analysis
+// (precise). gpt-4o-mini tends to pick middle-band scores even when the
+// rubric explicitly assigns the case to a low band; we observed an SDR
+// for a Product Manager target getting alignment=60 (right at the
+// previous tier_1 boundary) when the rubric said 0-19. Bumping by 10
+// points across both branches absorbs that bias without breaking
+// genuinely-aligned roles which routinely score 75-90.
+//
+// Inputs are 0-1.
 //   T1: strong fit + strong alignment, OR adequate fit + very strong alignment
 //   T2: viable fit but off-path
 //   T3: aspirational — some skill foundation + on-path
 // Falls back to tierFromScore when alignment is null/undefined (no goal set).
 export function tierFromScores(fit, alignment) {
   if (alignment == null || !Number.isFinite(alignment)) return tierFromScore(fit);
-  if (fit >= 0.50 && alignment >= 0.60) return "tier_1";
-  if (fit >= 0.40 && alignment >= 0.70) return "tier_1";
+  if (fit >= 0.50 && alignment >= 0.70) return "tier_1";
+  if (fit >= 0.40 && alignment >= 0.80) return "tier_1";
   if (fit >= 0.50) return "tier_2";
   if (fit >= 0.20 && alignment >= 0.60) return "tier_3";
   return tierFromScore(fit);
@@ -61,7 +71,11 @@ export async function scoreApplication(supabase, queryClient, applicationId, job
       : Math.max(0, Math.min(1, Number(alignmentRaw) / 100));
     const { error: updateError } = await supabase
       .from("applications")
-      .update({ qualification_score: fit, tier: tierFromScores(fit, alignment) })
+      .update({
+        qualification_score: fit,
+        goal_alignment_score: alignment,
+        tier: tierFromScores(fit, alignment),
+      })
       .eq("id", applicationId);
     if (updateError) throw updateError;
     queryClient?.invalidateQueries({ queryKey: ["applications"] });

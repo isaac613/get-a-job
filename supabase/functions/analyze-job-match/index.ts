@@ -98,12 +98,19 @@ Deno.serve(async (req) => {
 
     const goalRubric = hasGoal
       ? `\n\nGOAL ALIGNMENT RUBRIC (0-100): Score how much pursuing this role would advance the user toward their 5-year goal of "${fiveYearRole}".
-- 80-100: Direct stepping stone — same role family, or a well-known transfer path that builds the exact skills/experience the goal role demands.
-- 60-79: Adjacent role that develops a meaningful subset of goal-relevant skills; transition would still be plausible.
-- 40-59: Tangentially useful — some transferable skills, but not a recognised path; would require a deliberate pivot later.
-- 20-39: Unrelated — pursuing it would pull the user sideways and add little goal-relevant signal to their CV.
-- 0-19: Actively contradicts the trajectory (e.g. an SDR/sales role for a Product Manager target — different function, different career ladder).
-Do NOT conflate "the user could do this job" with "this job moves them toward Product/Marketing/etc." Match score and goal alignment are independent signals.`
+
+CRITICAL: pick the lowest band that fits. Do NOT default to 60 as a "safe middle." The rubric is asymmetric on purpose — most roles a user could be hired for are NOT on the path to their stated 5-year goal, and scoring them in the 60-79 band misleads the user into pursuing dead-end work.
+
+- 80-100: Direct stepping stone. Same role family as the target, OR a well-documented transfer path (e.g. APM → PM, Analyst → PM, Engineer → PM). The role exists primarily on the same career ladder as the goal.
+- 60-79: Genuinely adjacent — a different role family, but one that hiring managers for the goal role explicitly value as preparation (e.g. UX Researcher → PM, Solutions Engineer → PM). Use this band ONLY when there's a real, common path, not just "transferable soft skills."
+- 40-59: Tangentially useful. Some skills carry over but the role is on a different ladder; pivoting later would require restarting at entry-level.
+- 20-39: Unrelated. Pursuing it pulls the user sideways and the experience does not signal goal-relevant capability to recruiters in the goal field.
+- 0-19: Actively contradicts the trajectory. The role is on a competing/orthogonal career ladder. Examples for a Product Manager target: SDR/AE/sales roles, recruiting, customer support, accounting — these are NOT PM stepping stones, and a year spent in them is a year not spent building PM signal.
+
+Common mistakes to AVOID:
+- Rating any customer-facing role 60+ for a PM target just because "PMs talk to customers." Customer empathy is universal; that's not what makes a role PM-adjacent.
+- Rating any sales role 40+ for a PM target just because "you learn the product." SDRs/AEs do not become PMs; the ladder is structurally different.
+- Rating the SAME alignment as match_score. Match score and goal alignment are independent signals — a user can be a 90% fit for a job that's a 10% goal alignment.`
       : ''
 
     const prompt = `You are a Job Match Analyzer for the "Get A Job" Career Operating System.
@@ -166,6 +173,19 @@ Return ONLY valid JSON.`
 
     const completion = await openaiResponse.json()
     const result = JSON.parse(completion.choices?.[0]?.message?.content || '{}')
+
+    // Diagnostic — verify hasGoal branch fired and capture both scores so the
+    // tier-mis-assignment bug (SDR landing in tier_1 for PM targets) can be
+    // attributed correctly: prompt-not-firing vs LLM-misreading-rubric.
+    console.log(JSON.stringify({
+      tag: '[analyze-job-match] result',
+      user_id: user.id,
+      has_goal: hasGoal,
+      five_year_role: fiveYearRole || null,
+      job_title: result.job_title || null,
+      match_score: result.match_score ?? null,
+      goal_alignment_score: result.goal_alignment_score ?? null,
+    }))
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
