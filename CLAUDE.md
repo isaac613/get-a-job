@@ -1,0 +1,49 @@
+# Get A Job — project conventions
+
+This is a React + Vite + Supabase career operating system for business students entering the Israeli tech market. A practicum pilot runs Aug–Nov 2026 with 100 students.
+
+## Architecture pointers
+
+- **Frontend:** React 18 + Vite + Tailwind + shadcn/ui + TanStack Query. Pages live in `src/pages/` and auto-register via `src/pages.config.js` (do not edit `pages.config.js` manually — files are auto-registered).
+- **Backend:** Supabase (Postgres + Auth + Edge Functions in Deno + Storage + RLS). Project ref `ilmqmodklutztuybsvwd`.
+- **Edge functions:** in `supabase/functions/<slug>/index.ts`. Deploy via `supabase functions deploy <slug> --project-ref ilmqmodklutztuybsvwd`.
+- **Domain libraries** (Israeli market context, role/skill graphs): `supabase/functions/<slug>/shared/libraries/00_role_library.ts` (170 roles), `01_skill_library.ts`, plus proof signals + role-skill mappings. Each function copies the libraries it needs — keep them in sync if editing.
+- **Tier scoring:** `src/lib/scoreApplication.js` (`tierFromScores`) mirrors the goal-aware logic in `generate-career-analysis` (`assignTierWithGoal`). LLM-derived alignment uses tighter thresholds than the deterministic path.
+
+## Conventions
+
+- Tests: `npm test` (Vitest). Build: `npm run build`. Lint: `npm run lint`. Typecheck: `npm run typecheck`. CI runs all four on every PR — keep green.
+- Commits: conventional-commit style (`fix(tracker): …`, `feat(cv): …`). End with `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>`.
+- Never commit secrets. `.env.local` is gitignored and stays that way. Never embed credentials (PATs, API keys) in URLs or git remotes.
+- Never auto-mutate canonical source-of-truth files (e.g., `00_role_library.ts`) — emit to drafts, require human promotion.
+- Default to writing no comments. When you do, explain WHY (hidden constraint, subtle invariant), not WHAT.
+
+## Team workflow (Eli + Isaac)
+
+- **Branches:** work on `eli/<topic>` or `isaac/<topic>` (or `feature/<topic>`). Never push directly to `main`.
+- **PRs:** open against `main`, fill out the template at `.github/pull_request_template.md`, get one approval from the other dev, squash-merge to keep `main` linear.
+- **Conflicts:** the dev who opens the PR resolves conflicts before merge.
+- **Picking up someone else's branch:** run `npm test && npm run build` before any commit. Don't trust that "it worked on their machine."
+- **Domain libraries** (`supabase/functions/*/shared/libraries/*.ts`): edits require explicit cross-review by the other dev. These libraries drive multiple edge functions and silent divergence is a real risk.
+- **`ROADMAP.md`:** keep updated. Move items between Done / In Progress / Up Next as work moves. If it's not in the roadmap, it's not happening.
+
+## Lessons (reflection loop)
+
+After any correction from the user that took **multiple attempts to land**, or any bug that surfaced because I missed something an earlier interaction should have taught me, append an entry to `tasks/lessons.md` with this format:
+
+```
+---
+YYYY-MM-DD — short title
+Trigger: what surfaced the lesson (1 sentence)
+What I did wrong: the specific misstep — not a generalisation
+Rule for next time: actionable rule, written so future-me can follow it
+---
+```
+
+Keep entries to ~5 lines. The file is for me to read at the start of any session that touches the relevant area, not exhaustive documentation.
+
+Read `tasks/lessons.md` before starting non-trivial work in: tier scoring, LLM prompt engineering, edge-function deploys, role/skill library edits, onboarding flow.
+
+## Verification before completion
+
+For any P0 claim about security (RLS, auth, data integrity), indexes, or schema correctness — **verify against the live system** (`pg_class`, `pg_indexes`, `information_schema`) before treating it as actionable. Two parallel agent audits this session reported "missing RLS on 9 tables"; ground-truth showed all 12 tables had RLS enabled with policies. Trust but verify.

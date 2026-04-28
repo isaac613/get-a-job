@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    name: Test + build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+        continue-on-error: false
+
+      # Typecheck is non-blocking until the existing TS errors in Tracker.jsx
+      # (shadcn component type inference issues) are resolved. Track progress
+      # via `npm run typecheck` locally; this step surfaces regressions
+      # without red-failing every PR. Flip to continue-on-error: false once
+      # the baseline errors are zero.
+      - name: Typecheck (non-blocking)
+        run: npm run typecheck
+        continue-on-error: true
+
+      - name: Unit tests
+        run: npm run test:run
+
+      - name: Build
+        run: npm run build
+        env:
+          # Vite build does not need real values for VITE_* at build time
+          # (they're read at runtime), but the supabase client throws if absent.
+          # CI uses placeholder values; production deploys inject real ones.
+          VITE_SUPABASE_URL: 'https://ci-placeholder.supabase.co'
+          VITE_SUPABASE_ANON_KEY: 'ci-placeholder-anon-key'

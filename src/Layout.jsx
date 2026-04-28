@@ -8,7 +8,6 @@ import {
   Map,
   ClipboardList,
   BookOpen,
-  PlusCircle,
   Menu,
   X,
   CheckSquare,

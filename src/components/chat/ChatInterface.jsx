@@ -370,7 +370,7 @@ export default function ChatInterface({ agentName, title, description, applicati
       // every fresh agent open starts a clean chat. Past conversations
       // remain accessible from the picker; users opt in by selecting one.
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [user?.id, agentName, applicationId]);
 
   // Load messages when the active conversation changes.

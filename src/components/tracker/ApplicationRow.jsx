@@ -123,7 +123,7 @@ export default function ApplicationRow({ app, onUpdate }) {
       setReferralAttached(app.referral_attached || false);
       setChecklist(app.checklist || {});
     }
-  }, [expanded, app]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [expanded, app]);  
 
   const handleChecklistChange = async (updated) => {
     const previous = checklist;

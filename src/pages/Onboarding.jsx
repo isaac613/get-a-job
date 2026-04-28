@@ -99,7 +99,7 @@ export default function Onboarding() {
         });
     }, 800);
     return () => clearTimeout(handle);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [profileData, existingProfileId, checkingProfile, saving, finalising, generatingRoles]);
 
   const checkExistingProfile = async () => {
