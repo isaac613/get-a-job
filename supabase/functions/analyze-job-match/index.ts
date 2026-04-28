@@ -75,6 +75,36 @@ Deno.serve(async (req) => {
 
     const userSkills = (profile?.skills || []).join(', ')
     const expSummary = (experiences || []).map((e: any) => `${e.title} at ${e.company}`).join(', ')
+    const fiveYearRole = profile?.five_year_role || ''
+    const primaryDomain = profile?.primary_domain || ''
+    const qualLevel = profile?.qualification_level || ''
+    const hasGoal = !!fiveYearRole.trim()
+
+    // When the user has a 5-year goal, ask the LLM for a goal_alignment_score
+    // alongside match_score so the tracker can derive tier from BOTH signals
+    // (mirrors assignTierWithGoal in generate-career-analysis). Without this,
+    // a high-fit-but-off-path role like an SDR scored 0.75 for a Product
+    // Manager target and was wrongly assigned tier_1.
+    const goalBlock = hasGoal
+      ? `\nUSER CAREER TARGET:
+- 5-year goal: ${fiveYearRole}
+- Current domain: ${primaryDomain || 'unspecified'}
+- Current level: ${qualLevel || 'unspecified'}\n`
+      : ''
+
+    const goalSchemaLine = hasGoal
+      ? `\n  "goal_alignment_score": number (0-100, how well pursuing this role progresses the user toward their 5-year goal — see rubric below),`
+      : ''
+
+    const goalRubric = hasGoal
+      ? `\n\nGOAL ALIGNMENT RUBRIC (0-100): Score how much pursuing this role would advance the user toward their 5-year goal of "${fiveYearRole}".
+- 80-100: Direct stepping stone — same role family, or a well-known transfer path that builds the exact skills/experience the goal role demands.
+- 60-79: Adjacent role that develops a meaningful subset of goal-relevant skills; transition would still be plausible.
+- 40-59: Tangentially useful — some transferable skills, but not a recognised path; would require a deliberate pivot later.
+- 20-39: Unrelated — pursuing it would pull the user sideways and add little goal-relevant signal to their CV.
+- 0-19: Actively contradicts the trajectory (e.g. an SDR/sales role for a Product Manager target — different function, different career ladder).
+Do NOT conflate "the user could do this job" with "this job moves them toward Product/Marketing/etc." Match score and goal alignment are independent signals.`
+      : ''
 
     const prompt = `You are a Job Match Analyzer for the "Get A Job" Career Operating System.
 
@@ -85,14 +115,13 @@ USER PROFILE:
 - Skills: ${userSkills || 'Not provided'}
 - Experience: ${expSummary || 'Not provided'}
 - Education: ${profile?.degree || ''} in ${profile?.field_of_study || ''}
-- Summary: ${profile?.summary || 'Not provided'}
-
+- Summary: ${profile?.summary || 'Not provided'}${goalBlock}
 ANALYZE the job posting against the user's profile and return a JSON object with EXACTLY this schema:
 {
   "job_title": "string (extracted from posting)",
   "company": "string (extracted from posting)",
   "job_description": "string (brief summary of the role)",
-  "match_score": number (0-100, how well the user matches),
+  "match_score": number (0-100, how well the user matches THIS JOB's requirements — pure fit, ignore career trajectory),${goalSchemaLine}
   "verdict": "string (1-2 sentence overall assessment)",
   "matched_requirements": [
     { "requirement": "the requirement from the JD", "reason": "specific evidence from the user's profile that they meet it (cite their skill, experience, or education)" }
@@ -108,7 +137,7 @@ Each item in matched_requirements MUST be an object with both "requirement" and 
 Each item in missing_requirements MUST be an object with both "requirement" and "gap" keys.
 Do NOT return arrays of plain strings.
 
-Do not invent specific statistics, study citations, or company-specific interview practices. Cite only the user's stated profile data and the job description text.
+Do not invent specific statistics, study citations, or company-specific interview practices. Cite only the user's stated profile data and the job description text.${goalRubric}
 
 Return ONLY valid JSON.`
 

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
 import { useQueryClient } from "@tanstack/react-query";
-import { tierFromScore } from "@/lib/scoreApplication";
+import { tierFromScores } from "@/lib/scoreApplication";
 
 import { Sparkles, Loader2, CheckCircle2, XCircle, ChevronDown, ChevronUp, Plus, FileText, Link } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -84,6 +84,7 @@ export default function JobMatchChecker() {
         company: data.company || "",
         job_description: data.job_description || (mode === "text" ? jobText.trim() : ""),
         match_score: data.match_score || 0,
+        goal_alignment_score: data.goal_alignment_score ?? null,
         verdict: data.verdict || "Analysis complete.",
         matched_requirements: data.matched_requirements || [],
         missing_requirements: data.missing_requirements || [],
@@ -101,18 +102,21 @@ export default function JobMatchChecker() {
   const handleAddToTracker = async () => {
     if (!result || !user?.id) return;
     setAddingToTracker(true);
-    // Score was computed synchronously above, so derive the tier inline
-    // from the same threshold function scoreApplication uses — no async
-    // backfill needed and no tier shift visible to the user.
-    const score = (result.match_score || 0) / 100;
+    // Both scores were computed synchronously above, so derive the tier
+    // inline using the same goal-aware helper scoreApplication uses — no
+    // async backfill needed and no tier shift visible to the user.
+    const fit = (result.match_score || 0) / 100;
+    const alignment = result.goal_alignment_score == null
+      ? null
+      : (result.goal_alignment_score || 0) / 100;
     const { error } = await supabase.from("applications").insert({
       user_id: user.id,
       role_title: result.job_title || "Unknown Role",
       company: result.company || "",
       status: "interested",
-      tier: tierFromScore(score),
+      tier: tierFromScores(fit, alignment),
       job_description: result.job_description || "",
-      qualification_score: score,
+      qualification_score: fit,
       notes: result.source_url ? `Source: ${result.source_url}` : "",
     });
     setAddingToTracker(false);
