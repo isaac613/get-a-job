@@ -85,6 +85,8 @@ export default function JobMatchChecker() {
         job_description: data.job_description || (mode === "text" ? jobText.trim() : ""),
         match_score: data.match_score || 0,
         goal_alignment_score: data.goal_alignment_score ?? null,
+        required_seniority: data.required_seniority || null,
+        user_stage: data.user_stage || null,
         verdict: data.verdict || "Analysis complete.",
         matched_requirements: data.matched_requirements || [],
         missing_requirements: data.missing_requirements || [],
@@ -102,9 +104,9 @@ export default function JobMatchChecker() {
   const handleAddToTracker = async () => {
     if (!result || !user?.id) return;
     setAddingToTracker(true);
-    // Both scores were computed synchronously above, so derive the tier
-    // inline using the same goal-aware helper scoreApplication uses — no
-    // async backfill needed and no tier shift visible to the user.
+    // All scoring signals were computed synchronously above, so derive the
+    // tier inline using the same goal-aware helper scoreApplication uses —
+    // no async backfill needed and no tier shift visible to the user.
     const fit = (result.match_score || 0) / 100;
     const alignment = result.goal_alignment_score == null
       ? null
@@ -114,9 +116,14 @@ export default function JobMatchChecker() {
       role_title: result.job_title || "Unknown Role",
       company: result.company || "",
       status: "interested",
-      tier: tierFromScores(fit, alignment),
+      tier: tierFromScores(fit, alignment, {
+        userStage: result.user_stage,
+        roleSeniority: result.required_seniority,
+      }),
       job_description: result.job_description || "",
       qualification_score: fit,
+      goal_alignment_score: alignment,
+      required_seniority: result.required_seniority,
       notes: result.source_url ? `Source: ${result.source_url}` : "",
     });
     setAddingToTracker(false);

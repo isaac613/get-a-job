@@ -80,6 +80,23 @@ Deno.serve(async (req) => {
     const qualLevel = profile?.qualification_level || ''
     const hasGoal = !!fiveYearRole.trim()
 
+    // Stage maps a profile's qualification_level + employment_status to the
+    // three career stages used by tierFromScores' seniority ceiling. Mirrors
+    // inferExperienceLevel in generate-career-analysis (any explicit "student"
+    // status forces early_career) but keys on qualification_level when no
+    // experiences are passed (the LLM-based scoring path doesn't load them).
+    function deriveUserStage(p: any): "early" | "mid" | "senior" {
+      const employment = Array.isArray(p?.employment_status) ? p.employment_status : []
+      if (employment.includes("student")) return "early"
+      const lvl = String(p?.qualification_level || "").toLowerCase()
+      if (/senior|lead|director|principal|head|staff/.test(lvl)) return "senior"
+      if (/junior|entry|graduate|associate/.test(lvl)) return "early"
+      if (/mid/.test(lvl)) return "mid"
+      return "early"  // default: be conservative — don't false-promote unknown profiles to tier_1
+    }
+    const userStage = deriveUserStage(profile)
+    const yearsExp = (experiences || []).length  // proxy used in the LLM context line
+
     // When the user has a 5-year goal, ask the LLM for a goal_alignment_score
     // alongside match_score so the tracker can derive tier from BOTH signals
     // (mirrors assignTierWithGoal in generate-career-analysis). Without this,
@@ -89,12 +106,21 @@ Deno.serve(async (req) => {
       ? `\nUSER CAREER TARGET:
 - 5-year goal: ${fiveYearRole}
 - Current domain: ${primaryDomain || 'unspecified'}
-- Current level: ${qualLevel || 'unspecified'}\n`
-      : ''
+- Current level: ${qualLevel || 'unspecified'} (career stage: ${userStage}, ~${yearsExp} role(s) of experience on profile)\n`
+      : `\nUSER CAREER STAGE: ${userStage} (level: ${qualLevel || 'unspecified'}, ~${yearsExp} role(s) on profile)\n`
 
     const goalSchemaLine = hasGoal
       ? `\n  "goal_alignment_score": number (0-100, how well pursuing this role progresses the user toward their 5-year goal — see rubric below),`
       : ''
+
+    const seniorityRubric = `\n\nREQUIRED SENIORITY RUBRIC: Read the JD for explicit experience requirements ("X+ years"), seniority words in the title, scope of responsibility. Pick ONE bucket — if unclear, pick the LOWER one (we'd rather miss a stretch role than miscall a Senior role as Mid).
+- "Entry": 0-1 years, "new grad", "Associate", entry-level, internship-to-FT.
+- "Entry_Mid": 1-3 years, "Junior X", "X I", typical second job.
+- "Mid": 3-5 years, "X II", "Mid-level", explicit "3+ years" or "4+ years".
+- "Senior": 5-8 years, "Senior X", "Sr. X", explicit "5+ years" or "6+ years".
+- "Lead": 8+ years, "Lead X", "Principal", "Staff", "Manager", "Head of".
+
+A JD that says "4+ years" → Mid. "5+ years" → Senior. "Senior Product Analyst" → Senior even if no years mentioned.`
 
     const goalRubric = hasGoal
       ? `\n\nGOAL ALIGNMENT RUBRIC (0-100): Score how much pursuing this role would advance the user toward their 5-year goal of "${fiveYearRole}".
@@ -128,7 +154,8 @@ ANALYZE the job posting against the user's profile and return a JSON object with
   "job_title": "string (extracted from posting)",
   "company": "string (extracted from posting)",
   "job_description": "string (brief summary of the role)",
-  "match_score": number (0-100, how well the user matches THIS JOB's requirements — pure fit, ignore career trajectory),${goalSchemaLine}
+  "match_score": number (0-100, how well the user matches THIS JOB's requirements — pure fit, ignore career trajectory),
+  "required_seniority": "Entry" | "Entry_Mid" | "Mid" | "Senior" | "Lead" (the JD's experience level — see rubric below),${goalSchemaLine}
   "verdict": "string (1-2 sentence overall assessment)",
   "matched_requirements": [
     { "requirement": "the requirement from the JD", "reason": "specific evidence from the user's profile that they meet it (cite their skill, experience, or education)" }
@@ -144,7 +171,7 @@ Each item in matched_requirements MUST be an object with both "requirement" and 
 Each item in missing_requirements MUST be an object with both "requirement" and "gap" keys.
 Do NOT return arrays of plain strings.
 
-Do not invent specific statistics, study citations, or company-specific interview practices. Cite only the user's stated profile data and the job description text.${goalRubric}
+Do not invent specific statistics, study citations, or company-specific interview practices. Cite only the user's stated profile data and the job description text.${seniorityRubric}${goalRubric}
 
 Return ONLY valid JSON.`
 
@@ -174,17 +201,29 @@ Return ONLY valid JSON.`
     const completion = await openaiResponse.json()
     const result = JSON.parse(completion.choices?.[0]?.message?.content || '{}')
 
-    // Diagnostic — verify hasGoal branch fired and capture both scores so the
-    // tier-mis-assignment bug (SDR landing in tier_1 for PM targets) can be
-    // attributed correctly: prompt-not-firing vs LLM-misreading-rubric.
+    // Echo user_stage so the client tier helper can apply the same seniority
+    // ceiling that generate-career-analysis applies (T1_SENIORITY_CEILING).
+    // Without this, an early-career student saw Mid-level roles in tier_1
+    // because the LLM's match_score gave them full credit on skill overlap
+    // while ignoring the 4+ years experience gap.
+    result.user_stage = userStage
+
+    // Diagnostic — captures all four signals that tierFromScores uses, so
+    // tier mis-assignments can be attributed to specific cause:
+    //   has_goal:false/null → goal alignment ignored (fit-only fallback)
+    //   match_score wrong   → LLM scored topical fit incorrectly
+    //   alignment wrong     → LLM ignored goal rubric
+    //   seniority wrong     → LLM misread experience requirements
     console.log(JSON.stringify({
       tag: '[analyze-job-match] result',
       user_id: user.id,
       has_goal: hasGoal,
       five_year_role: fiveYearRole || null,
+      user_stage: userStage,
       job_title: result.job_title || null,
       match_score: result.match_score ?? null,
       goal_alignment_score: result.goal_alignment_score ?? null,
+      required_seniority: result.required_seniority ?? null,
     }))
 
     return new Response(JSON.stringify(result), {
