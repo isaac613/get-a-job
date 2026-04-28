@@ -1,0 +1,39 @@
+name: Feature
+description: New functionality or substantial enhancement
+title: "feat: "
+labels: ["type:feat"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What & why
+      description: One paragraph. What does this feature do, why does it matter for the pilot?
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Bulleted list. The work is done when ALL of these are true.
+      placeholder: |
+        - [ ] Student can do X
+        - [ ] Edge function returns Y on Z input
+        - [ ] Tests cover the happy path + 2 edge cases
+        - [ ] ROADMAP.md updated
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope (in / out)
+      description: What's NOT in this feature? List explicit non-goals to prevent creep.
+  - type: textarea
+    id: open-questions
+    attributes:
+      label: Open questions
+      description: Things to resolve before / during build. The other dev should answer or comment if you list one.
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies
+      description: Other issues, services, decisions this is blocked on

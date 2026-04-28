@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: ROADMAP.md
+    url: https://github.com/isaac613/get-a-job/blob/main/ROADMAP.md
+    about: High-level sprint plan. Browse this before opening an issue to see if it's already on the radar.
+  - name: tasks/lessons.md
+    url: https://github.com/isaac613/get-a-job/blob/main/tasks/lessons.md
+    about: Bugs that took multiple attempts to fix. Read before working in scoring / agents / edge functions.

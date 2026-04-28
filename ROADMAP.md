@@ -74,9 +74,10 @@ Ordered by dependency + priority. Owner column = whoever picks it up; reassign a
 | Item | Owner | Notes |
 |---|---|---|
 | Reichman alumni connection database | — | Faculty-curated; needs early input from professor + Dr. Miller |
-| Cohort velocity metric on student dashboard | — | Anonymized cohort medians; suppress if cohort < 10 active |
 | Story Bank | — | STAR stories reusable across CV gen + interview prep |
 | `session-handoff` skill — auto-update ROADMAP.md from branch state | — | Helps team handoff between Eli + Isaac |
+
+> **Cohort velocity** parked to **mid-pilot** (Sep–Oct 2026). Need real user data first before comparison metrics are meaningful — derived from `applications.status` history, requires `status_changes` audit table when we get there.
 
 ### Wk 11–12 — Last mile
 | Item | Owner | Notes |
@@ -102,8 +103,9 @@ Ordered by dependency + priority. Owner column = whoever picks it up; reassign a
 - Hebrew/RTL support
 - Salary negotiation coach
 - Mobile-first responsive pass
-- Library deduplication audit across all 5 copies
 - ESLint rule: any error in user-initiated async must toast or render, not console-only
+- Cohort velocity metric (parked to mid-pilot — needs real data)
+- Email parser inbox (decision pending — see risk review issue)
 
 ---
 

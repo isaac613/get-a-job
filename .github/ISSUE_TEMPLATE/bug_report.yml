@@ -1,0 +1,47 @@
+name: Bug report
+description: Something is broken or behaving wrong
+title: "bug: "
+labels: ["type:bug"]
+body:
+  - type: textarea
+    id: what-broke
+    attributes:
+      label: What's broken?
+      description: One sentence summary, then a few lines of detail.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction steps
+      description: Numbered steps to make it happen
+      placeholder: |
+        1. Go to /Tracker
+        2. Click "Add Application"
+        3. Paste this JD: ...
+        4. Observe: tier stays at "Calculating tier…" forever
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What should happen instead?
+    validations:
+      required: true
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      placeholder: "Browser/Node/Supabase function/all of the above"
+  - type: textarea
+    id: hypotheses
+    attributes:
+      label: Hypotheses (if any)
+      description: Where do you think the bug is? Files, functions, conditions you suspect.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-flight
+      options:
+        - label: I checked `tasks/lessons.md` for related prior bugs
+        - label: I confirmed this is reproducible (not a one-time flake)

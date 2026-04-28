@@ -1,0 +1,32 @@
+name: Spike (research / decision)
+description: Investigate something before we build. Output is a recommendation, not code.
+title: "spike: "
+labels: ["type:spike"]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: The question to answer
+      description: Frame it as a yes/no or a choice between options.
+      placeholder: "Should we use Mailgun or Postmark for the email parser?"
+    validations:
+      required: true
+  - type: textarea
+    id: timebox
+    attributes:
+      label: Time-box
+      description: How long are we willing to spend on this BEFORE we make a decision? (Spikes love to sprawl — set a limit.)
+      placeholder: "4 hours"
+    validations:
+      required: true
+  - type: textarea
+    id: criteria
+    attributes:
+      label: Decision criteria
+      description: What would make us pick option A vs B? List 3-5 criteria.
+  - type: textarea
+    id: output
+    attributes:
+      label: Definition of done
+      description: What deliverable closes this spike? A doc? A POC commit? A comment with the recommendation?
+      placeholder: "A comment on this issue with the recommendation + 3-paragraph rationale + linked sources"
