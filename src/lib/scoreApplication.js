@@ -2,19 +2,22 @@
 //
 // Fire-and-forget pattern — the caller does NOT await this function.
 // The flow is: user adds an application, it appears in Tracker
-// immediately with no AI Confidence shown, and ~3-8s later the score
-// fills in once analyze-job-match returns.
+// immediately with no AI Confidence and no tier shown, and ~3-8s later
+// both fill in once analyze-job-match returns. Tier is derived from
+// the same qualification_score (thresholds match FIT_ONLY_THRESHOLDS in
+// generate-career-analysis), so users never see a tier guess shift.
 //
 // Wired into every code path that inserts an application (JobSuggestions,
 // Tracker manual add, chat agent's Path B handler) plus the JD-save
 // handler on ApplicationRow (so updating a JD re-scores). JobMatchChecker
-// already computes the score synchronously before insert and is unchanged.
-//
-// Failure semantics: scoring failures are silent (console.warn only).
-// The application stays inserted; qualification_score stays NULL; the
-// UI hides AI Confidence (via the line 276 conditional fix). Worst-case
-// outcome of a scoring failure is "no AI Confidence shown for this row",
-// not a broken UI state.
+// already computes the score synchronously before insert and derives the
+// tier inline from match_score using the same thresholds.
+
+export function tierFromScore(score) {
+  if (score >= 0.55) return "tier_1";
+  if (score >= 0.40) return "tier_2";
+  return "tier_3";
+}
 
 export async function scoreApplication(supabase, queryClient, applicationId, jobDescription) {
   if (!applicationId || !jobDescription || typeof jobDescription !== "string" || !jobDescription.trim()) {
@@ -30,7 +33,7 @@ export async function scoreApplication(supabase, queryClient, applicationId, job
     if (!Number.isFinite(score)) return;
     const { error: updateError } = await supabase
       .from("applications")
-      .update({ qualification_score: score })
+      .update({ qualification_score: score, tier: tierFromScore(score) })
       .eq("id", applicationId);
     if (updateError) throw updateError;
     queryClient?.invalidateQueries({ queryKey: ["applications"] });

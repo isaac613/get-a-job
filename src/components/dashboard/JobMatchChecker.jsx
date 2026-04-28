@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
 import { useQueryClient } from "@tanstack/react-query";
+import { tierFromScore } from "@/lib/scoreApplication";
 
 import { Sparkles, Loader2, CheckCircle2, XCircle, ChevronDown, ChevronUp, Plus, FileText, Link } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -100,14 +101,18 @@ export default function JobMatchChecker() {
   const handleAddToTracker = async () => {
     if (!result || !user?.id) return;
     setAddingToTracker(true);
+    // Score was computed synchronously above, so derive the tier inline
+    // from the same threshold function scoreApplication uses — no async
+    // backfill needed and no tier shift visible to the user.
+    const score = (result.match_score || 0) / 100;
     const { error } = await supabase.from("applications").insert({
       user_id: user.id,
       role_title: result.job_title || "Unknown Role",
       company: result.company || "",
       status: "interested",
-      tier: null,
+      tier: tierFromScore(score),
       job_description: result.job_description || "",
-      qualification_score: (result.match_score || 0) / 100,
+      qualification_score: score,
       notes: result.source_url ? `Source: ${result.source_url}` : "",
     });
     setAddingToTracker(false);

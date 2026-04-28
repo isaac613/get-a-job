@@ -56,11 +56,13 @@ function JobCard({ job }) {
       return;
     }
     const jd = job.description_snippet || "";
+    // Tier is left unset on insert; scoreApplication fills it in from the
+    // JD-derived qualification_score so users see a single correct tier
+    // rather than a title-based guess that shifts after scoring.
     const { data: inserted, error: insertError } = await supabase.from("applications").insert({
       user_id: user.id,
       role_title: job.title,
       company: job.company || "Unknown",
-      tier: matchScore >= 70 ? "tier_1" : "tier_2",
       status: "interested",
       cv_skills_emphasized: job.matched_skills || [],
       job_description: jd,

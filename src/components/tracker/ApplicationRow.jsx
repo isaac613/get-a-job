@@ -179,13 +179,15 @@ export default function ApplicationRow({ app, onUpdate }) {
           </div>
         </div>
         <div className="flex items-center gap-3 flex-shrink-0">
-          {app.tier && (
+          {app.tier ? (
             <span className={cn("text-[10px] font-semibold px-2 py-0.5 rounded-md uppercase",
               app.tier === "tier_1" ? "tier-badge-1" : app.tier === "tier_2" ? "tier-badge-2" : "tier-badge-3"
             )}>
               {app.tier?.replace("_", " ")}
             </span>
-          )}
+          ) : (app.job_description && app.job_description.trim()) ? (
+            <span className="text-[10px] text-[#A3A3A3] italic">Calculating tier…</span>
+          ) : null}
           {app.qualification_score !== undefined && app.qualification_score !== null ? (
             <span className={cn("text-[11px] font-semibold",
               app.qualification_score >= 0.45 ? "text-emerald-600" : "text-red-500"
@@ -282,7 +284,13 @@ export default function ApplicationRow({ app, onUpdate }) {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-xs text-[#A3A3A3]">Tier</span>
-                    <span className="text-xs font-medium text-[#0A0A0A]">{app.tier?.replace("_", " ") || "Unclassified"}</span>
+                    {app.tier ? (
+                      <span className="text-xs font-medium text-[#0A0A0A]">{app.tier.replace("_", " ")}</span>
+                    ) : (app.job_description && app.job_description.trim()) ? (
+                      <span className="text-xs text-[#A3A3A3] italic">Calculating tier…</span>
+                    ) : (
+                      <span className="text-xs font-medium text-[#0A0A0A]">Unclassified</span>
+                    )}
                   </div>
                   {app.qualification_score !== undefined && app.qualification_score !== null ? (
                     <div className="flex justify-between">

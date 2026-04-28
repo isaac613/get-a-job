@@ -792,16 +792,18 @@ export default function ChatInterface({ agentName, title, description, applicati
     for (const a of actions) {
       if (a.action === "add_application") {
         const status = validStatus(a.status) || "interested";
-        const tier = validTier(a.tier);
+        // Tier is intentionally not set from the agent's payload — it's
+        // derived from the JD-based qualification_score by scoreApplication.
+        // If there's no JD, the row shows "Unclassified" until one is added.
         const row = {
           user_id: user.id,
           company: a.company,
           role_title: a.role_title,
           status,
-          ...(tier && { tier }),
           ...(a.url && { url: a.url }),
           ...(a.location && { location: a.location }),
           ...(a.notes && { notes: a.notes }),
+          ...(a.job_description && { job_description: a.job_description }),
           // Auto-set applied_date so the Calendar surfaces it (parallel to
           // the B4 fix on tasks). Only fires when the agent's add request
           // is for an already-applied role.
@@ -809,9 +811,6 @@ export default function ChatInterface({ agentName, title, description, applicati
         };
         const { data: inserted, error } = await supabase.from("applications").insert(row).select("id").single();
         if (error) { console.error("add_application error:", error); hasError = true; continue; }
-        // Background-score against the JD if the agent provided one
-        // (handleApplyApplicationActions doesn't currently capture JD from
-        // the agent payload — separate enhancement).
         if (inserted?.id && a.job_description) {
           scoreApplication(supabase, queryClient, inserted.id, a.job_description);
         }
