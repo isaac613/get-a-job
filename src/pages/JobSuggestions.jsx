@@ -78,7 +78,7 @@ function JobCard({ job }) {
     queryClient.invalidateQueries({ queryKey: ["applications"] });
     setAdded(true);
     // Background-score against the JD so AI Confidence appears ~5s later.
-    if (inserted?.id) scoreApplication(supabase, queryClient, inserted.id, jd);
+    if (inserted?.id) scoreApplication(supabase, queryClient, inserted.id, jd, user.id);
   };
 
   const matchColor = matchScore >= 75 ? "text-emerald-600 bg-emerald-50" : matchScore >= 50 ? "text-amber-600 bg-amber-50" : "text-red-600 bg-red-50";

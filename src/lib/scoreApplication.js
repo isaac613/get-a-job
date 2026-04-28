@@ -16,6 +16,12 @@
 // Tracker manual add, chat agent's Path B handler) plus the JD-save
 // handler on ApplicationRow (so updating a JD re-scores). JobMatchChecker
 // computes synchronously and uses the same tierFromScores helper.
+//
+// Failure semantics: on any error reaching analyze-job-match or writing
+// the result, we set applications.tier_scoring_failed_at so the row's UI
+// can swap "Calculating tier…" for a Retry button. Successful runs clear
+// the field. Pre-2026-04-28 behavior was console.warn-only — silent
+// failures left rows stuck on the placeholder forever.
 
 // Fit-only fallback — used when the user has no 5-year goal so the LLM
 // can't return alignment. Thresholds match FIT_ONLY_THRESHOLDS in
@@ -97,7 +103,7 @@ export function tierFromScores(fit, alignment, options = {}) {
   return tierFromScore(fit);
 }
 
-export async function scoreApplication(supabase, queryClient, applicationId, jobDescription) {
+export async function scoreApplication(supabase, queryClient, applicationId, jobDescription, userId) {
   if (!applicationId || !jobDescription || typeof jobDescription !== "string" || !jobDescription.trim()) {
     return;
   }
@@ -106,9 +112,17 @@ export async function scoreApplication(supabase, queryClient, applicationId, job
       body: { job_description: jobDescription, mode: "text" },
     });
     if (error) throw error;
-    if (data?.match_score == null) return;
+    if (data?.match_score == null) {
+      // analyze-job-match returned 200 but no usable score (rare —
+      // typically means the LLM emitted unexpected JSON). Treat as
+      // failure so the user can retry rather than seeing an indefinite
+      // spinner.
+      throw new Error("analyze-job-match returned no match_score");
+    }
     const fit = Math.max(0, Math.min(1, Number(data.match_score) / 100));
-    if (!Number.isFinite(fit)) return;
+    if (!Number.isFinite(fit)) {
+      throw new Error(`analyze-job-match returned non-finite match_score: ${data.match_score}`);
+    }
     const alignmentRaw = data?.goal_alignment_score;
     const alignment = alignmentRaw == null
       ? null
@@ -122,11 +136,29 @@ export async function scoreApplication(supabase, queryClient, applicationId, job
         goal_alignment_score: alignment,
         required_seniority: roleSeniority,
         tier: tierFromScores(fit, alignment, { userStage, roleSeniority }),
+        tier_scoring_failed_at: null,
       })
       .eq("id", applicationId);
     if (updateError) throw updateError;
-    queryClient?.invalidateQueries({ queryKey: ["applications"] });
+    // userId is required for the queryKey to match the useQuery in
+    // Tracker / Home / etc. (which scope by user.id). Pre-2026-04-28
+    // we invalidated ["applications"] alone — the cache layer treats
+    // that as a different key from ["applications", userId], so the
+    // stale UI never refetched after scoring completed.
+    queryClient?.invalidateQueries({ queryKey: userId ? ["applications", userId] : ["applications"] });
   } catch (err) {
     console.warn("[scoreApplication] background scoring failed:", err?.message || err);
+    // Surface the failure on the row so the UI can show a Retry button.
+    // Best-effort — if even this update fails, the row stays stuck (same
+    // pre-fix outcome), but we've already logged.
+    try {
+      await supabase
+        .from("applications")
+        .update({ tier_scoring_failed_at: new Date().toISOString() })
+        .eq("id", applicationId);
+      queryClient?.invalidateQueries({ queryKey: userId ? ["applications", userId] : ["applications"] });
+    } catch (markErr) {
+      console.warn("[scoreApplication] could not mark tier_scoring_failed_at:", markErr?.message || markErr);
+    }
   }
 }

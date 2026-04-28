@@ -812,7 +812,7 @@ export default function ChatInterface({ agentName, title, description, applicati
         const { data: inserted, error } = await supabase.from("applications").insert(row).select("id").single();
         if (error) { console.error("add_application error:", error); hasError = true; continue; }
         if (inserted?.id && a.job_description) {
-          scoreApplication(supabase, queryClient, inserted.id, a.job_description);
+          scoreApplication(supabase, queryClient, inserted.id, a.job_description, user.id);
         }
       } else if (a.action === "update_application") {
         const patch = {};
