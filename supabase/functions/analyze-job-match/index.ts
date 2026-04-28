@@ -175,18 +175,30 @@ Do not invent specific statistics, study citations, or company-specific intervie
 
 Return ONLY valid JSON.`
 
-    const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${openaiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: MODEL,
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.3,
-        max_tokens: 1024,
-        response_format: { type: 'json_object' },
-      }),
-    })
+    // BASE_MAX_TOKENS bumped from 1024 → 2048 because the JSON schema grew
+    // (goal_alignment_score + required_seniority + matched/missing_requirements
+    // arrays). Long-form JDs at the old 1024 cap silently truncated mid-JSON,
+    // tripping JSON.parse and returning 500 with no diagnostic for the user.
+    // The retry path catches the cases where 2048 still isn't enough.
+    const BASE_MAX_TOKENS = 2048
+    const RETRY_MAX_TOKENS = 4096
 
+    async function callOpenAI(maxTokens: number) {
+      return await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        signal: AbortSignal.timeout(45000),
+        headers: { 'Authorization': `Bearer ${openaiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: MODEL,
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.3,
+          max_tokens: maxTokens,
+          response_format: { type: 'json_object' },
+        }),
+      })
+    }
+
+    let openaiResponse = await callOpenAI(BASE_MAX_TOKENS)
     if (!openaiResponse.ok) {
       const errText = await openaiResponse.text()
       // D2 — keep upstream detail server-side only; client gets generic message.
@@ -198,8 +210,44 @@ Return ONLY valid JSON.`
       })
     }
 
-    const completion = await openaiResponse.json()
-    const result = JSON.parse(completion.choices?.[0]?.message?.content || '{}')
+    let completion = await openaiResponse.json()
+    let finishReason: string | undefined = completion.choices?.[0]?.finish_reason
+    let content: string = completion.choices?.[0]?.message?.content || '{}'
+
+    // Truncation retry. response_format: json_object guarantees the output
+    // STARTS as JSON but doesn't guarantee it COMPLETES. finish_reason ===
+    // 'length' means the model hit max_tokens mid-emit; the partial content
+    // is invalid JSON and JSON.parse will throw.
+    if (finishReason === 'length') {
+      console.warn(`[analyze-job-match] truncation detected at max_tokens=${BASE_MAX_TOKENS}, retrying at ${RETRY_MAX_TOKENS}`)
+      openaiResponse = await callOpenAI(RETRY_MAX_TOKENS)
+      if (!openaiResponse.ok) {
+        const errText = await openaiResponse.text()
+        console.error(`[analyze-job-match] retry failed: OpenAI ${openaiResponse.status}: ${errText}`)
+        return new Response(JSON.stringify({ error: 'AI service temporarily unavailable. Please try again.' }), {
+          status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+      completion = await openaiResponse.json()
+      finishReason = completion.choices?.[0]?.finish_reason
+      content = completion.choices?.[0]?.message?.content || '{}'
+      if (finishReason === 'length') {
+        console.error(`[analyze-job-match] still truncated at max_tokens=${RETRY_MAX_TOKENS}; JD likely needs trimming`)
+        return new Response(JSON.stringify({ error: 'AI response too long for this job description. Try pasting a shorter version.' }), {
+          status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+    }
+
+    let result: Record<string, unknown>
+    try {
+      result = JSON.parse(content)
+    } catch (parseErr) {
+      console.error(`[analyze-job-match] JSON parse failed (finish_reason=${finishReason}):`, content.slice(0, 200), parseErr)
+      return new Response(JSON.stringify({ error: 'AI returned malformed response. Please try again.' }), {
+        status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
 
     // Echo user_stage so the client tier helper can apply the same seniority
     // ceiling that generate-career-analysis applies (T1_SENIORITY_CEILING).

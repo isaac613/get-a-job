@@ -312,22 +312,33 @@ Return a JSON object:
 
 Return ONLY valid JSON. Generate 5-8 tasks unless overwhelm signals are present, in which case limit to 3.`
 
-    const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      signal: AbortSignal.timeout(45000),
-      headers: { 'Authorization': `Bearer ${openaiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: MODEL,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        temperature: 0.4,
-        max_tokens: 2048,
-        response_format: { type: 'json_object' },
-      }),
-    })
+    // 5-8 tasks with title + description + suggested_specific_action + reason
+    // can run long. 2048 is usually enough but rich profiles push the boundary;
+    // when it does truncate, JSON.parse silently fails and we used to return
+    // 500 with no recovery path. Retry doubles the budget, fail explicitly if
+    // still truncated.
+    const BASE_MAX_TOKENS = 2048
+    const RETRY_MAX_TOKENS = 4096
 
+    async function callOpenAI(maxTokens: number) {
+      return await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        signal: AbortSignal.timeout(45000),
+        headers: { 'Authorization': `Bearer ${openaiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: MODEL,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
+          ],
+          temperature: 0.4,
+          max_tokens: maxTokens,
+          response_format: { type: 'json_object' },
+        }),
+      })
+    }
+
+    let openaiResponse = await callOpenAI(BASE_MAX_TOKENS)
     if (!openaiResponse.ok) {
       const errText = await openaiResponse.text()
       // D2 — keep upstream detail server-side only (log_error RPC + console.error
@@ -344,11 +355,36 @@ Return ONLY valid JSON. Generate 5-8 tasks unless overwhelm signals are present,
       })
     }
 
-    const completion = await openaiResponse.json()
+    let completion = await openaiResponse.json()
+    let finishReason: string | undefined = completion.choices?.[0]?.finish_reason
+    let content: string = completion.choices?.[0]?.message?.content || '{"tasks":[]}'
+
+    if (finishReason === 'length') {
+      console.warn(`[generate-tasks] truncation detected at max_tokens=${BASE_MAX_TOKENS}, retrying at ${RETRY_MAX_TOKENS}`)
+      openaiResponse = await callOpenAI(RETRY_MAX_TOKENS)
+      if (!openaiResponse.ok) {
+        const errText = await openaiResponse.text()
+        console.error(`[generate-tasks] retry failed: OpenAI ${openaiResponse.status}: ${errText}`)
+        return new Response(JSON.stringify({ error: 'AI service temporarily unavailable. Please try again.' }), {
+          status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+      completion = await openaiResponse.json()
+      finishReason = completion.choices?.[0]?.finish_reason
+      content = completion.choices?.[0]?.message?.content || '{"tasks":[]}'
+      if (finishReason === 'length') {
+        console.error(`[generate-tasks] still truncated at max_tokens=${RETRY_MAX_TOKENS}; profile data likely too large`)
+        return new Response(JSON.stringify({ error: 'AI response too long. Please try again.' }), {
+          status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+    }
+
     let result: Record<string, unknown>;
     try {
-      result = JSON.parse(completion.choices?.[0]?.message?.content || '{"tasks":[]}');
-    } catch {
+      result = JSON.parse(content);
+    } catch (parseErr) {
+      console.error(`[generate-tasks] JSON parse failed (finish_reason=${finishReason}):`, content.slice(0, 200), parseErr);
       return new Response(JSON.stringify({ error: 'AI returned an invalid response format. Please try again.' }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });

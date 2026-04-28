@@ -563,19 +563,33 @@ Deno.serve(async (req) => {
       { role: 'user', content: message },
     ]
 
-    const openaiResponse = await fetchOpenAIWithRetry('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${openaiKey}`, 'Content-Type': 'application/json' },
-      // temperature 0.4 + max_tokens 2048 (was 0.7 / 1024). Lower temp keeps
-      // SUGGESTED_*_JSON markers + field names verbatim so the frontend's
-      // extractJsonBlock parser doesn't miss them. Higher token cap stops the
-      // CV agent's structured block from being truncated mid-emit, which was
-      // causing the "Generate CV" button to never appear (A1/A2/A3 from the
-      // session-13 audit). Aligned with generate-career-analysis (temp 0.4)
-      // and generate-tasks (max 2048).
-      body: JSON.stringify({ model: MODEL, messages, temperature: 0.4, max_tokens: 2048 }),
-    })
+    // temperature 0.4 + max_tokens 2048 (was 0.7 / 1024). Lower temp keeps
+    // SUGGESTED_*_JSON markers + field names verbatim so the frontend's
+    // extractJsonBlock parser doesn't miss them. Higher token cap stops the
+    // CV agent's structured block from being truncated mid-emit, which was
+    // causing the "Generate CV" button to never appear (A1/A2/A3 from the
+    // session-13 audit). Aligned with generate-career-analysis (temp 0.4)
+    // and generate-tasks (max 2048).
+    //
+    // Truncation retry: if 2048 STILL isn't enough (chat reply + multiple
+    // structured blocks), one retry at 4096. Unlike analyze-job-match /
+    // generate-tasks (where truncation = unparseable JSON = fatal error),
+    // ai-chat tolerates truncation gracefully — even a partially-truncated
+    // reply is more useful to the student than a 502. So if retry also
+    // truncates, we still return what we got and let extractJsonBlock
+    // best-effort the markers.
+    const BASE_MAX_TOKENS = 2048
+    const RETRY_MAX_TOKENS = 4096
 
+    async function callOpenAI(maxTokens: number) {
+      return await fetchOpenAIWithRetry('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${openaiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: MODEL, messages, temperature: 0.4, max_tokens: maxTokens }),
+      })
+    }
+
+    let openaiResponse = await callOpenAI(BASE_MAX_TOKENS)
     if (!openaiResponse.ok) {
       console.error('OpenAI error:', await openaiResponse.text())
       return new Response(JSON.stringify({ error: 'AI service error' }), {
@@ -583,7 +597,23 @@ Deno.serve(async (req) => {
       })
     }
 
-    const completion = await openaiResponse.json()
+    let completion = await openaiResponse.json()
+    let finishReason: string | undefined = completion.choices?.[0]?.finish_reason
+
+    if (finishReason === 'length') {
+      console.warn(`[ai-chat] truncation detected at max_tokens=${BASE_MAX_TOKENS}, retrying at ${RETRY_MAX_TOKENS}`)
+      const retryResponse = await callOpenAI(RETRY_MAX_TOKENS)
+      if (retryResponse.ok) {
+        completion = await retryResponse.json()
+        finishReason = completion.choices?.[0]?.finish_reason
+        if (finishReason === 'length') {
+          console.warn(`[ai-chat] still truncated at max_tokens=${RETRY_MAX_TOKENS}; returning best-effort response`)
+        }
+      } else {
+        console.warn(`[ai-chat] retry failed: ${retryResponse.status}; falling back to original truncated reply`)
+      }
+    }
+
     let reply: string = completion.choices?.[0]?.message?.content || 'Sorry, I could not generate a response.'
 
     let suggested_tasks: Array<{ title: string; description: string; category: string; priority: string }> = []
