@@ -47,3 +47,20 @@ Read `tasks/lessons.md` before starting non-trivial work in: tier scoring, LLM p
 ## Verification before completion
 
 For any P0 claim about security (RLS, auth, data integrity), indexes, or schema correctness — **verify against the live system** (`pg_class`, `pg_indexes`, `information_schema`) before treating it as actionable. Two parallel agent audits this session reported "missing RLS on 9 tables"; ground-truth showed all 12 tables had RLS enabled with policies. Trust but verify.
+
+## Data sourcing for job suggestions
+
+`generate-job-suggestions` deliberately calls **only** these RapidAPI endpoints:
+
+- **`active-jobs-db.p.rapidapi.com/active-ats-7d`** — public ATS feeds (Comeet, Greenhouse, Lever, Workable, Workday, Ashby, BambooHR, iCIMS, etc.). Companies publish these for syndication — clean provenance with no LinkedIn relationship. **Primary path for Israel queries** (Comeet alone covers ~12k jobs across 600+ IL companies including monday.com, JFrog, AppsFlyer, SolarEdge).
+- **`jsearch.p.rapidapi.com/search`** — fallback when Active Jobs DB returns no results, and primary for non-IL queries. Wraps Google for Jobs, which independently indexes postings across the web. **Counsel confirmed (2026-04-29):** consuming Google's index is a different legal model from direct LinkedIn scraping — Google's relationship with each indexed source is between Google and that source, not us.
+
+**Never call `linkedin-job-search-api.p.rapidapi.com/*`.** This is a *separate* Fantastic.Jobs product that scrapes LinkedIn directly with no disclosed license. Treat as Proxycurl-equivalent risk. Our codebase does not reference this endpoint and must not.
+
+Per-job `source` field is captured in DB (`'jsearch'` | `'active-jobs-db'`) for audit. Pre-pilot, verify the production source mix:
+
+```sql
+SELECT source, count(*) FROM job_suggestions GROUP BY source;
+```
+
+If a future change introduces another data feed, document the upstream provenance in this section before merging.
