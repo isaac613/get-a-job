@@ -609,33 +609,56 @@ Existing `/InterviewCoach` already has the application selector — extend with 
 
 ## Planned: LinkedIn Optimizer with Mirror Page
 
-Status: **idea logged, awaiting design.** Reframes LinkedIn output from "raw text the user copies" to a visual replica of how it would actually render on LinkedIn — headline preview, About card, Experience entries, even sample Posts. The student sees what they'll see when they paste, then copies section by section directly into the real LinkedIn UI.
+Status: **v1 generation-first shipping Wk 3 (text output).** v2 visual mirror remains planned (deferred until pilot signal validates section coverage + LinkedIn import lands for before/after diffs).
 
-### Why this matters
+### v1 — generation-first (Wk 3)
 
-Current LinkedIn-related output (when generated) is plain text. Users can't tell whether the generated headline will feel cramped, whether About text overflows the fold, or whether an Experience bullet looks balanced relative to neighbours. A mirror eliminates that friction — what they see is what they'll get.
+`/LinkedinOptimizer` page. Single "Generate" click runs one LLM call that returns all sections in one structured JSON response. Each section renders as a card with the generated text + character count vs LinkedIn's actual limit + Copy button. User pastes section-by-section into LinkedIn manually.
 
-### Design sketch
+**6 sections covered in v1:**
 
-- New `/LinkedinOptimizer` page with section-by-section generation: Headline, About, Per-Experience descriptions, Featured posts, Skills section ordering.
-- Each generated section renders inside a visual replica of LinkedIn's current UI (avatar, font, spacing, character-count meter where LinkedIn caps apply).
-- "Copy this section" button per panel — the user pastes one block at a time into LinkedIn rather than wrestling with a wall of text.
-- Story Bank integration: each Experience entry's mirror rendering pulls top stories matching the role's expected_skills as bullet evidence (anti-fabrication preserved — only references stories that exist in the user's table).
-- LinkedIn import (Wk 9-10) gives the user's actual current LinkedIn data as a "before/after" comparison surface.
+| Section | LinkedIn char limit | Source priority |
+|---|---|---|
+| Headline | 220 | profile.summary + target_job_titles + primary_domain |
+| About | 2,600 | profile.summary + top stories across experiences (recency + target alignment) + target_job_titles |
+| Experience descriptions (per professional experience) | 2,000 each | experience row + stories linked to that experience_id |
+| Volunteering descriptions (per volunteering experience) | 2,000 each | same as Experience but filtered to bucket=volunteering |
+| Skills priority order | top 50, top 3 highlighted | profile.skills + frequency in stories' skills_demonstrated + target_job_titles alignment |
+| Honors & Awards descriptions | ~200 chars per honor | profile.honors[] expanded into 1-2 sentence factual descriptions (anti-fab discipline; no inventing reasons) |
+
+Anti-fab + Story Bank precedence inherited from `generate-tailored-cv` (Day 4 BINDING rules — metrics verbatim, tools preserved, no cross-experience smearing). Plus LinkedIn-specific banned vocabulary ("passionate about", "results-driven", "let's connect" prefix, etc.).
+
+### v2 — visual mirror page + remaining LinkedIn sections (post-v1)
+
+Visual replica of LinkedIn's actual UI (avatar, font, spacing, character-count meter inline) for the 6 v1 sections, PLUS coverage of every remaining LinkedIn section so the platform handles a complete profile rewrite. None of these are skipped — all on the roadmap for eventual coverage:
+
+**Additional sections to generate (v2):**
+- Featured (pinned posts/articles/links — short titled descriptions)
+- Projects (project descriptions with bullet evidence from stories)
+- Courses + Certifications (descriptions + relevance framing)
+- Recommendations text (drafts to send to colleagues to request)
+- Per-experience skill tagging (which skills to attach to each experience entry)
+- Education descriptions (per education entry — relevant coursework, leadership, awards)
+- Patents (description + role)
+- Publications (description + abstract)
+- Test Scores (context framing)
+- Organizations (membership descriptions)
+- Causes (cause descriptions)
+- Languages (proficiency framing)
+- Career Break (gap explanation framing if user adds one)
+
+**Visual mirror surfaces:** desktop + mobile previews; "Copy this section" button per visually-rendered panel; LinkedIn import (Wk 9-10) gives the user's actual current LinkedIn data as before/after diff.
 
 ### Dependencies
 
-- LinkedIn import (Wk 9-10) — for "before" baseline + diff-on-paste
-- Story Bank (Wk 7-10) — for grounded, anti-fabricated bullet evidence per Experience entry
-
-### Build cost (unestimated)
-
-To be designed once Story Bank + LinkedIn import land. The page itself is mostly CSS replicating LinkedIn's visual contract; the per-section LLM calls reuse existing patterns (CV generator, Story Bank consumers).
+- v1: Story Bank backend (✓ shipped Wk 2). No external deps.
+- v2 visual mirror: LinkedIn import (Wk 9-10) for the before-baseline; otherwise same data sources as v1.
+- v2 additional sections: schema additions for Patents / Publications / Test Scores / Organizations / Causes / Career Break (these aren't currently captured in the platform). Onboarding / AddInformation surfaces would need extending to capture them.
 
 ### Open questions
 
-- Which LinkedIn page version do we mirror — desktop, mobile, or both? Desktop is denser and harder to fit; mobile is what most students actually use.
-- Sample Posts is the most novel surface — do we generate one-shot drafts or a content-calendar-style series? Defer until pilot signal indicates demand.
+- Which LinkedIn page version do we mirror in v2 — desktop, mobile, or both? Desktop is denser and harder to fit; mobile is what most students actually use.
+- Featured/Posts: one-shot drafts or a content-calendar-style series? Defer until pilot signal indicates demand.
 - Is paste-section-by-section actually better than a "copy entire profile JSON" workflow some students might prefer? Pilot eval question.
 
 ---

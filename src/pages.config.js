@@ -62,6 +62,7 @@ import Tracker from './pages/Tracker';
 import Calendar from './pages/Calendar';
 import JobSuggestions from './pages/JobSuggestions';
 import Admin from './pages/Admin';
+import LinkedinOptimizer from './pages/LinkedinOptimizer';
 import __Layout from './Layout.jsx';
 
 
@@ -81,6 +82,7 @@ export const PAGES = {
     "Calendar": Calendar,
     "JobSuggestions": JobSuggestions,
     "Admin": Admin,
+    "LinkedinOptimizer": LinkedinOptimizer,
 }
 
 export const pagesConfig = {
