@@ -142,8 +142,12 @@ export default function CareerRoadmap() {
 
         if (rpcError) throw rpcError;
 
-        // Keep the "Last updated" stamp fresh on the profile
-        await supabase
+        // Keep the "Last updated" stamp fresh on the profile.
+        // Capture errors explicitly — silent failure of this write is what
+        // produced the "Qualification Level: Not yet determined" bug.
+        // Toast on failure so the user knows the refresh button didn't fully
+        // do its job (career_roles updated above, but profile fields didn't).
+        const { error: persistErr } = await supabase
           .from("profiles")
           .update({
             last_reality_check_date: new Date().toISOString(),
@@ -152,6 +156,13 @@ export default function CareerRoadmap() {
             skill_gaps: data?.skill_gaps || [],
           })
           .eq("id", user.id);
+        if (persistErr) {
+          console.error("[career-roadmap] profile persist failed after analysis:", persistErr, {
+            user_id: user.id,
+            qualification_level: data?.qualification_level,
+          });
+          toast.error("Roles updated but profile didn't fully save — try Refresh again, or contact support.");
+        }
       }
 
       queryClient.invalidateQueries({ queryKey: ["careerRoles"] });

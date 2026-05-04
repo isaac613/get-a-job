@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
@@ -123,6 +123,51 @@ export default function Home() {
       navigate(createPageUrl("Onboarding"));
     }
   }, [user, profileFetched, profileError, profile, profiles, navigate]);
+
+  // Self-heal: if the user reached onboarding_complete but the career-analysis
+  // persist silently failed (qualification_level + last_reality_check_date
+  // both null is the unambiguous shape — Onboarding.jsx writes both
+  // together at line ~432), trigger a one-shot background re-run. This
+  // shape should never exist for a properly onboarded user, so a guard
+  // check is enough — no risk of triggering on legitimate states. Single
+  // call per Home mount via useRef; if it fails the next mount can retry.
+  // Subject to the generate-career-analysis 5/hour rate limit, but a user
+  // hitting that limit on a self-heal has bigger issues.
+  const selfHealRanRef = useRef(false);
+  React.useEffect(() => {
+    if (!user?.id || !profile) return;
+    if (selfHealRanRef.current) return;
+    if (!profile.onboarding_complete) return;
+    if (profile.qualification_level || profile.last_reality_check_date) return;
+    selfHealRanRef.current = true;
+    (async () => {
+      try {
+        console.log("[home self-heal] running career analysis for", user.id);
+        const { data, error } = await supabase.functions.invoke("generate-career-analysis", {
+          body: { dream_roles: [] },
+        });
+        if (error || !data?.qualification_level) {
+          console.warn("[home self-heal] career analysis returned no data:", error || "(null qualification_level)");
+          return;
+        }
+        const { error: persistErr } = await supabase.from("profiles").update({
+          qualification_level: data.qualification_level,
+          overall_assessment: data.overall_assessment || "",
+          skill_gaps: data.skill_gaps || [],
+          last_reality_check_date: new Date().toISOString(),
+        }).eq("id", user.id);
+        if (persistErr) {
+          console.warn("[home self-heal] persist failed:", persistErr);
+          return;
+        }
+        console.log("[home self-heal] success — qualification_level:", data.qualification_level);
+        queryClient.invalidateQueries({ queryKey: ["userProfile"] });
+        queryClient.invalidateQueries({ queryKey: ["careerRoles"] });
+      } catch (err) {
+        console.warn("[home self-heal] exception:", err);
+      }
+    })();
+  }, [user?.id, profile, queryClient]);
 
   if (isLoading) {
     return (
