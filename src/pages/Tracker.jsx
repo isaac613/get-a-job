@@ -55,6 +55,7 @@ export default function Tracker() {
       role_title: newApp.role_title,
       company: newApp.company,
       status: newApp.status,
+      source: 'manual',
       ...(jd && { job_description: jd }),
     }).select("id").single();
     if (error) {

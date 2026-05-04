@@ -800,6 +800,7 @@ export default function ChatInterface({ agentName, title, description, applicati
           company: a.company,
           role_title: a.role_title,
           status,
+          source: 'chat_agent',
           ...(a.url && { url: a.url }),
           ...(a.location && { location: a.location }),
           ...(a.notes && { notes: a.notes }),
