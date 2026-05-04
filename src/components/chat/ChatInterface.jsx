@@ -530,14 +530,27 @@ export default function ChatInterface({ agentName, title, description, applicati
 
     // 3. Call AI
     try {
-      const { data, error } = await supabase.functions.invoke("ai-chat", {
-        body: {
-          message: text,
-          agent: agentName || "career-coach",
-          conversation_history: updatedMessages.slice(-20).filter((m) => m.role !== "system"),
-          ...(applicationId && { application_id: applicationId }),
-        },
-      });
+      const invokeBody = {
+        message: text,
+        agent: agentName || "career-coach",
+        conversation_history: updatedMessages.slice(-20).filter((m) => m.role !== "system"),
+        ...(applicationId && { application_id: applicationId }),
+      };
+      let { data, error } = await supabase.functions.invoke("ai-chat", { body: invokeBody });
+
+      // 401 from the edge function = expired JWT (auth.getUser returned no user).
+      // Try one auth.refreshSession + retry before surfacing the error — the
+      // root cause is auth, not connectivity, and the supabase-js client
+      // automatically uses the refreshed token on the next call. If refresh
+      // fails or retry still 401s, fall through to the catch with a flag so
+      // the user sees "session expired" instead of misleading "AI unavailable."
+      if (error?.context?.status === 401) {
+        const { error: refreshErr } = await supabase.auth.refreshSession();
+        if (!refreshErr) {
+          ({ data, error } = await supabase.functions.invoke("ai-chat", { body: invokeBody }));
+        }
+      }
+
       if (error) throw error;
       if (!data?.reply) throw new Error("The AI returned an empty response.");
 
@@ -587,12 +600,18 @@ export default function ChatInterface({ agentName, title, description, applicati
       );
     } catch (err) {
       console.error("Chat error:", err);
+      // Session expired = refresh+retry above already failed. Suppress the
+      // Retry button (userMessageText: null) — re-sending with the same
+      // expired auth won't help. User must sign in again.
+      const sessionExpired = err?.context?.status === 401;
       const errMsg = {
         role: "assistant",
-        content: "I couldn't reach the AI service. This is usually temporary — tap Retry to try again.",
+        content: sessionExpired
+          ? "Your session expired. Please sign out and sign in again to continue."
+          : "I couldn't reach the AI service. This is usually temporary — tap Retry to try again.",
         id: crypto.randomUUID(),
         isError: true,
-        userMessageText: text,
+        userMessageText: sessionExpired ? null : text,
       };
       setMessages((prev) => [...prev, errMsg]);
       await supabase.from("chat_messages").insert({
