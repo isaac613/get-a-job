@@ -427,13 +427,29 @@ export default function Onboarding() {
       }
 
       if (existingProfileId) {
-        await supabase.from("profiles").update({
+        // Capture the error explicitly — this write previously had no error
+        // handling, which let it fail silently. We've seen real users land
+        // with onboarding_complete=true but qualification_level=null +
+        // last_reality_check_date=null + skill_gaps=[] (empty), the exact
+        // shape this write should have populated. Don't throw on failure —
+        // the analysis is still cached in local state for the tier reveal,
+        // and Home.jsx has a self-healing useEffect that re-runs the
+        // analysis if it detects this null pattern on next visit.
+        const { error: persistErr } = await supabase.from("profiles").update({
           skill_gaps: data?.skill_gaps || [],
           qualification_level: data?.qualification_level || "",
           overall_assessment: data?.overall_assessment || "",
           last_reality_check_date: new Date().toISOString(),
           onboarding_step: 7,
         }).eq("id", existingProfileId);
+        if (persistErr) {
+          console.error("[onboarding] career analysis persist failed:", persistErr, {
+            existingProfileId,
+            qualification_level: data?.qualification_level,
+            skill_gaps_count: data?.skill_gaps?.length || 0,
+            overall_assessment_len: data?.overall_assessment?.length || 0,
+          });
+        }
       }
     } catch (err) {
       console.error("Career analysis error:", err?.message || err, err);
