@@ -61,6 +61,7 @@ import Tasks from './pages/Tasks';
 import Tracker from './pages/Tracker';
 import Calendar from './pages/Calendar';
 import JobSuggestions from './pages/JobSuggestions';
+import Admin from './pages/Admin';
 import __Layout from './Layout.jsx';
 
 
@@ -79,6 +80,7 @@ export const PAGES = {
     "Tracker": Tracker,
     "Calendar": Calendar,
     "JobSuggestions": JobSuggestions,
+    "Admin": Admin,
 }
 
 export const pagesConfig = {
