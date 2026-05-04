@@ -207,10 +207,16 @@ Deno.serve(async (req) => {
       return json({ error: 'Invalid application_id.' }, 400);
     }
 
+    // 30/hour. Bumped from 10 after pilot-readiness review: a student
+    // iterating on a CV against the same JD can generate 4-5 in quick
+    // succession; combined with 2-3 different applications they hit the
+    // old 10/hour cap inside a single working session. Cost ceiling at
+    // 30 × $0.038 = $1.14/student/hour worst case is acceptable for
+    // 80-student pilot.
     const { data: allowed } = await serviceClient.rpc('check_rate_limit', {
       p_user_id: user.id,
       p_function_name: 'generate-tailored-cv',
-      p_max_calls: 10,
+      p_max_calls: 30,
       p_window_seconds: 3600,
     });
     if (!allowed) {
