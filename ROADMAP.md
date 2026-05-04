@@ -2,96 +2,257 @@
 
 Living document. Both Eli and Isaac update as work moves. Anchor for what's shipped, what's in flight, what's next.
 
-**Pilot launch: Aug 2026 (Reichman, ~100 business students)**
+**Pilot launch: June 15, 2026 — 80 own-pilot users via WhatsApp groups. Reichman 10-student practicum follows in August.**
+
+This roadmap's source of truth for **scheduling** is the [June 15 launch sprint](#june-15-launch-sprint-may-4--june-15-2026) section below. The "Planned: …" sections later in the file describe **feature designs** in detail; week numbers inside those design sections may be stale — defer to the sprint plan when they conflict.
 
 ---
 
 ## Done (recent)
 
+- **2026-05-04 — Wk 2 Story Bank backend (PR #8).** Schema (`stories` table + RLS + 4 indexes + trigger), `extract-story-from-text` edge function (gpt-4o-mini, 3-layer anti-fabrication), CV Agent `SUGGESTED_STORY_CAPTURE_JSON` integration with sequential follow-up after CV gen completes (Path B — Path A same-turn cross-emission failed reliability), `StorySaveCard` frontend component (5-phase state machine), Story Bank consumption in `generate-tailored-cv` with STORY BANK PRECEDENCE + BINDING rules. Headline metric "88% adoption in first quarter" verbatim binding 3/3 in DOCX verification.
+- **2026-05-04 — Wk 1 Day 4: function_metrics observability across 9 edge functions (PR #6).** Per-call latency / ok-fail / model / tokens / locked-in cost_usd, fire-and-forget writes, smoke-tested in prod. Powers Wk 2 admin view + Wk 5 scout sizing.
+- **2026-05-04 — Wk 1 Day 1: Application Outcome Loop schema (PR #5).** `status_changes` audit table + trigger, `applications.source` / `found_via_*` / `outcome_notes` columns, all 3 add-paths populate `source` correctly.
+- **2026-05-04 — Wk 1 pending fix #30: education fields manual UI (PR #7).** `StepEducation` now has inputs for `education_dates`, `honors`, `languages`, `secondary_education`. All 4 round-trip cleanly to DB.
+- **2026-05-04 — Wk 1 pending fixes verified shipped via prior commits:** #31 tasks `due_date` (B4 fix from Apr 27), #35 AddInformation column coverage (PR #3 covers 33 of 38 user-editable cols).
 - **2026-04-28 — JD-based tier auto-assignment, goal-aware scoring, seniority cap.** Replaces title-based tier guesses; tier now derived from `analyze-job-match` returning `match_score` + `goal_alignment_score` + `required_seniority`. `tierFromScores` (`src/lib/scoreApplication.js`) applies thresholds + a hard tier_3 cap when role exceeds user stage.
-- **2026-04-28 — Demo for Reichman professor + Dr. Miller. Pilot confirmed Aug–Nov 2026.** Zero bugs in demo. Both faculty personally vouching.
-- **2026-04-28 — Team workflow infrastructure** (this commit): ROADMAP.md, PR template, CI workflow, CLAUDE.md handoff rules.
+- **2026-04-28 — Demo for Reichman professor + Dr. Miller. Practicum pilot confirmed Aug–Nov 2026.** Zero bugs in demo. Both faculty personally vouching.
+- **2026-04-28 — Team workflow infrastructure:** ROADMAP.md, PR template, CI workflow, CLAUDE.md handoff rules.
 - **Earlier April 2026:** CV Tier 1 prompt improvements, learning-paths URL validation, ai-chat retry layer, onboarding handleFinalise clobber fix, Career Agent dropdown, demo account reset RPC.
 
 ## In Progress
 
-_(Nothing currently. Both devs free for sprint planning.)_
+- Wk 2 Day 5 / Isaac's queue — Admin view (`cohort_scout_metrics` + `student_engagement_summary` SQL views + `/admin` page, RLS-gated)
 
 ---
 
-## Up Next — Sprint plan toward Aug 2026 pilot
+## June 15 launch sprint (May 4 → June 15, 2026)
 
-Ordered by dependency + priority. Owner column = whoever picks it up; reassign as needed.
+6-week sprint. ~30 dev-days for Eli (full-time), ~15 for Isaac (50%) = **45 dev-days against ~58 days of estimated work.** Some features ship as **v1 (functional) instead of v2 (polished)** — nothing is cut from scope, but post-launch iteration handles polish based on real pilot signal. The v1/v2 cuts table is documented at the end of this section.
 
-### Wk 1 — Stabilization (fix what's silently broken)
-| Item | Owner | Notes |
+### Dependency map (the order things ship in)
+
+```
+Week 1: Foundations
+  ├── PRs merged ────────────────────────────────────────┐
+  ├── Outcome Loop schema (audit table + applications cols)│
+  ├── function_metrics + Sentry + PostHog instrumentation │
+  ├── Domain + Vercel deploy ──────────────────────────────┤
+  ├── Pending fixes (#30, #31, #33)                       │
+  └── AI disclaimer + privacy notice                      │
+                                                           │
+Week 2: Building on foundations                            │
+  ├── Landing page (needs domain) ◄────────────────────────┤
+  ├── Admin view (needs function_metrics) ◄────────────────┤
+  ├── Story Bank schema + extract function                 │
+  └── Story Bank → CV gen consumption                      │
+                                                           │
+Week 3: Engagement layer                                   │
+  ├── Story Bank phase 2 (AddInformation surface)          │
+  ├── LinkedIn Optimizer (generation-first, no PDF needed) │
+  └── Daily Action Card                                    │
+                                                           │
+Week 4: Networking + Practicum foundations                 │
+  ├── LinkedIn import (needs Eli's archive! request Wk 1) │
+  ├── Internship Finder Phase 1 (profile gen + matching)   │
+  └── Connection cross-reference (needs LinkedIn)          │
+                                                           │
+Week 5: Scout + Practice Interview + Role library          │
+  ├── Autonomous Job Scout (needs function_metrics)        │
+  ├── Practice Interview Agent (needs Story Bank)          │
+  └── Schema validator + role research skill               │
+                                                           │
+Week 6: Final features + launch                            │
+  ├── Streaming chat                                       │
+  ├── Firecrawl JD auto-fetch (activate Firecrawl now)     │
+  ├── Final QA + smoke test                                │
+  └── Soft launch → full launch June 15                    │
+```
+
+### Paid services activation calendar
+
+Activate when needed, not before. Total monthly recurring cost at launch: **~$130/mo.**
+
+| Service | When | Why now | Monthly cost |
+|---|---|---|---|
+| **1Password** | Wk 1 Day 1 | Before any other credential creation | $5–8 |
+| **Domain (Cloudflare Registrar)** | Wk 1 Day 1 | DNS propagation needs 24–48h buffer | ~$1/mo amortized |
+| **Vercel Hobby** | Wk 1 Day 2 | Free tier covers pilot; need for preview deploys | $0 |
+| **Sentry Developer** | Wk 1 Day 2 | Free 5K errors/mo; need from launch | $0 |
+| **PostHog Free** | Wk 1 Day 2 | Free 1M events/mo; instrument from day 1 | $0 |
+| **JSearch Pro (RapidAPI)** | Wk 1 Day 2 | Already in production; upgrade from Basic now | $25 |
+| **Active Jobs DB Pro (RapidAPI)** | Wk 1 Day 2 | Already in production; upgrade now | ~$25 |
+| **Coursera affiliate signup** | Wk 1 Day 3 | 3–5 day approval window | $0 |
+| **LinkedIn Learning affiliate signup** | Wk 1 Day 3 | 3–5 day approval window | $0 |
+| **OpenAI Tier 2 pre-spend** | Wk 5 | Need ~$50 of test calls to auto-promote to Tier 2 (450K TPM headroom) before launch wave hits | One-time $50 |
+| **Mailgun Free (inbound)** | Wk 4 OR skip | Only needed if LinkedIn email forwarding ships v1; defer to post-launch | $0 |
+| **Firecrawl Hobby** | **Wk 6 Day 1** | Don't activate until JD auto-fetch ships. Save $19 × 5 weeks = $95 | $19 |
+| **Langfuse Cloud Free** | Wk 5 | Free 50K observations/mo; activate when scout ships and LLM volume increases | $0 |
+| **Cursor Pro** | Anytime | Personal preference, doesn't block anything | $20 |
+
+**Cost-timing wins:** Firecrawl deferred to Wk 6 saves ~$95. Mailgun skipped entirely. **Pre-launch one-time:** ~$60. **Recurring at launch:** ~$130/mo.
+
+### Week 1 (May 5–11): Stabilize + foundations
+
+**Eli (5 days)**
+
+| Day | Task | Status |
 |---|---|---|
-| P0: `scoreApplication` failure visibility — fix queryKey + add retry UI | — | `src/lib/scoreApplication.js`. Stuck "Calculating tier…" rows are pilot-blocker |
-| P0: JSON truncation detection in `analyze-job-match`, `ai-chat`, `generate-tasks` | — | Detect `finish_reason === "length"`, retry at higher max_tokens |
-| P0: AddInformation column coverage (#35) | — | Currently edits ~10 of 30+ profile columns; students can't edit `five_year_role`/`primary_domain` post-onboarding |
-| P1: `AbortSignal` on `ai-chat`, `analyze-job-match`, `lookup-role-skills` | — | 3 functions can hang forever |
-| P1: Tests for `src/lib/scoreApplication.js` | — | Zero coverage on most-iterated logic of the project |
-| Quick win: remove 2000-char JD truncation in `generate-job-suggestions` | — | Free fix |
-| Quick win: lazy-load PDF.js + jsPDF | — | Drops main bundle ~50–100KB |
-| Domain purchase + DNS setup | — | Needed early — 1 week DNS propagation buffer |
+| Mon | 1Password setup + domain purchase + Cloudflare DNS (let propagation start) | — |
+| Tue | Merge PRs #1–5 → Sentry/PostHog/Vercel signup + Vercel connect to repo (preview only) | PRs #1–5 ✓ merged |
+| Wed | **Application Outcome Loop schema** + auto-populate `source` from add-paths | ✓ shipped (PR #5) |
+| Thu | function_metrics table + emit from each edge function | ✓ shipped (PR #6) |
+| Fri | Pre-spend OpenAI to land in Tier 2 (~$50). Affiliate signups. **Request your own LinkedIn full archive (24h wait)**. Smoke test + buffer | — |
 
-### Wk 2 — Foundation for skills + observability
-| Item | Owner | Notes |
-|---|---|---|
-| `schema-validator` skill — reads role_library + skill_library, emits enums + ID sets | — | Precondition for role-research skill |
-| Library deduplication: move `_shared/libraries/` to one canonical location | — | ~10 MB dup across 5 functions; divergence risk |
-| `function_metrics` table + emit from every edge function | — | Without this, debugging at 100 users is by-anecdote |
-| Pending tasks: #30 (education fields), #31 (tasks due_date), #33 (extract-proof-signals library bloat) | — | Leftover from pre-demo audit |
+**Isaac (2.5 days)**
 
-### Wk 3–4 — Internship Company Picker (NEW pilot blocker)
-| Item | Owner | Notes |
+| Day | Task | Status |
 |---|---|---|
-| Curate IL company DB (~100 anchor companies) | — | Manual; weight scale-ups + Israeli tech (per user feedback) |
-| `company_targets` table + RLS | — | Mirror `applications` pattern |
-| `/InternshipExplorer` page with reui Data Grid | — | Cards + filters: stage, sector, role |
-| Match logic: company × student profile → fit + reasoning | — | Reuses `analyze-job-match` patterns |
-| Practicum proposal flow (student submits, professor reviews) | — | Requires cohort dashboard scaffolding |
+| Mon | Pending fix #31: tasks `due_date` | ✓ already shipped (B4 fix Apr 27) |
+| Wed | Pending fix #30: education fields manual UI | ✓ shipped (PR #7) |
+| Fri | Pending fix #33: extract-proof-signals library bloat (filter by primary_domain) + AI disclaimer text + onboarding consent screen | #33 declined (extraction quality risk too high for marginal savings); disclaimer + consent still pending |
 
-### Wk 5–6 — Role library expansion + cohort dashboard
-| Item | Owner | Notes |
-|---|---|---|
-| `role-library-researcher` skill — slash command, validator-aware, drafts to `_drafts/` | — | Depends on schema-validator |
-| Add 30–50 business-student-relevant roles | — | BD Analyst, Solutions Engineer, RevOps, Customer Marketing, GTM Strategist, etc. |
-| Cohort dashboard v0 for instructors | — | Depends on `function_metrics` |
-| `status_changes` audit table + trigger | — | Precondition for cohort velocity metric |
-| `cohort` field on profiles | — | "reichman_2026_fall" |
+### Week 2 (May 12–18): Story Bank core + Landing + Admin
 
-### Wk 7–8 — Pre-pilot polish
-| Item | Owner | Notes |
-|---|---|---|
-| Firecrawl JD backfill in `handleAddToTracker` | — | $19/mo Hobby tier; fixes empty-JD problem |
-| WhatsApp notifications via Twilio | — | Israeli students live on WhatsApp; ~$20/mo |
-| Daily action card on Home dashboard | — | Single focused action; cuts paralysis |
-| reui Data Grid → Tracker | — | Sort/filter applications by tier/score/status |
-| `edge-function-deployer` skill | — | Bundles deploy + verify-active + smoke test |
+**Eli (5 days)**
 
-### Wk 9–10 — Reichman-specific value
-| Item | Owner | Notes |
+| Day | Task | Status |
 |---|---|---|
-| Reichman alumni connection database | — | Faculty-curated; needs early input from professor + Dr. Miller |
-| Cohort velocity metric on student dashboard | — | Anonymized cohort medians; suppress if cohort < 10 active |
-| Story Bank | — | STAR stories reusable across CV gen + interview prep |
-| `session-handoff` skill — auto-update ROADMAP.md from branch state | — | Helps team handoff between Eli + Isaac |
+| Mon | Story Bank schema + RLS migration | ✓ shipped (PR #8) |
+| Tue | `extract-story-from-text` edge function (gpt-4o-mini, structured output) | ✓ shipped (PR #8) |
+| Wed | CV Agent integration: SUGGESTED_STORY_CAPTURE_JSON parsing + save card UI | ✓ shipped (PR #8) |
+| Thu | Story Bank consumption in `generate-tailored-cv` (pull stories matching JD keywords) | ✓ shipped (PR #8) |
+| Fri | Buffer + integration testing + cross-check Isaac's landing page | — |
 
-### Wk 11–12 — Last mile
-| Item | Owner | Notes |
-|---|---|---|
-| Practice interview agent v1 (text only) | — | Voice via OpenAI Realtime is post-pilot |
-| Email parser inbox (Mailgun + edge function classifier) | — | DNS done in Wk 1 should be ready by now |
-| Application outcome learning loop | — | Capture status transitions; surface what works |
+**Isaac (2.5 days)**
 
-### Wk 13 — Pilot prep
-| Item | Owner | Notes |
+| Day | Task | Status |
 |---|---|---|
-| Production deploy on the new domain | — | After domain DNS settled |
-| Final bug audit | — | Re-run backend + frontend audits |
-| Student onboarding documentation | — | What to do, in what order, with FAQ |
-| Faculty briefing materials | — | Cohort dashboard walk-through, escalation paths |
+| Mon | Landing page: v0.dev generation → paste into `Landing.jsx` → routing change for unauth users | — |
+| Wed | Admin view: SQL views (`cohort_scout_metrics`, `student_engagement_summary`) + `/admin` page (read-only, RLS-gated to Eli's user_id) | in progress (Eli picking up) |
+| Fri | ESLint warning for hardcoded hex + Playwright screenshot baseline (top 8 screens) | — |
+
+### Week 3 (May 19–25): LinkedIn Optimizer + Daily Action + Story Bank surface
+
+**Eli (5 days)**
+
+| Day | Task |
+|---|---|
+| Mon–Wed | **LinkedIn Optimizer (generation-first)** — page, prompt, generate-from-profile flow. v1 = no PDF upload mode, just generation from existing profile data + Story Bank stories |
+| Thu | Daily Action Card schema + `generate-daily-action` edge function (priority logic + LLM picker) |
+| Fri | Buffer + integration test |
+
+**Isaac (2.5 days)**
+
+| Day | Task |
+|---|---|
+| Mon | Story Bank Phase 2: AddInformation Experience tab inline stories + quick-add modal |
+| Wed | Daily Action Card UI on Home dashboard (display + Done/Snooze/Dismiss actions) |
+| Fri | Daily Action calibration loop (dismissed-type backoff in priority weighting) |
+
+### Week 4 (May 26 – June 1): LinkedIn import + Internship Finder Phase 1
+
+**Eli (5 days)** — should have own LinkedIn archive by now (requested Wk 1)
+
+| Day | Task |
+|---|---|
+| Mon–Tue | LinkedIn import — schema (`linkedin_imports` + `linkedin_connections` + `linkedin_change_events`) + zip upload edge function + parser (Connections.csv first, others added if time) |
+| Wed | Connection cross-reference — match user's connections against Internship Picker company list. Surface "X connections at Atera" UI on Tracker rows |
+| Thu | Internship Finder schema (`internship_profiles` + `companies` + `company_targets` + `faculty_practicum_companies`) + `practicum_mode` onboarding toggle + `generate-internship-profile` edge function |
+| Fri | Buffer + integration test |
+
+**Isaac (2.5 days)**
+
+| Day | Task |
+|---|---|
+| Mon | `match-internship-companies` edge function (scoring against profile) |
+| Wed | `/Practicum` page UI: profile display + kanban pipeline (basic — exploring → outreach → interview → offered) |
+| Fri | Career Agent practicum prompt addition + SUGGESTED_COMPANY_TARGET_JSON parsing |
+
+**Wk 4 risk:** Internship Finder is normally 10 days; we're fitting ~4. v1 cuts: no curated companies DB seed (job-board API only), no `draft-outreach-message` (defer post-launch), no faculty-provided list (manual entries). Phase 2 polish post-launch.
+
+### Week 5 (June 2–8): Scout + Practice Interview + Role library
+
+**Eli (5 days)**
+
+| Day | Task |
+|---|---|
+| Mon | Autonomous Job Scout schema (`scout_findings` table) + `pg_cron` schedule + `scout-find-jobs` edge function skeleton |
+| Tue | Scout scoring pipeline (reuse `analyze-job-match` logic) + threshold logic + `fit_rationale` generation |
+| Wed | Scout UI: Home dashboard "Scout" card + JobSuggestions integration (scout badge) + Career Agent passive mention |
+| Thu | Practice Interview Agent schema + question generation edge function + answer scoring rubric |
+| Fri | Practice Interview Agent UI: mode toggle on `/InterviewCoach` + practice-mode chat |
+
+**Isaac (2.5 days)**
+
+| Day | Task |
+|---|---|
+| Mon | Schema validator skill (reads `role_library` + `skill_library`, emits enums + ID sets as JSON) |
+| Wed | Role library research skill (slash command, drafts to `_drafts/`) |
+| Fri | Add 30–50 business-student roles using the research skill (BD Analyst, Solutions Engineer, RevOps, Customer Marketing, GTM Strategist, etc.) |
+
+**Wk 5 risk:** Practice Interview ships v1 — basic Q&A with rubric scoring; no story integration polish, no drill-down. Story integration post-launch.
+
+### Week 6 (June 9–15): Final features + polish + launch
+
+**Eli (5 days)**
+
+| Day | Task |
+|---|---|
+| Mon–Tue | **Streaming chat refactor** — convert `ai-chat` to streaming responses (frontend SSE handling + backend OpenAI streaming + retry logic adjustment) |
+| Wed | Morning: **activate Firecrawl Hobby ($19/mo)**. Afternoon: Firecrawl JD auto-fetch in `handleAddToTracker` (~30 lines) |
+| Thu | Final smoke test: fresh user signup → onboarding → application → CV gen → LinkedIn optimize → daily action → scout finding → practice interview. Find what breaks. |
+| Fri | Fix what broke. Triage. Ship-no-ship decision. **Soft launch — invite first 10 users from group chat.** |
+
+**Isaac (2.5 days)**
+
+| Day | Task |
+|---|---|
+| Mon | Story Bank → Career Agent passive mention. Story Bank → LinkedIn Optimizer evidence injection |
+| Wed | Visual redesign incremental: token migration on top 5 most-trafficked components (Home, Tracker, AddInformation, Career Agent, Onboarding). Playwright baseline as regression check. |
+| Fri | Final UI polish + responsive checks on mobile + faculty briefing materials |
+
+### Launch weekend (June 13–15)
+
+| Day | Task |
+|---|---|
+| Sat (Jun 13) | Quiet day — monitor preview environment, fix issues found Friday |
+| Sun (Jun 14) | Production deploy on launch domain. Final smoke test. Open registration |
+| **Mon (Jun 15)** | **Full launch — broader invite from WhatsApp groups (target 80 own-pilot users)** |
+
+### v1 / v2 cuts (the honest cuts inside "everything ships")
+
+| Feature | v1 ships June 15 | v2 polish post-launch |
+|---|---|---|
+| LinkedIn import | Connections.csv parsing + connection cross-reference at companies | Other archive files (Recommendations, Endorsements, etc.), email forwarding mode, diff-on-import |
+| Internship Finder | Profile gen, matching against job board, kanban UI, Career Agent integration | Curated companies DB seed (~100 IL companies), faculty list import, `draft-outreach-message` |
+| Practice Interview | Mode toggle, question generation, answer scoring, rubric output | Story integration polish, drill-down conversation, session summary visualization |
+| LinkedIn Optimizer | Generation-first from profile + stories | Visual mirror page (per ROADMAP entry below), PDF upload mode for current LinkedIn comparison |
+| Daily Action Card | Card with Done/Snooze/Dismiss + calibration loop | Calendar integration ("block time"), advanced source variety |
+| Scout | Daily cron + scoring + Home card + Career Agent passive | Per-user notification preferences, optional digest emails |
+| Visual redesign | ESLint warning + screenshot baseline + top-5 component token migration | Full migration of remaining 200+ hex usages |
+| Role library expansion | 30 new roles via research skill | 50+ roles, validated cross-references, market notes for each |
+| Streaming chat | Working stream | Polished error states, retry UX, optimistic message UI |
+
+### Risk register
+
+| Risk | Likelihood | Mitigation |
+|---|---|---|
+| Eli's LinkedIn archive doesn't arrive Wk 1 | Medium | Request immediately. If late, parser uses sample data; ship Connections-only v1 |
+| Wk 4 Internship Finder runs over | High | v1 cuts already documented (no curated DB, no outreach drafting). Accept the cut. |
+| Wk 6 Streaming chat breaks existing chat | Medium | Land it Mon–Tue so Wed–Fri has rollback time. If risky, defer streaming to post-launch |
+| Visual redesign migration introduces regressions | Medium | Playwright screenshot baseline IS the regression check. If breaks > 3 components, revert + ship as post-launch |
+| OpenAI rate limits hit during launch wave | Low | Pre-spend Wk 5 lands you in Tier 2 (450K TPM). Should comfortably handle 80 users onboarding |
+| Domain DNS propagation takes >48h | Low | Buy Wk 1 Day 1 — gives 5 weeks of buffer |
+| Isaac's part-time capacity drops below 50% | Medium | Plan stays achievable — drops to 40d if Isaac is at ~25%. Cuts visual redesign + role library would absorb shortfall |
+| Sentry / PostHog instrumentation slows feature work | Low | Both are 1-line SDK installs. Real work is wiring events through; minimal dev cost |
+| Privacy counsel review takes >2 weeks | Medium | Engage Wk 1 with a 3-week deadline. They're typically responsive on small scope. |
+
+### Eli's personal Wk 1 to-dos (beyond code)
+
+1. **Engage Israeli privacy counsel today** — 3-hour consultation. Brief on: LinkedIn data import, third-party connection data processing, 80-user own-pilot consent posture. Goal: signed-off privacy policy + LIA documentation by Wk 5. Budget ₪3–6K.
+2. **Sign Isaac's equity / contractor agreement this week** — even a simple 1-pager.
+3. **Personal financial runway document** — months sustainable without revenue. Determines mid-pilot extension vs. compress decisions.
 
 ---
 
@@ -438,6 +599,79 @@ Existing `/InterviewCoach` already has the application selector — extend with 
 | Drill-down conversation flow | 12 | 1 day |
 
 **Total: ~6 days dev, Wk 11-12.**
+
+---
+
+## Planned: LinkedIn Optimizer with Mirror Page
+
+Status: **idea logged, awaiting design.** Reframes LinkedIn output from "raw text the user copies" to a visual replica of how it would actually render on LinkedIn — headline preview, About card, Experience entries, even sample Posts. The student sees what they'll see when they paste, then copies section by section directly into the real LinkedIn UI.
+
+### Why this matters
+
+Current LinkedIn-related output (when generated) is plain text. Users can't tell whether the generated headline will feel cramped, whether About text overflows the fold, or whether an Experience bullet looks balanced relative to neighbours. A mirror eliminates that friction — what they see is what they'll get.
+
+### Design sketch
+
+- New `/LinkedinOptimizer` page with section-by-section generation: Headline, About, Per-Experience descriptions, Featured posts, Skills section ordering.
+- Each generated section renders inside a visual replica of LinkedIn's current UI (avatar, font, spacing, character-count meter where LinkedIn caps apply).
+- "Copy this section" button per panel — the user pastes one block at a time into LinkedIn rather than wrestling with a wall of text.
+- Story Bank integration: each Experience entry's mirror rendering pulls top stories matching the role's expected_skills as bullet evidence (anti-fabrication preserved — only references stories that exist in the user's table).
+- LinkedIn import (Wk 9-10) gives the user's actual current LinkedIn data as a "before/after" comparison surface.
+
+### Dependencies
+
+- LinkedIn import (Wk 9-10) — for "before" baseline + diff-on-paste
+- Story Bank (Wk 7-10) — for grounded, anti-fabricated bullet evidence per Experience entry
+
+### Build cost (unestimated)
+
+To be designed once Story Bank + LinkedIn import land. The page itself is mostly CSS replicating LinkedIn's visual contract; the per-section LLM calls reuse existing patterns (CV generator, Story Bank consumers).
+
+### Open questions
+
+- Which LinkedIn page version do we mirror — desktop, mobile, or both? Desktop is denser and harder to fit; mobile is what most students actually use.
+- Sample Posts is the most novel surface — do we generate one-shot drafts or a content-calendar-style series? Defer until pilot signal indicates demand.
+- Is paste-section-by-section actually better than a "copy entire profile JSON" workflow some students might prefer? Pilot eval question.
+
+---
+
+## Planned: AI Response Grading
+
+Status: **idea logged, awaiting design.** Thumbs up/down on every AI output across every agent (Career Agent, CV Agent, Interview Coach, Skill Development, etc.). Stored per user. Two consumption layers: (a) personalisation — over time the system learns what each user's "thumbs up" looks like and tunes future outputs; (b) Outcome Learning Loop quality signal — links agent output quality to downstream outcomes (did the thumbs-up CV correlate with more interviews?).
+
+### Why this matters
+
+Agent quality is currently judged by usage proxies (did the user click Generate Again?) and complaint signals only. Explicit per-output grading gives a much sharper signal: which prompts work, which agents drift, which output styles each individual user prefers. At pilot scale (100 students × multi-month), grading data compounds into a real personalisation surface.
+
+### Design sketch
+
+- `feedback_events` table: `(user_id, agent, function_name, output_id, thumbs, comment text NULL, created_at, metric_event_id uuid REFERENCES function_metrics(id) NULL)`.
+- Tiny thumbs-up / thumbs-down + optional one-line comment surface on every AI-generated artefact (chat reply, generated CV, scored job match, generated tasks, etc.).
+- Per-user aggregation feeds the system prompt of each agent: "This user has rated 47 of your replies; their thumbs-down replies tend to share these traits: [extracted patterns]. Avoid those when responding."
+- Outcome Learning Loop integration: join `feedback_events` against `applications.outcome` to surface "thumbs-up CVs lead to X% more interviews than thumbs-down CVs" type observations (with the same N-count discipline as the rest of the loop).
+- Anti-overfitting: do not personalise off small N — minimum ~10 ratings per agent before the system prompt addition kicks in for that user.
+
+### Dependencies
+
+- `function_metrics` (Wk 1, shipped) — `metric_event_id` foreign key joins each grade back to the underlying agent call for cost / latency / model context.
+- Application Outcome Learning Loop (Wk 1-2 schema shipped, surfacing Wk 11-12) — for the quality-correlates-with-outcome layer.
+
+### Build cost (rough)
+
+| Phase | Effort |
+|---|---|
+| Schema + RLS | 0.5 day |
+| Thumbs UI component, wire into ~6 agent surfaces | 1 day |
+| Per-user aggregation + system-prompt injection helper | 1 day |
+| Outcome correlation view + Career Agent reference rules | 0.5 day |
+
+**Total: ~3 days dev. Can be wired incrementally — schema + UI on every surface lands first as the data-capture foundation, personalisation + outcome correlation comes later.**
+
+### Open questions
+
+- Show personalisation status to the user? ("I've adapted to your last 47 ratings" — feels like surveillance vs. transparency tradeoff).
+- One thumbs vs. richer rubric (helpful / accurate / personalised)? Start with one thumbs to maximise capture rate; add dimensions only if the pilot shows hunger for it.
+- Per-agent thumbs vs. global-context thumbs? Per-agent — different agents have different success modes.
 
 ---
 
