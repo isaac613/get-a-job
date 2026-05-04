@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { startMetric, finishMetric } from '../_shared/metrics.ts'
 
 // --- Load JSON Libraries ---
 import { roleLibrary } from "./shared/libraries/00_role_library.ts";
@@ -24,9 +25,15 @@ Deno.serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
+  const m = startMetric('generate-tasks')
+  let _ok = false
+  let _http = 500
+  let _err: string | null = null
+
   try {
     const openaiKey = Deno.env.get('OPENAI_API_KEY')
     if (!openaiKey) {
+      _http = 500; _err = 'no_openai_key'
       return new Response(JSON.stringify({ error: 'OpenAI API key not configured' }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -34,6 +41,7 @@ Deno.serve(async (req) => {
 
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
+      _http = 401; _err = 'auth'
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -47,10 +55,12 @@ Deno.serve(async (req) => {
 
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
+      _http = 401; _err = 'auth'
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
+    m.userId = user.id
 
     const serviceClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -70,6 +80,7 @@ Deno.serve(async (req) => {
         p_error_message: 'Rate limit exceeded',
         p_error_details: null,
       }).catch(() => {});
+      _http = 429; _err = 'rate_limit'
       return new Response(JSON.stringify({ error: 'Rate limit exceeded. Try again in an hour.' }), {
         status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -77,12 +88,14 @@ Deno.serve(async (req) => {
 
     const rawBody = await req.text();
     if (rawBody.length > 10_000) {
+      _http = 413; _err = 'payload_too_large'
       return new Response(JSON.stringify({ error: 'Request payload too large.' }), {
         status: 413, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
     const { context } = JSON.parse(rawBody);
     if (context !== undefined && typeof context !== 'string') {
+      _http = 400; _err = 'bad_input'
       return new Response(JSON.stringify({ error: 'Invalid context field.' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -350,6 +363,8 @@ Return ONLY valid JSON. Generate 5-8 tasks unless overwhelm signals are present,
         p_error_details: { status: openaiResponse.status, details: errText },
       })
       console.error(`[generate-tasks] OpenAI ${openaiResponse.status}: ${errText}`)
+      _http = 502; _err = `openai_${openaiResponse.status}`
+      m.modelUsed = MODEL
       return new Response(JSON.stringify({ error: 'AI service temporarily unavailable. Please try again.' }), {
         status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -365,6 +380,11 @@ Return ONLY valid JSON. Generate 5-8 tasks unless overwhelm signals are present,
       if (!openaiResponse.ok) {
         const errText = await openaiResponse.text()
         console.error(`[generate-tasks] retry failed: OpenAI ${openaiResponse.status}: ${errText}`)
+        _http = 502; _err = `openai_retry_${openaiResponse.status}`
+        m.modelUsed = MODEL
+        // Capture tokens from initial call (the only completed one).
+        m.tokensIn = completion.usage?.prompt_tokens ?? null
+        m.tokensOut = completion.usage?.completion_tokens ?? null
         return new Response(JSON.stringify({ error: 'AI service temporarily unavailable. Please try again.' }), {
           status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })
@@ -374,17 +394,27 @@ Return ONLY valid JSON. Generate 5-8 tasks unless overwhelm signals are present,
       content = completion.choices?.[0]?.message?.content || '{"tasks":[]}'
       if (finishReason === 'length') {
         console.error(`[generate-tasks] still truncated at max_tokens=${RETRY_MAX_TOKENS}; profile data likely too large`)
+        _http = 502; _err = 'truncated_after_retry'
+        m.modelUsed = MODEL
+        m.tokensIn = completion.usage?.prompt_tokens ?? null
+        m.tokensOut = completion.usage?.completion_tokens ?? null
         return new Response(JSON.stringify({ error: 'AI response too long. Please try again.' }), {
           status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })
       }
     }
 
+    // Capture LLM usage from the LAST successful call (initial OR retry).
+    m.modelUsed = MODEL
+    m.tokensIn = completion.usage?.prompt_tokens ?? null
+    m.tokensOut = completion.usage?.completion_tokens ?? null
+
     let result: Record<string, unknown>;
     try {
       result = JSON.parse(content);
     } catch (parseErr) {
       console.error(`[generate-tasks] JSON parse failed (finish_reason=${finishReason}):`, content.slice(0, 200), parseErr);
+      _http = 500; _err = 'json_parse'
       return new Response(JSON.stringify({ error: 'AI returned an invalid response format. Please try again.' }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -408,6 +438,7 @@ Return ONLY valid JSON. Generate 5-8 tasks unless overwhelm signals are present,
       }));
     }
 
+    _ok = true; _http = 200
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
@@ -424,8 +455,11 @@ Return ONLY valid JSON. Generate 5-8 tasks unless overwhelm signals are present,
         p_error_details: null,
       })
     } catch { /* best-effort logging */ }
+    _http = 500; _err = 'unhandled'
     return new Response(JSON.stringify({ error: 'An unexpected error occurred.' }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
+  } finally {
+    finishMetric(m, { ok: _ok, httpStatus: _http, errorCode: _err })
   }
 })

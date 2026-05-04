@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { startMetric, finishMetric, type Metric } from '../_shared/metrics.ts'
 // docx package produces a real .docx file the user can edit in Word/Google
 // Docs and export to PDF themselves. Imported via esm.sh so Deno's edge
 // runtime can resolve the full dependency tree. Version pinned for stability.
@@ -62,7 +63,7 @@ type JDKeywords = {
   domain_terms: string[];
   soft_skill_keywords: string[];
 };
-async function extractJDKeywords(jd: string, openaiKey: string): Promise<JDKeywords> {
+async function extractJDKeywords(jd: string, openaiKey: string, m?: Metric): Promise<JDKeywords> {
   const empty: JDKeywords = {
     must_include_phrases: [], action_verbs: [], tools_and_platforms: [],
     domain_terms: [], soft_skill_keywords: [],
@@ -104,6 +105,11 @@ ${jd.slice(0, 6000)}`,
     });
     if (!response.ok) return empty;
     const data = await response.json();
+    if (m) {
+      m.modelUsed = MODEL
+      m.tokensIn = (m.tokensIn ?? 0) + (data.usage?.prompt_tokens ?? 0)
+      m.tokensOut = (m.tokensOut ?? 0) + (data.usage?.completion_tokens ?? 0)
+    }
     const raw = data.choices?.[0]?.message?.content || "{}";
     const cleaned = raw.replace(/```json|```/g, "").trim();
     const parsed = JSON.parse(cleaned) as Partial<JDKeywords>;
@@ -151,9 +157,15 @@ Deno.serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  const m = startMetric('generate-tailored-cv')
+  let _ok = false
+  let _http = 500
+  let _err: string | null = null
+
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
+      _http = 401; _err = 'auth'
       return json({ error: "Unauthorized" }, 401);
     }
 
@@ -165,8 +177,10 @@ Deno.serve(async (req) => {
 
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
+      _http = 401; _err = 'auth'
       return json({ error: "Unauthorized" }, 401);
     }
+    m.userId = user.id
 
     const serviceClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -176,6 +190,7 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const rawBody = JSON.stringify(body);
     if (rawBody.length > 50_000) {
+      _http = 413; _err = 'payload_too_large'
       return json({ error: 'Request payload too large.' }, 413);
     }
     const { job_description, target_role, application_id } = body;
@@ -184,9 +199,11 @@ Deno.serve(async (req) => {
     let targetCompany = ""; // populated from the linked application when available
 
     if (!safeTargetRole) {
+      _http = 400; _err = 'missing_input'
       return json({ error: "target_role is required" }, 400);
     }
     if (application_id !== undefined && typeof application_id !== 'string') {
+      _http = 400; _err = 'bad_input'
       return json({ error: 'Invalid application_id.' }, 400);
     }
 
@@ -197,6 +214,7 @@ Deno.serve(async (req) => {
       p_window_seconds: 3600,
     });
     if (!allowed) {
+      _http = 429; _err = 'rate_limit'
       return json({ error: 'Rate limit exceeded. Try again in an hour.' }, 429);
     }
 
@@ -209,6 +227,7 @@ Deno.serve(async (req) => {
 
     const profile = profileRes.data;
     if (!profile) {
+      _http = 404; _err = 'no_profile'
       return json({ error: "No user profile found" }, 404);
     }
 
@@ -266,7 +285,7 @@ Deno.serve(async (req) => {
     // helper. We read the secret once here so both calls share it.
     const _openaiKeyForExtraction = Deno.env.get("OPENAI_API_KEY");
     const jdKeywords: JDKeywords | null = (safeJobDescription && _openaiKeyForExtraction)
-      ? await extractJDKeywords(safeJobDescription, _openaiKeyForExtraction)
+      ? await extractJDKeywords(safeJobDescription, _openaiKeyForExtraction, m)
       : null;
     if (jdKeywords) {
       console.log("[CV] JD keywords extracted", JSON.stringify({
@@ -728,6 +747,7 @@ Return ONLY valid JSON. No markdown, no prose outside the JSON object.`;
 
     const openaiKey = Deno.env.get("OPENAI_API_KEY");
     if (!openaiKey) {
+      _http = 500; _err = 'no_openai_key'
       return json({ error: "OpenAI API key not configured on server" }, 500);
     }
 
@@ -759,14 +779,20 @@ Return ONLY valid JSON. No markdown, no prose outside the JSON object.`;
 
     if (!openaiRes.ok) {
       const err = await openaiRes.text();
+      _http = 500; _err = `openai_${openaiRes.status}`
+      m.modelUsed = MODEL
       return json({ error: `OpenAI error: ${err}` }, 500);
     }
 
     const openaiData = await openaiRes.json();
+    m.modelUsed = MODEL
+    m.tokensIn = (m.tokensIn ?? 0) + (openaiData.usage?.prompt_tokens ?? 0)
+    m.tokensOut = (m.tokensOut ?? 0) + (openaiData.usage?.completion_tokens ?? 0)
     let cvData: Record<string, any>;
     try {
       cvData = JSON.parse(openaiData.choices?.[0]?.message?.content || "{}");
     } catch {
+      _http = 500; _err = 'json_parse'
       return json({ error: "AI returned an invalid response format. Please try again." }, 500);
     }
 
@@ -1520,6 +1546,7 @@ Return ONLY valid JSON. No markdown, no prose outside the JSON object.`;
       .upload(fileName, docBytes, { contentType: DOCX_MIME, upsert: true });
 
     if (uploadError) {
+      _http = 500; _err = 'upload'
       return json({ error: `CV upload failed: ${uploadError.message}` }, 500);
     }
 
@@ -1528,6 +1555,7 @@ Return ONLY valid JSON. No markdown, no prose outside the JSON object.`;
       .createSignedUrl(fileName, 315360000);
 
     if (signedUrlError || !signedUrlData) {
+      _http = 500; _err = 'signed_url'
       return json({ error: "Failed to generate CV download URL" }, 500);
     }
     const cv_url = signedUrlData.signedUrl;
@@ -1540,7 +1568,7 @@ Return ONLY valid JSON. No markdown, no prose outside the JSON object.`;
         cv_version_name: `${safeTargetRole} CV`,
         cv_skills_emphasized: (cvData.skills as any)?.domain || [],
       }).eq("id", application_id).eq("user_id", user.id).select().single();
-      if (!data) { return json({ error: "Application not found or not owned by user." }, 404); }
+      if (!data) { _http = 404; _err = 'app_not_found'; return json({ error: "Application not found or not owned by user." }, 404); }
       appRecord = data;
     } else {
       const { data } = await supabase.from("applications").insert({
@@ -1564,6 +1592,7 @@ Return ONLY valid JSON. No markdown, no prose outside the JSON object.`;
     if (!locationPresent) missing_contact_fields.push("location");
     if (!linkedinPresent) missing_contact_fields.push("linkedin_url");
 
+    _ok = true; _http = 200
     return json({
       cv_url,
       application_id: appRecord?.id,
@@ -1583,6 +1612,9 @@ Return ONLY valid JSON. No markdown, no prose outside the JSON object.`;
     });
   } catch (error) {
     console.error("generate-tailored-cv error:", error);
+    _http = 500; _err = 'unhandled'
     return json({ error: (error as Error).message }, 500);
+  } finally {
+    finishMetric(m, { ok: _ok, httpStatus: _http, errorCode: _err })
   }
 });
