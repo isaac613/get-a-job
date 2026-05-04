@@ -132,7 +132,7 @@ Activate when needed, not before. Total monthly recurring cost at launch: **~$13
 | Wed | Admin view: SQL views (`cohort_scout_metrics`, `student_engagement_summary`) + `/admin` page (read-only, RLS-gated to Eli's user_id) | in progress (Eli picking up) |
 | Fri | ESLint warning for hardcoded hex + Playwright screenshot baseline (top 8 screens) | — |
 
-### Week 3 (May 19–25): LinkedIn Optimizer + Daily Action + Story Bank surface
+### Week 3 (May 19–25): LinkedIn Optimizer + Daily Action + Story Bank surface + Admin pilot tooling
 
 **Eli (5 days)**
 
@@ -140,7 +140,12 @@ Activate when needed, not before. Total monthly recurring cost at launch: **~$13
 |---|---|
 | Mon–Wed | **LinkedIn Optimizer (generation-first)** — page, prompt, generate-from-profile flow. v1 = no PDF upload mode, just generation from existing profile data + Story Bank stories |
 | Thu | Daily Action Card schema + `generate-daily-action` edge function (priority logic + LLM picker) |
-| Fri | Buffer + integration test |
+| Fri | **Admin chat log viewer + admin story browser** (new cards on `/admin`). How Eli will tune prompts during the pilot based on real student data. Same RLS gating pattern as existing admin cards (`is_admin()`-gated SELECT policies + admin RPC functions with explicit gate). v1: read-only browse; filter by student dropdown. Buffer absorbed if these run long; integration testing slips to Wk 4 buffer. |
+
+**Eli Friday — admin pilot tooling detail**
+
+1. **Admin chat log viewer.** Reads `chat_messages` + `conversations` joined. New `admin_chat_logs(p_user_id uuid, p_limit int)` RPC. Card on `/admin` with student dropdown → renders threaded message list (user message → agent reply with `suggested_*_json` blocks pretty-printed). Shows the suggested-action blocks the agent emitted (TASKS, ROADMAP_CHANGES, APPLICATION_ACTIONS, CV_GENERATION, AGENT, STORY_CAPTURE) so prompt drift is visible at a glance.
+2. **Admin story browser.** Reads `stories` table. New `admin_stories_browse(p_user_id uuid NULL, p_limit int)` RPC — null user_id = all students, otherwise filtered. Card on `/admin` with student dropdown + story list showing: title, source surface (`conversation` / `manual_form` / etc), STAR fields, metrics, skills_demonstrated, tools_used, and `extraction_notes` italicised so Eli can see what the extractor left blank and why. Both raw-text (when available — e.g. linked `chat_messages` for `source='conversation'`) and STAR output side-by-side where the data permits, so prompt-tuning signal is direct.
 
 **Isaac (2.5 days)**
 
