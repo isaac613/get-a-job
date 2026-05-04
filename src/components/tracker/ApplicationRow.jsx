@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { scoreApplication } from "@/lib/scoreApplication";
 import { cn } from "@/lib/utils";
-import { ChevronDown, ChevronUp, Lock, MessageSquare, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, Lock, MessageSquare, RotateCw, Trash2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -51,6 +51,28 @@ export default function ApplicationRow({ app, onUpdate }) {
   const status = STATUS_LABELS[app.status] || STATUS_LABELS.interested;
 
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [retryingScore, setRetryingScore] = useState(false);
+
+  // Tracks whether the last background scoring run permanently failed —
+  // populated by src/lib/scoreApplication.js's catch handler. Decides
+  // whether the row shows a Retry affordance vs the "Calculating tier…"
+  // spinner (which is correct only while a run is genuinely in flight).
+  const scoringFailed = !!app.tier_scoring_failed_at;
+  const hasJd = !!(app.job_description && app.job_description.trim());
+
+  const handleRetryScore = async (e) => {
+    e?.stopPropagation();
+    if (retryingScore || !hasJd) return;
+    setRetryingScore(true);
+    try {
+      // scoreApplication itself clears tier_scoring_failed_at on success
+      // and re-sets it on failure, so the cache invalidation it triggers
+      // will pull the right state. We just block double-clicks here.
+      await scoreApplication(supabase, queryClient, app.id, app.job_description, app.user_id);
+    } finally {
+      setRetryingScore(false);
+    }
+  };
 
   const handleDelete = async (e) => {
     e.stopPropagation();
@@ -93,7 +115,7 @@ export default function ApplicationRow({ app, onUpdate }) {
     // (added before background scoring landed) get backfilled — user pastes
     // a JD and the score fills in ~5s later.
     if (jdText && jdText.trim()) {
-      scoreApplication(supabase, queryClient, app.id, jdText);
+      scoreApplication(supabase, queryClient, app.id, jdText, app.user_id);
     }
   };
 
@@ -185,7 +207,23 @@ export default function ApplicationRow({ app, onUpdate }) {
             )}>
               {app.tier?.replace("_", " ")}
             </span>
-          ) : (app.job_description && app.job_description.trim()) ? (
+          ) : scoringFailed && hasJd ? (
+            // Replaces the "Calculating tier…" spinner with a single Retry
+            // affordance covering both tier + AI Confidence — they fail
+            // together (one analyze-job-match call) so showing two retry
+            // controls would just confuse users.
+            <button
+              type="button"
+              onClick={handleRetryScore}
+              disabled={retryingScore}
+              className="text-[10px] font-medium text-amber-700 hover:text-amber-800 disabled:opacity-50 inline-flex items-center gap-1"
+              title="Background scoring failed. Click to retry."
+            >
+              {retryingScore
+                ? <><Loader2 className="w-3 h-3 animate-spin" />Retrying…</>
+                : <><RotateCw className="w-3 h-3" />Retry scoring</>}
+            </button>
+          ) : hasJd ? (
             <span className="text-[10px] text-[#A3A3A3] italic">Calculating tier…</span>
           ) : null}
           {app.qualification_score !== undefined && app.qualification_score !== null ? (
@@ -194,7 +232,7 @@ export default function ApplicationRow({ app, onUpdate }) {
             )}>
               {Math.round((app.qualification_score || 0) * 100)}%
             </span>
-          ) : (app.job_description && app.job_description.trim()) ? (
+          ) : !scoringFailed && hasJd ? (
             <span className="text-[11px] text-[#A3A3A3] italic">Calculating fit…</span>
           ) : null}
           {confirmingDelete ? (
@@ -286,7 +324,19 @@ export default function ApplicationRow({ app, onUpdate }) {
                     <span className="text-xs text-[#A3A3A3]">Tier</span>
                     {app.tier ? (
                       <span className="text-xs font-medium text-[#0A0A0A]">{app.tier.replace("_", " ")}</span>
-                    ) : (app.job_description && app.job_description.trim()) ? (
+                    ) : scoringFailed && hasJd ? (
+                      <button
+                        type="button"
+                        onClick={handleRetryScore}
+                        disabled={retryingScore}
+                        className="text-xs font-medium text-amber-700 hover:text-amber-800 disabled:opacity-50 inline-flex items-center gap-1"
+                        title="Background scoring failed. Click to retry."
+                      >
+                        {retryingScore
+                          ? <><Loader2 className="w-3 h-3 animate-spin" />Retrying…</>
+                          : <><RotateCw className="w-3 h-3" />Retry scoring</>}
+                      </button>
+                    ) : hasJd ? (
                       <span className="text-xs text-[#A3A3A3] italic">Calculating tier…</span>
                     ) : (
                       <span className="text-xs font-medium text-[#0A0A0A]">Unclassified</span>
@@ -301,7 +351,7 @@ export default function ApplicationRow({ app, onUpdate }) {
                         {Math.round(app.qualification_score * 100)}%
                       </span>
                     </div>
-                  ) : (app.job_description && app.job_description.trim()) ? (
+                  ) : !scoringFailed && hasJd ? (
                     <div className="flex justify-between">
                       <span className="text-xs text-[#A3A3A3]">AI Confidence</span>
                       <span className="text-xs text-[#A3A3A3] italic">Calculating fit…</span>

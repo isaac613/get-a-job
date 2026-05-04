@@ -70,7 +70,7 @@ export default function Tracker() {
     setShowAdd(false);
     setAddingApp(false);
     queryClient.invalidateQueries({ queryKey: ["applications"] });
-    if (inserted?.id && jd) scoreApplication(supabase, queryClient, inserted.id, jd);
+    if (inserted?.id && jd) scoreApplication(supabase, queryClient, inserted.id, jd, user.id);
   };
 
   const filtered =
