@@ -27,6 +27,7 @@ import {
   sanitizeActionItems,
 } from "@/lib/applyHandlerValidation";
 import MessageBubble from "./MessageBubble";
+import StorySaveCard from "./StorySaveCard";
 
 const TIER_LABELS = {
   tier_1: "Tier 1 — Your Move",
@@ -305,6 +306,29 @@ export default function ChatInterface({ agentName, title, description, applicati
     enabled: !!user?.id,
   });
 
+  // For StorySaveCard's experience chip when the agent links a captured
+  // story to one of the user's experience rows by UUID.
+  const { data: experiences = [] } = useQuery({
+    queryKey: ["experiences", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const { data, error } = await supabase
+        .from("experiences")
+        .select("id, title, company")
+        .eq("user_id", user.id);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id,
+  });
+  const experiencesById = React.useMemo(() => {
+    const m = {};
+    for (const e of experiences) {
+      m[e.id] = `${e.title || "(untitled)"}${e.company ? ` at ${e.company}` : ""}`;
+    }
+    return m;
+  }, [experiences]);
+
   // Profile query — same key as Home.jsx so the cache is shared. We only
   // read profile.skills here, used to validate AI-proposed matched_skills
   // in handleApplyRoadmapChanges (anti-fabrication guard).
@@ -546,6 +570,10 @@ export default function ChatInterface({ agentName, title, description, applicati
           suggestedApplicationActions: assistantPayload.suggested_application_actions,
           suggestedCVGeneration: assistantPayload.suggested_cv_generation,
           suggestedAgent: assistantPayload.suggested_agent,
+          // Story-capture is in-memory only for now — not persisted on
+          // chat_messages. Reload hides the card; user can re-trigger by
+          // continuing the conversation. Day 4 doesn't require persistence.
+          suggestedStoryCapture: data.suggested_story_capture || null,
         },
       ]);
 
@@ -627,6 +655,7 @@ export default function ChatInterface({ agentName, title, description, applicati
         suggestedApplicationActions: assistantPayload.suggested_application_actions,
         suggestedCVGeneration: assistantPayload.suggested_cv_generation,
         suggestedAgent: assistantPayload.suggested_agent,
+        suggestedStoryCapture: data.suggested_story_capture || null,
       }]);
     } catch (err) {
       console.error("Chat retry error:", err);
@@ -911,6 +940,56 @@ export default function ChatInterface({ agentName, title, description, applicati
       } else {
         toast.success("CV generated");
       }
+
+      // Path B follow-up: give the agent a clean second turn to check
+      // whether the user's previous message contained a story-worthy moment
+      // that wasn't captured. Path A's same-turn cross-emission was unreliable
+      // (1/3 hit rate on mixed messages + false-positive CV emissions on
+      // pure-story messages). The follow-up turn drops competing markers
+      // entirely so the agent can focus on one job.
+      // Non-blocking — if the follow-up errors we still keep the CV-gen
+      // success state. The synthetic user message ("[CV ready]") is sent in
+      // the API call only; it's NOT added to local messages state so it
+      // never renders in chat. Future turns also won't see it in history.
+      try {
+        const conversationId = activeConversationId;
+        if (conversationId) {
+          const historyForFollowUp = messages
+            .filter((m) => m.role !== "system")
+            .slice(-20);
+          const { data: followData, error: followError } = await supabase.functions.invoke("ai-chat", {
+            body: {
+              message: "[CV ready]",
+              agent: agentName || "career-coach",
+              conversation_history: historyForFollowUp,
+              follow_up_after: "cv_generation",
+              ...(applicationId && { application_id: applicationId }),
+            },
+          });
+          if (!followError && followData?.reply) {
+            const followPayload = {
+              conversation_id: conversationId,
+              role: "assistant",
+              content: followData.reply,
+            };
+            const { data: savedFollow } = await supabase
+              .from("chat_messages")
+              .insert(followPayload)
+              .select("id")
+              .single();
+            setMessages((prev) => [...prev, {
+              id: savedFollow?.id || crypto.randomUUID(),
+              role: "assistant",
+              content: followData.reply,
+              suggestedStoryCapture: followData.suggested_story_capture || null,
+            }]);
+          }
+        }
+      } catch (followUpErr) {
+        // Don't surface to the user — CV gen already succeeded; missed
+        // story-capture is acceptable degradation, not a failure.
+        console.warn("Story-capture follow-up failed (non-blocking):", followUpErr);
+      }
     } catch (err) {
       console.error("CV generation failed:", err);
       const message = err?.message || "Could not generate CV. Please try again.";
@@ -921,6 +1000,67 @@ export default function ChatInterface({ agentName, title, description, applicati
 
   const handleSwitchAgent = (page) => {
     navigate(createPageUrl(page));
+  };
+
+  // StorySaveCard's two-stage handlers. onExtractStory invokes the
+  // extract-story-from-text edge function (the same function the
+  // AddInformation surfaces will call in Wk 3); onSaveStory writes to
+  // the stories table via the user-scoped supabase client (RLS gates
+  // ownership). Source is hard-coded 'conversation' since this card
+  // only renders for chat-captured stories.
+  const handleExtractStory = async (text) => {
+    try {
+      const { data, error } = await supabase.functions.invoke("extract-story-from-text", {
+        body: {
+          text,
+          source: "conversation",
+        },
+      });
+      if (error) {
+        console.error("Story extraction error:", error);
+        return null;
+      }
+      return data || null;
+    } catch (err) {
+      console.error("Story extraction exception:", err);
+      return null;
+    }
+  };
+
+  const handleSaveStory = async (story, capture) => {
+    if (!user?.id) return false;
+    try {
+      const { error } = await supabase.from("stories").insert({
+        user_id: user.id,
+        source: "conversation",
+        // Both FKs are nullable. capture.experience_id was validated as
+        // a UUID by the ai-chat parser; conversation_id comes from local
+        // state. activeConversationId can be null if the chat is brand
+        // new (insert path defers conversation creation), in which case
+        // we store the story without the back-link rather than blocking
+        // the save.
+        experience_id: capture?.experience_id || null,
+        conversation_id: activeConversationId || null,
+        title: story.title,
+        situation: story.situation || null,
+        task: story.task || null,
+        action: story.action || null,
+        result: story.result || null,
+        metrics: Array.isArray(story.metrics) ? story.metrics : [],
+        skills_demonstrated: Array.isArray(story.skills_demonstrated) ? story.skills_demonstrated : [],
+        tools_used: Array.isArray(story.tools_used) ? story.tools_used : [],
+        relevance_tags: Array.isArray(story.relevance_tags) ? story.relevance_tags : [],
+      });
+      if (error) {
+        console.error("Story save error:", error);
+        toast.error("Could not save story. Please try again.");
+        return false;
+      }
+      return true;
+    } catch (err) {
+      console.error("Story save exception:", err);
+      return false;
+    }
   };
 
   const handleKeyDown = (e) => {
@@ -1051,6 +1191,14 @@ export default function ChatInterface({ agentName, title, description, applicati
                   state={cvGenStates[msg.id]}
                   onGenerate={() => handleGenerateCV(msg.id, msg.suggestedCVGeneration)}
                   appLabel={applicationsById[msg.suggestedCVGeneration.application_id] || null}
+                />
+              )}
+              {msg.suggestedStoryCapture && msg.suggestedStoryCapture.text && (
+                <StorySaveCard
+                  capture={msg.suggestedStoryCapture}
+                  experienceLabel={experiencesById[msg.suggestedStoryCapture.experience_id] || null}
+                  onExtract={handleExtractStory}
+                  onSave={handleSaveStory}
                 />
               )}
               {msg.suggestedAgent && (

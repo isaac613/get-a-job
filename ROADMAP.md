@@ -743,6 +743,7 @@ Deliberately not building these before Aug-Nov 2026. Listed with reasoning so th
 
 ## Backlog (post-pilot or stretch)
 
+- Persist `suggested_story_capture` on `chat_messages` so reload doesn't hide the StorySaveCard. Currently in-memory only (Wk 2 Day 3 scope cut). One column add + threading through load-from-DB path. Non-blocking — user can re-trigger by continuing the conversation.
 - N5 reverse-job-spec / North-star JD generator
 - Voice mode for Practice Interview (OpenAI Realtime API)
 - Hebrew/RTL support

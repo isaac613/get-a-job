@@ -153,6 +153,55 @@ Rules:
 - Always describe what you're about to do in the response text before the JSON block, so the user can confirm.
 - Omit the block entirely if no tracker action was requested.`
 
+// Injected into the system prompt only when the request body sets
+// follow_up_after='cv_generation'. The agent's instruction set narrows to
+// "look back at the user's previous turn for story content; emit STORY_CAPTURE
+// if appropriate; otherwise reply briefly with the CV-ready acknowledgement."
+// This avoids the competing-marker pressure that defeated Path A's same-turn
+// emission attempt — see the smoke-test pivot in the eli/story-bank branch.
+const STORY_CAPTURE_FOLLOWUP_RULES = `
+
+FOLLOW-UP MODE — CV GENERATION COMPLETE:
+The user just generated a CV from your previous response. Look at THEIR previous user message (the one that triggered the CV gen) — if it described a concrete moment from their work history with at least one detail (action verb, metric, tool, team size, outcome) that you did NOT capture as a story in your prior turn, propose saving it now via SUGGESTED_STORY_CAPTURE_JSON.
+
+Your reply this turn should be SHORT — ideally one sentence acknowledging the CV is ready ("Your CV is generated. Quick thought —") followed by the story-capture proposal if applicable. Do NOT recap CV advice, do NOT generate another CV, do NOT propose tasks. The single job of this turn is checking for a missed story opportunity.
+
+If the previous user message contained no story-worthy moment, reply with just the brief CV-ready acknowledgement and emit nothing.`
+
+const STORY_CAPTURE_RULES = `
+
+STORY CAPTURE:
+When the user describes a concrete moment from their work history — a project they shipped, a problem they solved, a team they led, an outcome they delivered — propose saving it to their Story Bank by emitting this block at the very end of your response, after a brief one-sentence acknowledgement:
+
+SUGGESTED_STORY_CAPTURE_JSON:{"text":"the user's verbatim narrative","experience_id":"<exact UUID from EXPERIENCES context, or null>","framing":"one short sentence framing why this is worth capturing"}
+
+DO emit when the user describes a concrete event with at least one detail (action verb, metric, tool, team size, outcome):
+
+✅ "Last quarter I led the migration of our customer onboarding to React. We shipped 2 weeks early."
+✅ "I ran the competitive analysis for our marketing strategy course — we presented to the CMO of Strauss and got the highest grade in the cohort."
+✅ "When I was at Atera I owned the renewal playbook. We hit 94% gross retention."
+
+DO NOT emit when:
+
+❌ User asks a question or for advice ("How should I tailor my CV?", "What skills should I prioritize?")
+❌ User shares speculation ("I think I'd be good at PM work")
+❌ User mentions a job in passing without describing what they did ("I worked at Google for 3 years")
+❌ User asks you to generate something ("Generate a CV for the PM role")
+❌ The story describes someone else's work, not the user's ("My manager led that project")
+❌ The same story was already captured earlier in this conversation (check history — don't duplicate)
+
+Field rules:
+- text: REQUIRED. The user's narrative VERBATIM — do not rewrite, paraphrase, or extend with inferred context. Trim only filler ("so basically...", "anyway..."); core must be unchanged. The extract-story-from-text edge function does STAR parsing server-side.
+- experience_id: when the moment maps to one of their EXPERIENCES (matched by company name, role title, or explicit reference like "at Atera I…"), set to the EXACT UUID from EXPERIENCES context [id: ...]. Otherwise null.
+- framing: one short conversational sentence shown in the save card ("Want to save this as a story for your Atera role?"). Keep it light.
+
+Discipline:
+- ONE block per response. If the user described multiple stories, capture the most concrete one and offer the others in subsequent turns.
+- Always write a one-sentence in-conversation acknowledgement BEFORE the JSON block ("That's a great example — I'd save this for the Story Bank.").
+- DO NOT parse to STAR yourself (situation/task/action/result). That's the edge function's job, with anti-fabrication discipline.
+
+Omit this block entirely when no story-worthy moment was described.`
+
 const CV_GENERATION_RULES = `
 
 CV GENERATION:
@@ -436,7 +485,7 @@ Deno.serve(async (req) => {
         status: 413, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
-    const { message, agent, conversation_history = [], application_id } = JSON.parse(rawBody)
+    const { message, agent, conversation_history = [], application_id, follow_up_after } = JSON.parse(rawBody)
 
     if (!message || !agent) {
       _http = 400; _err = 'missing_input'
@@ -444,6 +493,14 @@ Deno.serve(async (req) => {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
+
+    // Path B follow-up trigger. The frontend sets this after a side-effect
+    // completes (currently only 'cv_generation') so the agent can do a clean
+    // second pass for things missed when the user had a competing explicit ask.
+    // Whitelist the values to keep the contract tight.
+    const VALID_FOLLOW_UPS = new Set(['cv_generation'])
+    const safeFollowUp = typeof follow_up_after === 'string' && VALID_FOLLOW_UPS.has(follow_up_after)
+      ? follow_up_after : null
 
     const [profileRes, experiencesRes, careerRolesRes] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', user.id),
@@ -457,7 +514,11 @@ Deno.serve(async (req) => {
       userContext = `\n\nUSER PROFILE:\n- Name: ${profile.full_name || 'Not provided'}\n- Skills: ${(profile.skills || []).join(', ') || 'None listed'}\n- Education: ${profile.degree || ''} in ${profile.field_of_study || ''} (${profile.education_level || ''})\n- Location: ${profile.location || 'Not provided'}\n- Summary: ${profile.summary || 'Not provided'}`
     }
     if (experiencesRes.data?.length) {
-      userContext += `\n- Experience: ${experiencesRes.data.map((e: { title: string; company: string }) => `${e.title} at ${e.company}`).join(', ')}`
+      // Include experience UUIDs so agents that emit story-capture or
+      // experience-linked suggestions (cv-helper STORY_CAPTURE, future
+      // career_agent / interview_coach uses) can pass the exact id back.
+      // Same `[id: ...]` convention as ACTIVE APPLICATIONS below.
+      userContext += `\n- Experience: ${experiencesRes.data.map((e: { id: string; title: string; company: string }) => `${e.title} at ${e.company} [id: ${e.id}]`).join(', ')}`
     }
 
     // Build career roles context — detailed for the agents that need to
@@ -564,7 +625,15 @@ Deno.serve(async (req) => {
     } else if (agent === 'skill_development_agent') {
       systemPrompt = basePrompt + TASK_SUGGESTION_RULES + SKILL_DEV_REDIRECT_RULES + SCOPE_GUARD + NO_FABRICATION_GUARD + userContext
     } else if (agent === 'application_cv_success_agent' || agent === 'cv-helper') {
-      systemPrompt = basePrompt + CV_GENERATION_RULES + TASK_SUGGESTION_RULES + CV_AGENT_REDIRECT_RULES + SCOPE_GUARD + NO_FABRICATION_GUARD + userContext
+      // Follow-up mode narrows the prompt — drops CV_GENERATION_RULES and
+      // TASK_SUGGESTION_RULES so the agent isn't tempted to re-propose a CV
+      // or a fresh task list on a turn that's purely a story-check pass.
+      // STORY_CAPTURE_RULES still loads (so the agent knows the JSON shape +
+      // discipline) AND STORY_CAPTURE_FOLLOWUP_RULES sits last so the
+      // narrowed instruction takes precedence in the model's attention.
+      systemPrompt = safeFollowUp === 'cv_generation'
+        ? basePrompt + STORY_CAPTURE_RULES + STORY_CAPTURE_FOLLOWUP_RULES + SCOPE_GUARD + NO_FABRICATION_GUARD + userContext
+        : basePrompt + CV_GENERATION_RULES + STORY_CAPTURE_RULES + TASK_SUGGESTION_RULES + CV_AGENT_REDIRECT_RULES + SCOPE_GUARD + NO_FABRICATION_GUARD + userContext
     } else {
       systemPrompt = basePrompt + SCOPE_GUARD + NO_FABRICATION_GUARD + userContext
     }
@@ -771,6 +840,30 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Story capture proposal (CV agents only). Raw user narrative + optional
+    // experience_id link; the frontend's StorySaveCard calls
+    // extract-story-from-text on confirm to do the STAR parsing. Keeping the
+    // capture/extraction split as the design's safety mechanism — every
+    // fabrication mistake is caught before storage.
+    type StoryCapture = { text: string; experience_id?: string | null; framing?: string }
+    let suggested_story_capture: StoryCapture | null = null
+    const storyCaptureResult = extractJsonBlock(reply, 'SUGGESTED_STORY_CAPTURE_JSON:')
+    if (storyCaptureResult) {
+      reply = storyCaptureResult.cleaned
+      const parsed = storyCaptureResult.parsed as StoryCapture | null
+      if (parsed && typeof parsed === 'object' && typeof parsed.text === 'string' && parsed.text.trim()) {
+        const isUuid = (v: unknown): v is string =>
+          typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)
+        suggested_story_capture = {
+          text: String(parsed.text).slice(0, 5000).trim(),
+          ...(isUuid(parsed.experience_id) ? { experience_id: parsed.experience_id } : { experience_id: null }),
+          ...(typeof parsed.framing === 'string' && parsed.framing.trim()
+            ? { framing: String(parsed.framing).slice(0, 200).trim() }
+            : {}),
+        }
+      }
+    }
+
     let suggested_application_actions: AppAction[] | null = null
     const appActionsResult = extractJsonBlock(reply, 'SUGGESTED_APPLICATION_ACTIONS_JSON:')
     if (appActionsResult) {
@@ -826,6 +919,7 @@ Deno.serve(async (req) => {
       'SUGGESTED_AGENT_JSON:',
       'SUGGESTED_APPLICATION_ACTIONS_JSON:',
       'SUGGESTED_CV_GENERATION_JSON:',
+      'SUGGESTED_STORY_CAPTURE_JSON:',
     ]
     for (const marker of STRUCTURED_MARKERS) {
       const idx = reply.indexOf(marker)
@@ -844,6 +938,7 @@ Deno.serve(async (req) => {
       ...(suggested_roadmap_changes && { suggested_roadmap_changes }),
       ...(suggested_application_actions && { suggested_application_actions }),
       ...(suggested_cv_generation && { suggested_cv_generation }),
+      ...(suggested_story_capture && { suggested_story_capture }),
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 
   } catch (error) {
