@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { startMetric, finishMetric } from '../_shared/metrics.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -145,9 +146,15 @@ Deno.serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
+  const m = startMetric('generate-learning-paths')
+  let _ok = false
+  let _http = 500
+  let _err: string | null = null
+
   try {
     const openaiKey = Deno.env.get('OPENAI_API_KEY')
     if (!openaiKey) {
+      _http = 500; _err = 'no_openai_key'
       return new Response(JSON.stringify({ error: 'OpenAI API key not configured' }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -155,6 +162,7 @@ Deno.serve(async (req) => {
 
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
+      _http = 401; _err = 'auth'
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -168,10 +176,12 @@ Deno.serve(async (req) => {
 
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
+      _http = 401; _err = 'auth'
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
+    m.userId = user.id
 
     const serviceClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -185,6 +195,7 @@ Deno.serve(async (req) => {
       p_window_seconds: RATE_LIMIT_WINDOW,
     })
     if (allowed === false) {
+      _http = 429; _err = 'rate_limit'
       return new Response(JSON.stringify({ error: 'Rate limit exceeded. Try again in an hour.' }), {
         status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -193,6 +204,7 @@ Deno.serve(async (req) => {
     // Parse request body defensively
     const rawBody = await req.text()
     if (rawBody.length > 50_000) {
+      _http = 413; _err = 'payload_too_large'
       return new Response(JSON.stringify({ error: 'Request payload too large.' }), {
         status: 413, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -200,6 +212,7 @@ Deno.serve(async (req) => {
     let body: Record<string, unknown> = {}
     if (rawBody.trim().length > 0) {
       try { body = JSON.parse(rawBody) } catch {
+        _http = 400; _err = 'bad_json'
         return new Response(JSON.stringify({ error: 'Invalid JSON body.' }), {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })
@@ -222,6 +235,7 @@ Deno.serve(async (req) => {
 
     // Guardrail: if there are no gaps at all, return an empty set — don't bother the LLM.
     if (gaps.length === 0) {
+      _ok = true; _http = 200
       return new Response(JSON.stringify({ learning_paths: [], courses: [] }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -292,17 +306,23 @@ Return ONLY valid JSON.`
       const errText = await openaiResponse.text()
       // D2 — keep upstream detail server-side only; client gets generic message.
       console.error(`[generate-learning-paths] OpenAI ${openaiResponse.status}: ${errText}`)
+      _http = 502; _err = `openai_${openaiResponse.status}`
+      m.modelUsed = MODEL
       return new Response(JSON.stringify({ error: 'AI service temporarily unavailable. Please try again.' }), {
         status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
     const completion = await openaiResponse.json()
+    m.modelUsed = MODEL
+    m.tokensIn = completion.usage?.prompt_tokens ?? null
+    m.tokensOut = completion.usage?.completion_tokens ?? null
     const rawContent = completion.choices?.[0]?.message?.content ?? ''
     const finishReason = completion.choices?.[0]?.finish_reason ?? 'unknown'
 
     // If the model got truncated by max_tokens, JSON.parse will fail. Surface a clear error.
     if (finishReason === 'length') {
+      _http = 500; _err = 'truncated'
       return new Response(JSON.stringify({
         error: 'Your learning plan was too long to generate in one pass. Reduce the number of skill gaps and try again.',
       }), {
@@ -315,6 +335,7 @@ Return ONLY valid JSON.`
       result = JSON.parse(rawContent || '{"learning_paths":[]}')
     } catch (parseErr) {
       console.error('[learning-paths] JSON.parse failed:', (parseErr as Error).message)
+      _http = 500; _err = 'json_parse'
       return new Response(JSON.stringify({ error: 'AI returned an invalid response format. Please try again.' }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -354,14 +375,18 @@ Return ONLY valid JSON.`
     }
     const responseBody = { learning_paths: result.learning_paths, courses: flatCourses };
 
+    _ok = true; _http = 200
     return new Response(JSON.stringify(responseBody), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (error) {
     const message = (error as Error)?.message || String(error)
     console.error('generate-learning-paths error:', message, (error as Error)?.stack)
+    _http = 500; _err = 'unhandled'
     return new Response(JSON.stringify({ error: message || 'An unexpected error occurred.' }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
+  } finally {
+    finishMetric(m, { ok: _ok, httpStatus: _http, errorCode: _err })
   }
 })

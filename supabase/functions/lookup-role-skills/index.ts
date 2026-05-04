@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { startMetric, finishMetric } from '../_shared/metrics.ts'
 import { roleLibrary } from './shared/libraries/00_role_library.ts'
 
 // Deterministic role-skills lookup. Used by ChatInterface's
@@ -53,9 +54,15 @@ Deno.serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
+  const m = startMetric('lookup-role-skills')
+  let _ok = false
+  let _http = 500
+  let _err: string | null = null
+
   try {
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
+      _http = 401; _err = 'auth'
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -69,14 +76,17 @@ Deno.serve(async (req) => {
 
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
+      _http = 401; _err = 'auth'
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
+    m.userId = user.id
 
     const body = await req.json()
     const roleTitle = String(body?.role_title || '').trim()
     if (!roleTitle) {
+      _http = 400; _err = 'missing_input'
       return new Response(JSON.stringify({ error: 'role_title required' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -101,6 +111,7 @@ Deno.serve(async (req) => {
     })
 
     if (!match) {
+      _ok = true; _http = 200
       return new Response(JSON.stringify({ found: false }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -128,6 +139,7 @@ Deno.serve(async (req) => {
 
     const readiness = required.length > 0 ? matched.length / required.length : 0
 
+    _ok = true; _http = 200
     return new Response(JSON.stringify({
       found: true,
       role_id: match.id,
@@ -140,8 +152,11 @@ Deno.serve(async (req) => {
     })
   } catch (error: any) {
     console.error('[lookup-role-skills] error:', error?.message || error)
+    _http = 500; _err = 'unhandled'
     return new Response(JSON.stringify({ error: 'Internal error' }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
+  } finally {
+    finishMetric(m, { ok: _ok, httpStatus: _http, errorCode: _err })
   }
 })

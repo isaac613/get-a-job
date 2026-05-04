@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { startMetric, finishMetric } from '../_shared/metrics.ts'
 
 // Source-controlled in commit fixing H1-H4. The deployed function previously
 // existed only in the dashboard — this file imports it back into the repo
@@ -27,12 +28,22 @@ const MODEL = 'gpt-4o-mini'
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
+    // CORS preflight is overhead; skip metric instrumentation
     return new Response('ok', { headers: corsHeaders })
   }
+
+  // Per-call metric. Mutated as the handler progresses (userId, modelUsed,
+  // tokens) and finalised in the finally block. Fire-and-forget — observability
+  // never blocks the user response.
+  const m = startMetric('analyze-job-match')
+  let _ok = false
+  let _http = 500
+  let _err: string | null = null
 
   try {
     const openaiKey = Deno.env.get('OPENAI_API_KEY')
     if (!openaiKey) {
+      _http = 500; _err = 'no_openai_key'
       return new Response(JSON.stringify({ error: 'OpenAI API key not configured' }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -47,14 +58,17 @@ Deno.serve(async (req) => {
 
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
+      _http = 401; _err = 'auth'
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
+    m.userId = user.id
 
     const { job_description, job_url, mode } = await req.json()
 
     if (!job_description && !job_url) {
+      _http = 400; _err = 'missing_input'
       return new Response(JSON.stringify({ error: 'job_description or job_url is required' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -62,6 +76,7 @@ Deno.serve(async (req) => {
 
     // H3: refuse URL-only requests rather than fabricating analysis.
     if (mode === 'url' && !job_description) {
+      _http = 400; _err = 'url_only_mode'
       return new Response(JSON.stringify({
         error: "Can't fetch job posting URLs (most boards require login). Please paste the job description text instead.",
       }), {
@@ -205,6 +220,8 @@ Return ONLY valid JSON.`
       // Raw OpenAI error bodies can include API key fragments, internal paths,
       // schema info, or rate limit metadata that shouldn't reach the browser.
       console.error(`[analyze-job-match] OpenAI ${openaiResponse.status}: ${errText}`)
+      _http = 502; _err = `openai_${openaiResponse.status}`
+      m.modelUsed = MODEL
       return new Response(JSON.stringify({ error: 'AI service temporarily unavailable. Please try again.' }), {
         status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -224,6 +241,8 @@ Return ONLY valid JSON.`
       if (!openaiResponse.ok) {
         const errText = await openaiResponse.text()
         console.error(`[analyze-job-match] retry failed: OpenAI ${openaiResponse.status}: ${errText}`)
+        _http = 502; _err = `openai_retry_${openaiResponse.status}`
+        m.modelUsed = MODEL
         return new Response(JSON.stringify({ error: 'AI service temporarily unavailable. Please try again.' }), {
           status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })
@@ -233,17 +252,28 @@ Return ONLY valid JSON.`
       content = completion.choices?.[0]?.message?.content || '{}'
       if (finishReason === 'length') {
         console.error(`[analyze-job-match] still truncated at max_tokens=${RETRY_MAX_TOKENS}; JD likely needs trimming`)
+        _http = 502; _err = 'truncated_after_retry'
+        m.modelUsed = MODEL
+        m.tokensIn = completion.usage?.prompt_tokens ?? null
+        m.tokensOut = completion.usage?.completion_tokens ?? null
         return new Response(JSON.stringify({ error: 'AI response too long for this job description. Try pasting a shorter version.' }), {
           status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })
       }
     }
 
+    // Capture LLM usage for metrics. completion.usage reflects the LAST
+    // OpenAI call (initial OR retry, whichever produced the result we used).
+    m.modelUsed = MODEL
+    m.tokensIn = completion.usage?.prompt_tokens ?? null
+    m.tokensOut = completion.usage?.completion_tokens ?? null
+
     let result: Record<string, unknown>
     try {
       result = JSON.parse(content)
     } catch (parseErr) {
       console.error(`[analyze-job-match] JSON parse failed (finish_reason=${finishReason}):`, content.slice(0, 200), parseErr)
+      _http = 502; _err = 'json_parse'
       return new Response(JSON.stringify({ error: 'AI returned malformed response. Please try again.' }), {
         status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -274,12 +304,16 @@ Return ONLY valid JSON.`
       required_seniority: result.required_seniority ?? null,
     }))
 
+    _ok = true; _http = 200
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (error: any) {
+    _http = 500; _err = 'unhandled'
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
+  } finally {
+    finishMetric(m, { ok: _ok, httpStatus: _http, errorCode: _err })
   }
 })

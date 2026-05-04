@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { startMetric, finishMetric } from '../_shared/metrics.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -380,9 +381,15 @@ Deno.serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
+  const m = startMetric('ai-chat')
+  let _ok = false
+  let _http = 500
+  let _err: string | null = null
+
   try {
     const openaiKey = Deno.env.get('OPENAI_API_KEY')
     if (!openaiKey) {
+      _http = 500; _err = 'no_openai_key'
       return new Response(JSON.stringify({ error: 'OpenAI API key not configured' }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -397,10 +404,12 @@ Deno.serve(async (req) => {
 
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
+      _http = 401; _err = 'auth'
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
+    m.userId = user.id
 
     const serviceClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -414,6 +423,7 @@ Deno.serve(async (req) => {
       p_window_seconds: RATE_LIMIT_WINDOW,
     })
     if (!allowed) {
+      _http = 429; _err = 'rate_limit'
       return new Response(JSON.stringify({ error: 'Rate limit exceeded. Try again in an hour.' }), {
         status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -421,6 +431,7 @@ Deno.serve(async (req) => {
 
     const rawBody = await req.text()
     if (rawBody.length > 50_000) {
+      _http = 413; _err = 'payload_too_large'
       return new Response(JSON.stringify({ error: 'Request payload too large.' }), {
         status: 413, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -428,6 +439,7 @@ Deno.serve(async (req) => {
     const { message, agent, conversation_history = [], application_id } = JSON.parse(rawBody)
 
     if (!message || !agent) {
+      _http = 400; _err = 'missing_input'
       return new Response(JSON.stringify({ error: 'message and agent are required' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -592,6 +604,8 @@ Deno.serve(async (req) => {
     let openaiResponse = await callOpenAI(BASE_MAX_TOKENS)
     if (!openaiResponse.ok) {
       console.error('OpenAI error:', await openaiResponse.text())
+      _http = 502; _err = `openai_${openaiResponse.status}`
+      m.modelUsed = MODEL
       return new Response(JSON.stringify({ error: 'AI service error' }), {
         status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -599,6 +613,11 @@ Deno.serve(async (req) => {
 
     let completion = await openaiResponse.json()
     let finishReason: string | undefined = completion.choices?.[0]?.finish_reason
+    // Track usage additively across initial + retry. Both calls bill, so
+    // the metric should reflect total consumption, not just the last response.
+    m.modelUsed = MODEL
+    m.tokensIn = completion.usage?.prompt_tokens ?? 0
+    m.tokensOut = completion.usage?.completion_tokens ?? 0
 
     if (finishReason === 'length') {
       console.warn(`[ai-chat] truncation detected at max_tokens=${BASE_MAX_TOKENS}, retrying at ${RETRY_MAX_TOKENS}`)
@@ -606,6 +625,8 @@ Deno.serve(async (req) => {
       if (retryResponse.ok) {
         completion = await retryResponse.json()
         finishReason = completion.choices?.[0]?.finish_reason
+        m.tokensIn = (m.tokensIn ?? 0) + (completion.usage?.prompt_tokens ?? 0)
+        m.tokensOut = (m.tokensOut ?? 0) + (completion.usage?.completion_tokens ?? 0)
         if (finishReason === 'length') {
           console.warn(`[ai-chat] still truncated at max_tokens=${RETRY_MAX_TOKENS}; returning best-effort response`)
         }
@@ -814,6 +835,7 @@ Deno.serve(async (req) => {
       reply = reply.slice(0, idx).replace(/\n+\s*$/, '').trim()
     }
 
+    _ok = true; _http = 200
     return new Response(JSON.stringify({
       reply,
       agent,
@@ -826,8 +848,11 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error('ai-chat error:', error)
+    _http = 500; _err = 'unhandled'
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
+  } finally {
+    finishMetric(m, { ok: _ok, httpStatus: _http, errorCode: _err })
   }
 })

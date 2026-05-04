@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { startMetric, finishMetric } from '../_shared/metrics.ts'
 
 // --- Load JSON Libraries ---
 import { roleLibrary } from "./shared/libraries/00_role_library.ts";
@@ -623,9 +624,15 @@ Deno.serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
+  const m = startMetric('generate-career-analysis')
+  let _ok = false
+  let _http = 500
+  let _err: string | null = null
+
   try {
     const openaiKey = Deno.env.get('OPENAI_API_KEY')
     if (!openaiKey) {
+      _http = 500; _err = 'no_openai_key'
       return new Response(JSON.stringify({ error: 'OpenAI API key not configured' }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -633,6 +640,7 @@ Deno.serve(async (req) => {
 
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
+      _http = 401; _err = 'auth'
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -645,10 +653,12 @@ Deno.serve(async (req) => {
 
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
+      _http = 401; _err = 'auth'
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
+    m.userId = user.id
 
     const serviceClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -668,6 +678,7 @@ Deno.serve(async (req) => {
         p_error_message: 'Rate limit exceeded',
         p_error_details: null,
       }).catch(() => {});
+      _http = 429; _err = 'rate_limit'
       return new Response(JSON.stringify({ error: 'Rate limit exceeded. Try again in an hour.' }), {
         status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -676,6 +687,7 @@ Deno.serve(async (req) => {
     const body = await req.json()
     const rawBody = JSON.stringify(body);
     if (rawBody.length > 100_000) {
+      _http = 413; _err = 'payload_too_large'
       return new Response(JSON.stringify({ error: 'Request payload too large.' }), {
         status: 413, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -689,6 +701,7 @@ Deno.serve(async (req) => {
 
     const profile = profiles?.[0]
     if (!profile) {
+      _http = 404; _err = 'no_profile'
       return new Response(JSON.stringify({ error: 'No profile found' }), {
         status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -853,6 +866,7 @@ Deno.serve(async (req) => {
     console.log(`[career-analysis] selected tiers → t1=${byTier.tier_1.map(r=>`${r.title}(fit=${r.score},align=${r.goal_alignment_score})`).join('|') || '-'} | t2=${byTier.tier_2.map(r=>`${r.title}(fit=${r.score},align=${r.goal_alignment_score})`).join('|') || '-'} | t3=${byTier.tier_3.map(r=>`${r.title}(fit=${r.score},align=${r.goal_alignment_score})`).join('|') || '-'}`);
 
     if (selected.length === 0) {
+      _ok = true; _http = 200
       return new Response(JSON.stringify({
         qualification_level: inferQualificationLevel(sanitisedExperiences),
         experience_level: experienceLevel,
@@ -1003,16 +1017,22 @@ Return ONLY valid JSON.`;
         p_error_details: { status: openaiResponse.status, details: errText },
       })
       console.error(`[generate-career-analysis] OpenAI ${openaiResponse.status}: ${errText}`)
+      _http = 502; _err = `openai_${openaiResponse.status}`
+      m.modelUsed = MODEL
       return new Response(JSON.stringify({ error: 'AI service temporarily unavailable. Please try again.' }), {
         status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
     const completion = await openaiResponse.json()
+    m.modelUsed = MODEL
+    m.tokensIn = completion.usage?.prompt_tokens ?? null
+    m.tokensOut = completion.usage?.completion_tokens ?? null
     let llmResult: Record<string, any>;
     try {
       llmResult = JSON.parse(completion.choices?.[0]?.message?.content || '{}');
     } catch {
+      _http = 500; _err = 'json_parse'
       return new Response(JSON.stringify({ error: 'AI returned an invalid response format. Please try again.' }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -1056,6 +1076,7 @@ Return ONLY valid JSON.`;
       roles: finalRoles,
     };
 
+    _ok = true; _http = 200
     return new Response(JSON.stringify(response), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
@@ -1072,8 +1093,11 @@ Return ONLY valid JSON.`;
         p_error_details: null,
       })
     } catch { /* best-effort logging */ }
+    _http = 500; _err = 'unhandled'
     return new Response(JSON.stringify({ error: 'An unexpected error occurred.' }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
+  } finally {
+    finishMetric(m, { ok: _ok, httpStatus: _http, errorCode: _err })
   }
 })

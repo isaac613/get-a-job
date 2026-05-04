@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { startMetric, finishMetric } from '../_shared/metrics.ts'
 import { proofSignalExtractionLogic } from './shared/libraries/08_proof_signal_extraction_logic.ts'
 import { proofSignalLibrary } from './shared/libraries/02_proof_signal_library.ts'
 import { skillLibrary } from './shared/libraries/01_skill_library.ts'
@@ -106,9 +107,15 @@ Return ONLY valid JSON:
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
+  const m = startMetric('extract-proof-signals')
+  let _ok = false
+  let _http = 500
+  let _err: string | null = null
+
   try {
     const openaiKey = Deno.env.get('OPENAI_API_KEY')
     if (!openaiKey) {
+      _http = 500; _err = 'no_openai_key'
       return new Response(JSON.stringify({ error: 'OpenAI API key not configured' }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -116,6 +123,7 @@ Deno.serve(async (req) => {
 
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
+      _http = 401; _err = 'auth'
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -129,14 +137,17 @@ Deno.serve(async (req) => {
 
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
+      _http = 401; _err = 'auth'
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
+    m.userId = user.id
 
     const body = await req.json()
     const cvText = String(body.cv_text || '').slice(0, 15000)
     if (!cvText.trim()) {
+      _http = 400; _err = 'missing_input'
       return new Response(JSON.stringify({ error: 'No CV text provided' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -162,22 +173,30 @@ Deno.serve(async (req) => {
       const errText = await openaiResponse.text()
       // D2 — keep upstream detail server-side only; client gets generic message.
       console.error(`[extract-proof-signals] OpenAI ${openaiResponse.status}: ${errText}`)
+      _http = 502; _err = `openai_${openaiResponse.status}`
+      m.modelUsed = MODEL
       return new Response(JSON.stringify({ error: 'AI service temporarily unavailable. Please try again.' }), {
         status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
     const completion = await openaiResponse.json()
+    m.modelUsed = MODEL
+    m.tokensIn = completion.usage?.prompt_tokens ?? null
+    m.tokensOut = completion.usage?.completion_tokens ?? null
+
     let result: any
     try {
       result = JSON.parse(completion.choices?.[0]?.message?.content || '{}')
     } catch {
+      _http = 500; _err = 'json_parse'
       return new Response(JSON.stringify({ error: 'AI returned invalid format' }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
     if (!Array.isArray(result.proof_signals)) {
+      _http = 500; _err = 'bad_shape'
       return new Response(JSON.stringify({ error: 'Unexpected response structure' }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -191,13 +210,17 @@ Deno.serve(async (req) => {
       VALID_SOURCES.has(s.source)
     )
 
+    _ok = true; _http = 200
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
 
   } catch (error: any) {
+    _http = 500; _err = 'unhandled'
     return new Response(JSON.stringify({ error: 'Unexpected error: ' + (error?.message || 'unknown') }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
+  } finally {
+    finishMetric(m, { ok: _ok, httpStatus: _http, errorCode: _err })
   }
 })
