@@ -1,9 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Plus, Trash2, Upload, X } from "lucide-react";
+import { Loader2, Plus, Trash2, Upload, X, BookText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,6 +15,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import StorySaveCard from "@/components/chat/StorySaveCard";
 
 // ─── Enum sources ──────────────────────────────────────────────────────────
 // Mirror the values onboarding writes so AddInformation can edit them with
@@ -271,6 +278,92 @@ export default function AddInformation() {
     enabled: !!user?.id,
     initialData: [],
   });
+
+  // Story Bank Phase 2 — surface stories on the Experience tab + floating
+  // quick-add. Single query, then group client-side by experience_id (cheaper
+  // than per-experience queries). Only stories with experience_id are shown
+  // here; floating chat-captured stories without a link still exist but
+  // belong on a future stories management page.
+  const { data: stories = [] } = useQuery({
+    queryKey: ["stories", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const { data, error } = await supabase
+        .from("stories")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id,
+  });
+
+  const storiesByExperience = useMemo(() => {
+    const m = new Map();
+    for (const s of stories) {
+      if (!s.experience_id) continue;
+      if (!m.has(s.experience_id)) m.set(s.experience_id, []);
+      m.get(s.experience_id).push(s);
+    }
+    return m;
+  }, [stories]);
+
+  // Story modal state — shape: { experience_id (or null for quick-add picker),
+  // source ('manual_form' | 'manual_quick_add') }. null = closed.
+  const [storyModal, setStoryModal] = useState(null);
+  // Quick-add modal needs an experience picker; tracks the user's selection
+  // before passing it through to the StorySaveCard.
+  const [quickAddExperienceId, setQuickAddExperienceId] = useState("");
+
+  const handleExtractStory = async (text) => {
+    try {
+      const { data, error } = await supabase.functions.invoke("extract-story-from-text", {
+        body: { text, source: storyModal?.source || "manual_form" },
+      });
+      if (error) {
+        console.error("Story extraction error:", error);
+        return null;
+      }
+      return data || null;
+    } catch (err) {
+      console.error("Story extraction exception:", err);
+      return null;
+    }
+  };
+
+  const handleSaveStory = async (story, capture) => {
+    if (!user?.id) return false;
+    try {
+      const { error } = await supabase.from("stories").insert({
+        user_id: user.id,
+        source: storyModal?.source || "manual_form",
+        experience_id: capture?.experience_id || null,
+        title: story.title,
+        situation: story.situation || null,
+        task: story.task || null,
+        action: story.action || null,
+        result: story.result || null,
+        metrics: Array.isArray(story.metrics) ? story.metrics : [],
+        skills_demonstrated: Array.isArray(story.skills_demonstrated) ? story.skills_demonstrated : [],
+        tools_used: Array.isArray(story.tools_used) ? story.tools_used : [],
+        relevance_tags: Array.isArray(story.relevance_tags) ? story.relevance_tags : [],
+      });
+      if (error) {
+        console.error("Story save error:", error);
+        toast.error("Could not save story. Please try again.");
+        return false;
+      }
+      queryClient.invalidateQueries({ queryKey: ["stories"] });
+      toast.success("Story saved.");
+      // Close after a short delay so the user sees the success state in the card
+      setTimeout(() => setStoryModal(null), 1200);
+      return true;
+    } catch (err) {
+      console.error("Story save exception:", err);
+      return false;
+    }
+  };
 
   const profile = profiles?.[0] || null;
 
@@ -1209,45 +1302,175 @@ export default function AddInformation() {
             {experiences.length > 0 && (
               <div className="space-y-2">
                 <h3 className="text-xs uppercase tracking-wider text-[#A3A3A3] font-medium">Your Experience</h3>
-                {experiences.map((e) => (
-                  <div key={e.id} className="bg-white rounded-lg border border-[#E5E5E5] px-4 py-3 flex items-center justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-[#0A0A0A] truncate">{e.title} <span className="text-[#A3A3A3]">at</span> {e.company}</p>
-                      <p className="text-xs text-[#A3A3A3]">
-                        {e.type?.replace("_", " ")}
-                        {e.start_date ? ` · ${e.start_date}${e.end_date ? ` – ${e.end_date}` : ""}` : ""}
-                      </p>
+                {experiences.map((e) => {
+                  const expStories = storiesByExperience.get(e.id) || [];
+                  return (
+                    <div key={e.id} className="bg-white rounded-lg border border-[#E5E5E5]">
+                      <div className="px-4 py-3 flex items-center justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-[#0A0A0A] truncate">{e.title} <span className="text-[#A3A3A3]">at</span> {e.company}</p>
+                          <p className="text-xs text-[#A3A3A3]">
+                            {e.type?.replace("_", " ")}
+                            {e.start_date ? ` · ${e.start_date}${e.end_date ? ` – ${e.end_date}` : ""}` : ""}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setExpForm({
+                              id: e.id,
+                              title: e.title || "",
+                              company: e.company || "",
+                              type: e.type || "internship",
+                              start_date: e.start_date || "",
+                              end_date: e.end_date || "",
+                              is_current: !!e.is_current,
+                              responsibilities: e.responsibilities || "",
+                              skills_used: e.skills_used || [],
+                            })}
+                            className="text-xs"
+                          >
+                            Edit
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={async () => { const { error } = await supabase.from("experiences").delete().eq("id", e.id).eq("user_id", user.id); if (error) { toast.error("Failed to delete experience."); return; } queryClient.invalidateQueries({ queryKey: ["experiences"] }); if (expForm.id === e.id) resetExpForm(); toast.success("Experience removed."); }}>
+                            <Trash2 className="w-4 h-4 text-[#A3A3A3] hover:text-red-500" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Stories section — collapsed list with per-story details
+                          expand. Uses native <details> for accessibility +
+                          zero JS state. Each story row is a single line
+                          (title); expanding shows the full STAR + tags. */}
+                      <div className="border-t border-[#F5F5F5] px-4 py-2.5">
+                        <div className="flex items-center justify-between gap-3 mb-1.5">
+                          <p className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium flex items-center gap-1.5">
+                            <BookText className="w-3 h-3" />
+                            Stories ({expStories.length})
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setStoryModal({ experience_id: e.id, source: "manual_form" });
+                            }}
+                            className="text-[11px] font-medium text-violet-700 hover:text-violet-900"
+                          >
+                            + Add story
+                          </button>
+                        </div>
+                        {expStories.length === 0 ? (
+                          <p className="text-[11px] text-[#A3A3A3] italic">No stories yet — capture moments to ground CV gen + interview prep.</p>
+                        ) : (
+                          <div className="space-y-1">
+                            {expStories.map((s) => (
+                              <details key={s.id} className="group">
+                                <summary className="text-xs text-[#0A0A0A] cursor-pointer list-none flex items-center gap-2 py-1 hover:bg-[#FAFAFA] rounded px-1.5 -mx-1.5">
+                                  <span className="text-[#A3A3A3] group-open:rotate-90 transition-transform">▸</span>
+                                  <span className="truncate">{s.title}</span>
+                                </summary>
+                                <div className="pl-5 pr-2 py-2 text-[11px] text-[#525252] space-y-1.5">
+                                  {s.situation && <div><span className="text-[#A3A3A3] uppercase tracking-wider text-[10px]">Situation</span><br/>{s.situation}</div>}
+                                  {s.task && <div><span className="text-[#A3A3A3] uppercase tracking-wider text-[10px]">Task</span><br/>{s.task}</div>}
+                                  {s.action && <div><span className="text-[#A3A3A3] uppercase tracking-wider text-[10px]">Action</span><br/>{s.action}</div>}
+                                  {s.result && <div><span className="text-[#A3A3A3] uppercase tracking-wider text-[10px]">Result</span><br/>{s.result}</div>}
+                                  {s.metrics?.length > 0 && (
+                                    <div><span className="text-[#A3A3A3] uppercase tracking-wider text-[10px]">Metrics</span><br/>{s.metrics.join(" · ")}</div>
+                                  )}
+                                  {s.skills_demonstrated?.length > 0 && (
+                                    <div><span className="text-[#A3A3A3] uppercase tracking-wider text-[10px]">Skills</span><br/>{s.skills_demonstrated.join(", ")}</div>
+                                  )}
+                                  {s.tools_used?.length > 0 && (
+                                    <div><span className="text-[#A3A3A3] uppercase tracking-wider text-[10px]">Tools</span><br/>{s.tools_used.join(", ")}</div>
+                                  )}
+                                  <div className="text-[10px] text-[#A3A3A3] pt-1">
+                                    Captured {new Date(s.created_at).toLocaleDateString()} · source: {s.source}
+                                  </div>
+                                </div>
+                              </details>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setExpForm({
-                          id: e.id,
-                          title: e.title || "",
-                          company: e.company || "",
-                          type: e.type || "internship",
-                          start_date: e.start_date || "",
-                          end_date: e.end_date || "",
-                          is_current: !!e.is_current,
-                          responsibilities: e.responsibilities || "",
-                          skills_used: e.skills_used || [],
-                        })}
-                        className="text-xs"
-                      >
-                        Edit
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={async () => { const { error } = await supabase.from("experiences").delete().eq("id", e.id).eq("user_id", user.id); if (error) { toast.error("Failed to delete experience."); return; } queryClient.invalidateQueries({ queryKey: ["experiences"] }); if (expForm.id === e.id) resetExpForm(); toast.success("Experience removed."); }}>
-                        <Trash2 className="w-4 h-4 text-[#A3A3A3] hover:text-red-500" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Floating quick-add Story button — visible on every AddInformation
+          tab, opens a modal with experience picker. Per Wk 3 spec: scoped
+          to AddInformation only for v1 (CareerRoadmap could be a Wk 4+
+          surface if pilot signal warrants). Hidden when the per-experience
+          inline modal is open to avoid stacking. */}
+      {!storyModal && experiences.length > 0 && (
+        <button
+          type="button"
+          onClick={() => {
+            setQuickAddExperienceId(experiences[0]?.id || "");
+            setStoryModal({ experience_id: null, source: "manual_quick_add" });
+          }}
+          className="fixed bottom-6 right-6 bg-violet-700 hover:bg-violet-800 text-white rounded-full shadow-lg px-4 py-3 flex items-center gap-2 text-sm font-medium z-40"
+          aria-label="Add a story"
+        >
+          <BookText className="w-4 h-4" />
+          <span className="hidden sm:inline">+ Story</span>
+        </button>
+      )}
+
+      {/* Story capture modal — used by both surfaces. The inline path passes
+          experience_id directly; the quick-add path passes null and shows
+          the picker first. The StorySaveCard handles the rest of the flow
+          (text → extract → review → save). */}
+      <Dialog open={!!storyModal} onOpenChange={(open) => { if (!open) setStoryModal(null); }}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-base font-semibold flex items-center gap-2">
+              <BookText className="w-4 h-4 text-violet-700" />
+              Add a story
+            </DialogTitle>
+          </DialogHeader>
+          <div className="pt-2">
+            {storyModal?.source === "manual_quick_add" && (
+              <div className="mb-3">
+                <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium mb-1 block">
+                  Which experience?
+                </label>
+                <Select value={quickAddExperienceId} onValueChange={setQuickAddExperienceId}>
+                  <SelectTrigger><SelectValue placeholder="Pick an experience" /></SelectTrigger>
+                  <SelectContent>
+                    {experiences.map((e) => (
+                      <SelectItem key={e.id} value={e.id}>
+                        {e.title}{e.company ? ` at ${e.company}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {(storyModal?.experience_id || quickAddExperienceId) && (
+              <StorySaveCard
+                key={storyModal?.experience_id || quickAddExperienceId}
+                capture={{
+                  text: "",
+                  experience_id: storyModal?.experience_id || quickAddExperienceId,
+                  framing: "Capture a moment from your work history.",
+                }}
+                experienceLabel={(() => {
+                  const id = storyModal?.experience_id || quickAddExperienceId;
+                  const exp = experiences.find((x) => x.id === id);
+                  return exp ? `${exp.title}${exp.company ? ` at ${exp.company}` : ""}` : null;
+                })()}
+                onExtract={handleExtractStory}
+                onSave={handleSaveStory}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
