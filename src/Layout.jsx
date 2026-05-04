@@ -14,6 +14,7 @@ import {
   Layers,
   Calendar as CalendarIcon,
   Linkedin,
+  Sparkles,
   User
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -22,6 +23,7 @@ const NAV_ITEMS = [
   { name: "Home", page: "Home", icon: LayoutDashboard },
   { name: "Career Roadmap", page: "CareerRoadmap", icon: Map },
   { name: "Job Suggestions", page: "JobSuggestions", icon: Linkedin },
+  { name: "LinkedIn Optimizer", page: "LinkedinOptimizer", icon: Sparkles },
   { name: "Calendar", page: "Calendar", icon: CalendarIcon },
   { name: "Tracker", page: "Tracker", icon: ClipboardList },
   { name: "Tasks", page: "Tasks", icon: CheckSquare },
