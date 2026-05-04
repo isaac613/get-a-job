@@ -64,6 +64,7 @@ function JobCard({ job }) {
       role_title: job.title,
       company: job.company || "Unknown",
       status: "interested",
+      source: 'job_suggestion',
       cv_skills_emphasized: job.matched_skills || [],
       job_description: jd,
       url: job.job_url || "",
