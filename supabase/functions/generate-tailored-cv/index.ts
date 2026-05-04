@@ -299,6 +299,130 @@ Deno.serve(async (req) => {
 
     const trunc = (s: unknown, max: number) => String(s ?? '').slice(0, max);
 
+    // ─── Story Bank consumption (Wk 2 Day 4) ──────────────────────────────
+    // Pull stories matching the JD's extracted keywords so the LLM can prefer
+    // user-confirmed STAR records as bullet evidence over the freeform
+    // responsibilities text. Strict matching: stories without an experience_id
+    // (chat-captured floating stories) are excluded — once linked via the
+    // AddInformation Wk 3 flow they'll show up automatically.
+    //
+    // Scoring: equal-weight categories (no per-category tuning surface
+    // pre-pilot). Bidirectional substring match accommodates both abbreviation
+    // ↔ full-name and the natural variations the LLM emits ("Project Management"
+    // vs JD's "PM project management"). +3 per skill match (most semantic),
+    // +2 per tool/tag, +1 per keyword present in STAR text. Top 8 by score
+    // included; stories with score=0 dropped.
+    const jdKeywordSet = new Set<string>();
+    if (jdKeywords) {
+      // Deliberately EXCLUDES action_verbs. Single-word generic verbs ("lead",
+      // "drive", "own", "partner") are too common — they leak through both
+      // bidirectional skill matching ("lead" in "Team Leadership") and word-
+      // boundary narrative matching ("Lead patrols" in a military story),
+      // producing false-positive matches across unrelated stories. Action
+      // verbs serve the downstream TAILORING_RULES path that rephrases
+      // bullets in JD voice; they're noise for story-relevance scoring.
+      // Wk 2 Day 4 smoke probes verified this: with action_verbs included,
+      // a combat_soldier story scored against a Senior PM JD via the verb
+      // "lead" — semantically irrelevant signal.
+      const allKw = [
+        ...jdKeywords.must_include_phrases,
+        ...jdKeywords.tools_and_platforms,
+        ...jdKeywords.domain_terms,
+        ...jdKeywords.soft_skill_keywords,
+      ];
+      for (const k of allKw) {
+        const norm = String(k || '').toLowerCase().trim();
+        if (norm.length >= 3) jdKeywordSet.add(norm);
+      }
+    }
+
+    const experiencesById = new Map<string, any>();
+    for (const e of (experiences || [])) {
+      if (e?.id) experiencesById.set(e.id, e);
+    }
+
+    type ScoredStory = { id: string; score: number; story: any; experience_label: string };
+    const scoredStories: ScoredStory[] = [];
+
+    if (jdKeywordSet.size > 0 && experiencesById.size > 0) {
+      const { data: storiesRaw } = await supabase
+        .from('stories')
+        .select('id, experience_id, title, situation, task, action, result, metrics, skills_demonstrated, tools_used, relevance_tags')
+        .eq('user_id', user.id);
+
+      const matchesKeyword = (term: string): boolean => {
+        const norm = String(term || '').toLowerCase().trim();
+        if (!norm || norm.length < 3) return false;
+        for (const kw of jdKeywordSet) {
+          if (norm.includes(kw) || kw.includes(norm)) return true;
+        }
+        return false;
+      };
+
+      // Word-boundary regex per keyword for narrative scoring. Cheap raw
+      // .includes() leaks false positives like "team" → "fireteam" or
+      // "schedule" → "scheduled" — both showed up in Wk 2 Day 4 smoke probes
+      // before this fix. Skills/tools/tags keep bidirectional substring
+      // (intentional — accommodates "PM" ↔ "Project Management" style
+      // synonyms where partial match is the right semantic).
+      const narrativeRegex = new Map<string, RegExp>();
+      for (const kw of jdKeywordSet) {
+        const escaped = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        narrativeRegex.set(kw, new RegExp(`\\b${escaped}\\b`, 'i'));
+      }
+
+      for (const s of (storiesRaw || [])) {
+        // Strict: only include stories linked to one of this user's current
+        // experiences. Floating stories (experience_id=null) excluded —
+        // become available once user links them in AddInformation.
+        if (!s.experience_id || !experiencesById.has(s.experience_id)) continue;
+
+        let score = 0;
+        for (const skill of (s.skills_demonstrated || [])) if (matchesKeyword(skill)) score += 3;
+        for (const tool of (s.tools_used || [])) if (matchesKeyword(tool)) score += 2;
+        for (const tag of (s.relevance_tags || [])) if (matchesKeyword(tag)) score += 2;
+
+        const narrativeLower = [s.situation, s.task, s.action, s.result]
+          .filter(Boolean).map(String).join(' ').toLowerCase();
+        if (narrativeLower) {
+          for (const kw of jdKeywordSet) {
+            if (narrativeRegex.get(kw)?.test(narrativeLower)) score += 1;
+          }
+        }
+
+        if (score > 0) {
+          const exp = experiencesById.get(s.experience_id);
+          scoredStories.push({
+            id: s.id,
+            score,
+            story: s,
+            experience_label: `${exp?.title || ''}${exp?.company ? ` at ${exp.company}` : ''}`.trim() || 'unspecified role',
+          });
+        }
+      }
+
+      scoredStories.sort((a, b) => b.score - a.score);
+    }
+
+    const TOP_N_STORIES = 8;
+    const topStories = scoredStories.slice(0, TOP_N_STORIES);
+    const stories_used = topStories.map((s) => s.id);
+    console.log(`[CV] story bank: ${scoredStories.length} scored>0, ${topStories.length} included (top ${TOP_N_STORIES} cap)`);
+
+    // LLM-friendly shape — `experience_label` ("Role at Company") replaces
+    // the UUID so the model correlates by natural language, not opaque ID.
+    const storiesForLLM = topStories.map(({ story, experience_label }) => ({
+      title: trunc(story.title, 200),
+      situation: story.situation ? trunc(story.situation, 600) : null,
+      task: story.task ? trunc(story.task, 600) : null,
+      action: story.action ? trunc(story.action, 600) : null,
+      result: story.result ? trunc(story.result, 600) : null,
+      metrics: safeArray(story.metrics).slice(0, 10).map((m) => trunc(m, 200)),
+      skills_demonstrated: safeArray(story.skills_demonstrated).slice(0, 10).map((s) => trunc(s, 100)),
+      tools_used: safeArray(story.tools_used).slice(0, 10).map((s) => trunc(s, 100)),
+      experience_label,
+    }));
+
     // Classify each experience into professional / military / volunteering /
     // leadership. `experiences.type` is unreliable across this DB (legacy rows
     // are tagged "full_time" even when they're clearly military or
@@ -442,6 +566,14 @@ Deno.serve(async (req) => {
       // Rich pre-scored evidence from the onboarding analyzer. Helps the LLM
       // pick which experiences to emphasize without inventing metrics.
       proof_signals: safeArray(profile.proof_signals).slice(0, 20),
+      // Story Bank evidence — top-N user-confirmed STAR records ranked by
+      // overlap with the JD's extracted keywords. Each carries an
+      // experience_label ("Role at Company") so the LLM correlates to one
+      // of the bucketed experience entries above. STORY BANK PRECEDENCE
+      // rule in the system prompt directs the LLM to prefer these over
+      // freeform responsibilities text. Empty array when no JD provided
+      // or no stories matched.
+      stories: storiesForLLM,
       target_application: application_id ? {
         company: targetCompany,
         role_title: safeTargetRole,
@@ -559,6 +691,12 @@ D. What you MAY do:
     • bucket === "leadership"   → leadership_experiences[]
 - About Me: variable length based on content volume (see ONE PAGE RULE above). FACTUAL style with no pronouns and no candidate-speak. The subject of every sentence is the USER (their experience, work, skills) — NOT the target company. JD domain terms, tools, and skill names ARE allowed when they describe the user's real experience ("two years building AI-powered features at a fintech startup" is OK if true). What is NEVER allowed is the company's own MISSION / TAGLINE / MARKETING / SLOGAN language. The distinction: domain / tool / skill words = OK if grounded in real user experience; company-pitch language = always wrong. The target company name may appear AT MOST once. Length 2-4 sentences depending on volume. GOOD: "Business Administration student specializing in Digital Innovation with hands-on experience in VIP customer success, operational leadership, and cross-functional coordination. Currently supporting high-value users at a cybersecurity startup while leading educational programs." GOOD: "Two years operating AI-powered customer support tools at a B2B SaaS startup, with hands-on experience deploying Salesforce and Notion integrations." BAD: "Excited to join Acme's mission to revolutionize payroll." BAD: "Aligns with the company's vision of seamless workforce solutions."
 - Experience bullets: action verb + what you did. Factual, concrete. No invented metrics. PREFER the XYZ structure when the source has measurable outcomes: "Accomplished X (impact Y) by doing Z" — e.g. "Reduced ticket resolution time by 40% by building a triage workflow in Zendesk". The metric Y MUST come verbatim from the user's source data. When source has no metric, fall back to action-verb + concrete-outcome (NEVER fabricate a number to fit the XYZ shape — the truthfulness rules above always win).
+- STORY BANK PRECEDENCE: When USER DATA.stories[] contains a story whose \`experience_label\` matches one of the user's experiences AND a JD requirement, prefer the story's \`result\` + \`metrics\` + \`tools_used\` as the bullet's content over the experience's freeform \`responsibilities\` text. Stories are user-confirmed STAR records — every metric, tool, and skill there is real and verbatim. Each bullet traces to ONE source: either a single story OR a responsibility line from one experience — NEVER combine two stories into one bullet, and NEVER blend story content with imagined details. Match a story to its parent experience by \`experience_label\` ("Role at Company"); place the bullet under that experience's bucket. If a story is irrelevant to the bullet you're writing, skip it — never force-fit.
+
+  STORY BANK BINDING (mandatory for each matched story):
+    (1) METRICS VERBATIM — for each story you use, write at least one bullet under that experience that contains every entry from the story's \`metrics\` array WORD-FOR-WORD. Numbers ("12", "88%", "$1M") and units ("interviews", "first quarter") stay exactly as the story has them. The TAILORING rule about rephrasing applies to action verbs and surrounding structure — NOT to the metric figures themselves. Example: a story with metrics ["12 user research interviews", "88% adoption in first quarter"] MUST produce a bullet like "Drove 88% adoption in first quarter via 12 user research interviews with security leads" — NOT "Led product discovery to enhance enterprise adoption" (which strips both metrics).
+    (2) TOOLS PRESERVED — every entry from the story's \`tools_used\` array MUST appear in the CV: ideally in the matching experience's bullet, or — if it doesn't fit naturally there — in the Skills & Tools section. Story tools are confirmed-real and must surface somewhere visible.
+    (3) NO CROSS-EXPERIENCE SMEARING — story content stays attached to its \`experience_label\`. Do not sprinkle the story's adoption/metric/result language across other experiences in the CV. If you wrote a bullet referencing "88% adoption" under Experience A, do not also reference "adoption metrics" or similar paraphrases under Experience B unless Experience B has its own story or responsibilities text supporting it.
 - Skills & Tools: categorize as Domain (role-specific capabilities) and Tools (software/platforms/systems). Languages do NOT go here.
 - Languages: human spoken/written languages only. Draw them from the user's skills list if language-like entries are there; draw also from language_hints[] which flags likely languages based on location. Include a proficiency level (Native | Fluent | Professional | Conversational | Basic) when the source or hint supports it, otherwise omit level.
 - Education: include every entry from USER DATA.education and — if present — USER DATA.secondary_education as a second education entry. Do not drop pre-university education.
@@ -1607,6 +1745,10 @@ Return ONLY valid JSON. No markdown, no prose outside the JSON object.`;
         final_estimate: estimatedLines,
         trim_fired: trimFired,
       },
+      // Story Bank diagnostics — IDs of stories that were given to the LLM
+      // as evidence. Lets the admin view show "this CV was enriched with N
+      // stories" without re-querying. Empty when no JD or no matches.
+      stories_used,
       ...(tailoring && { tailoring }),
       ...(missing_contact_fields.length > 0 && { missing_contact_fields }),
     });
