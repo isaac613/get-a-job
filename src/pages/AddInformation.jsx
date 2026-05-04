@@ -3,7 +3,7 @@ import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Plus, Trash2, Upload } from "lucide-react";
+import { Loader2, Plus, Trash2, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,37 +16,205 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-function SkillTagger({ skills, onAdd, onRemove, tempValue, setTempValue }) {
+// ─── Enum sources ──────────────────────────────────────────────────────────
+// Mirror the values onboarding writes so AddInformation can edit them with
+// the same vocabulary. Out-of-sync values would silently break tier scoring
+// (primary_domain) and userStage derivation (employment_status,
+// qualification_level) in analyze-job-match.
+
+// Keys of PRIMARY_DOMAIN_TO_FAMILIES in generate-career-analysis.
+const PRIMARY_DOMAIN_OPTIONS = [
+  { value: "customer_success", label: "Customer Success" },
+  { value: "customer_experience", label: "Customer Experience" },
+  { value: "support", label: "Support" },
+  { value: "product", label: "Product" },
+  { value: "product_management", label: "Product Management" },
+  { value: "sales", label: "Sales" },
+  { value: "marketing", label: "Marketing" },
+  { value: "operations", label: "Operations" },
+  { value: "data", label: "Data" },
+  { value: "analytics", label: "Analytics" },
+  { value: "finance", label: "Finance" },
+  { value: "hr", label: "HR" },
+  { value: "people", label: "People" },
+  { value: "engineering", label: "Engineering" },
+  { value: "design", label: "Design" },
+];
+
+// inferQualificationLevel in generate-career-analysis returns one of these.
+const QUALIFICATION_LEVEL_OPTIONS = [
+  { value: "Junior", label: "Junior" },
+  { value: "Mid-Level", label: "Mid-Level" },
+  { value: "Senior", label: "Senior" },
+];
+
+const EMPLOYMENT_STATUS_OPTIONS = [
+  { value: "student", label: "Student" },
+  { value: "employed", label: "Employed" },
+  { value: "looking_for_job", label: "Actively job-searching" },
+  { value: "unemployed", label: "Unemployed (not actively searching)" },
+];
+
+const WORK_ENVIRONMENT_OPTIONS = ["Startup", "Scale-up", "Corporate", "Public sector", "Non-profit", "Agency"];
+const WORK_TYPE_OPTIONS = ["Remote", "Hybrid", "On-site", "Full-time", "Part-time", "Contract", "Internship"];
+
+// Survey enums copied from StepSurvey — same values, so when the user revisits
+// the same answers in AddInformation they see their selection re-highlighted.
+const CHALLENGES = [
+  "I don't know which roles to target",
+  "I apply but get no responses",
+  "I get interviews but no offers",
+  "I don't know how to network effectively",
+  "My CV doesn't stand out",
+  "I don't know how to negotiate salary",
+  "I'm not sure if my skills are relevant",
+];
+
+const CV_OPTIONS = [
+  { value: "always", label: "Yes, I tailor it for most applications" },
+  { value: "sometimes", label: "Sometimes, for roles I really want" },
+  { value: "rarely", label: "Rarely — I mostly use one version" },
+  { value: "never", label: "Never — I use the same CV for everything" },
+];
+
+const LINKEDIN_OPTIONS = [
+  { value: "often", label: "Yes, often — I message recruiters or employees regularly" },
+  { value: "sometimes", label: "Sometimes — I've tried it a few times" },
+  { value: "rarely", label: "Rarely — I find it awkward" },
+  { value: "never", label: "Never — I haven't tried" },
+];
+
+const CLARITY_OPTIONS = [
+  { value: 1, label: "1 — No idea" },
+  { value: 2, label: "2 — Vague idea" },
+  { value: 3, label: "3 — Some clarity" },
+  { value: 4, label: "4 — Fairly clear" },
+  { value: 5, label: "5 — Very clear" },
+];
+
+// ─── Reusable controls ─────────────────────────────────────────────────────
+
+// Tag editor for text[] columns (target_job_titles, honors, relevant_coursework,
+// adjacent_fields). One control encapsulates the input + chip list pattern so
+// the JSX below stays scannable.
+function TagEditor({ tags, onChange, placeholder }) {
+  const [val, setVal] = useState("");
+  const add = () => {
+    const v = val.trim();
+    if (!v) return;
+    if (tags.includes(v)) { setVal(""); return; }
+    onChange([...tags, v]);
+    setVal("");
+  };
+  const remove = (t) => onChange(tags.filter((x) => x !== t));
   return (
     <div>
       <div className="flex gap-2 mb-2">
         <Input
-          value={tempValue}
-          onChange={(e) => setTempValue(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              onAdd();
-            }
-          }}
-          placeholder="Add skill and press Enter"
+          value={val}
+          onChange={(e) => setVal(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
+          placeholder={placeholder || "Add and press Enter"}
           className="text-sm"
         />
-        <Button variant="outline" size="sm" onClick={onAdd} className="text-xs px-3">
-          Add
-        </Button>
+        <Button variant="outline" size="sm" onClick={add} className="text-xs px-3">Add</Button>
       </div>
-      <div className="flex flex-wrap gap-1.5">
-        {skills.map((s, i) => (
-          <span key={i} className="inline-flex items-center gap-1 text-xs bg-[#F5F5F5] text-[#525252] px-2 py-1 rounded-md border border-[#E5E5E5]">
-            {s}
-            <button onClick={() => onRemove(s)} className="hover:text-red-500">
-              <Trash2 className="w-3 h-3" />
-            </button>
-          </span>
+      {tags.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {tags.map((t, i) => (
+            <span key={i} className="inline-flex items-center gap-1 text-xs bg-[#F5F5F5] text-[#525252] px-2 py-1 rounded-md border border-[#E5E5E5]">
+              {t}
+              <button onClick={() => remove(t)} className="hover:text-red-500"><Trash2 className="w-3 h-3" /></button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Multi-select via tile buttons. For text[] columns where the values are a
+// fixed enum (employment_status, work_environment, work_type).
+function MultiSelectTiles({ options, selected, onChange }) {
+  const toggle = (val) => {
+    const set = new Set(selected);
+    if (set.has(val)) set.delete(val); else set.add(val);
+    onChange(Array.from(set));
+  };
+  return (
+    <div className="flex flex-wrap gap-2">
+      {options.map((opt) => {
+        const value = typeof opt === "string" ? opt : opt.value;
+        const label = typeof opt === "string" ? opt : opt.label;
+        const isSelected = selected.includes(value);
+        return (
+          <button
+            key={value}
+            type="button"
+            onClick={() => toggle(value)}
+            className={`text-sm px-3 py-1.5 rounded-lg border transition-colors ${
+              isSelected
+                ? "bg-[#0A0A0A] text-white border-[#0A0A0A]"
+                : "bg-white text-[#525252] border-[#E5E5E5] hover:border-[#A3A3A3]"
+            }`}
+          >
+            {label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// Single-select via stacked buttons — for fields that StepSurvey renders this
+// way (cv_tailoring_strategy, linkedin_outreach_strategy). Custom value entry
+// supported via a free-text fallback below the options.
+function StackedRadio({ options, value, onChange }) {
+  const isCustom = value && !options.some((o) => o.value === value);
+  const [custom, setCustom] = useState("");
+  const commitCustom = () => {
+    const v = custom.trim();
+    if (!v) return;
+    onChange(v);
+    setCustom("");
+  };
+  return (
+    <>
+      <div className="space-y-2">
+        {options.map((o) => (
+          <button
+            key={o.value}
+            type="button"
+            onClick={() => onChange(o.value)}
+            className={`w-full text-left text-sm px-4 py-3 rounded-lg border transition-colors ${
+              value === o.value
+                ? "bg-[#0A0A0A] text-white border-[#0A0A0A]"
+                : "bg-white text-[#525252] border-[#E5E5E5] hover:border-[#A3A3A3]"
+            }`}
+          >
+            {o.label}
+          </button>
         ))}
       </div>
-    </div>
+      {isCustom && (
+        <div className="mt-2 inline-flex items-center gap-1 bg-[#0A0A0A] text-white text-xs px-2.5 py-1 rounded-md">
+          Your answer: {value}
+          <button type="button" onClick={() => onChange(null)} className="hover:text-red-300">
+            <X className="w-3 h-3" />
+          </button>
+        </div>
+      )}
+      <div className="mt-2">
+        <Input
+          value={custom}
+          onChange={(e) => setCustom(e.target.value)}
+          onBlur={commitCustom}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitCustom(); } }}
+          placeholder="Or type your own answer"
+          className="text-sm"
+        />
+      </div>
+    </>
   );
 }
 
@@ -67,7 +235,6 @@ export default function AddInformation() {
     },
     enabled: !!user?.id,
   });
-
 
   const { data: certifications, isLoading: loadingCerts } = useQuery({
     queryKey: ["certifications", user?.id],
@@ -107,52 +274,102 @@ export default function AddInformation() {
 
   const profile = profiles?.[0] || null;
 
+  // profileForm shape mirrors the columns onboarding writes to so every
+  // onboarding-collected value is editable here. New columns added to
+  // onboarding need to be added here too — the test in saveProfile that
+  // pushes the dbFields object is the source of truth for what persists.
   const [profileForm, setProfileForm] = useState({
+    // Identity / contact
     full_name: "",
     phone_number: "",
     location: "",
     linkedin_url: "",
-    five_year_role: "",
+    summary: "",
+    // Education
     education_level: "",
+    degree: "",
     field_of_study: "",
     education_dates: "",
-    skills: [],
-    // Languages and secondary_education are jsonb; stored as arrays/objects.
+    gpa: "",
+    honors: [],
+    relevant_coursework: [],
     languages: [],
     secondary_education: { institution: "", location: "", dates: "", highlights: [] },
+    // Skills + career direction
+    skills: [],
+    five_year_role: "",
+    target_job_titles: [],
+    target_industries: [],
+    primary_domain: "",
+    adjacent_fields: [],
+    qualification_level: "",
+    // Preferences / constraints
+    employment_status: [],
+    work_environment: [],
+    work_type: [],
+    salary_expectation: "",
+    available_start_date: "",
+    open_to_lateral: false,
+    open_to_outside_degree: false,
+    // Self-assessment (StepSurvey)
+    biggest_challenge: [],
+    cv_tailoring_strategy: "",
+    linkedin_outreach_strategy: "",
+    role_clarity_score: null,
+    job_search_efforts: "",
   });
 
   React.useEffect(() => {
-    if (profile) {
-      setProfileForm({
-        full_name: profile.full_name || "",
-        phone_number: profile.phone_number || "",
-        location: profile.location || "",
-        linkedin_url: profile.linkedin_url || "",
-        five_year_role: profile.five_year_role || "",
-        education_level: profile.education_level || "",
-        field_of_study: profile.field_of_study || "",
-        education_dates: profile.education_dates || "",
-        skills: profile.skills || [],
-        languages: Array.isArray(profile.languages) ? profile.languages : [],
-        secondary_education: profile.secondary_education && typeof profile.secondary_education === "object"
-          ? {
-              institution: profile.secondary_education.institution || "",
-              location: profile.secondary_education.location || "",
-              dates: profile.secondary_education.dates || "",
-              highlights: Array.isArray(profile.secondary_education.highlights) ? profile.secondary_education.highlights : [],
-            }
-          : { institution: "", location: "", dates: "", highlights: [] },
-      });
-    }
+    if (!profile) return;
+    setProfileForm({
+      full_name: profile.full_name || "",
+      phone_number: profile.phone_number || "",
+      location: profile.location || "",
+      linkedin_url: profile.linkedin_url || "",
+      summary: profile.summary || "",
+      education_level: profile.education_level || "",
+      degree: profile.degree || "",
+      field_of_study: profile.field_of_study || "",
+      education_dates: profile.education_dates || "",
+      gpa: profile.gpa || "",
+      honors: Array.isArray(profile.honors) ? profile.honors : [],
+      relevant_coursework: Array.isArray(profile.relevant_coursework) ? profile.relevant_coursework : [],
+      languages: Array.isArray(profile.languages) ? profile.languages : [],
+      secondary_education: profile.secondary_education && typeof profile.secondary_education === "object"
+        ? {
+            institution: profile.secondary_education.institution || "",
+            location: profile.secondary_education.location || "",
+            dates: profile.secondary_education.dates || "",
+            highlights: Array.isArray(profile.secondary_education.highlights) ? profile.secondary_education.highlights : [],
+          }
+        : { institution: "", location: "", dates: "", highlights: [] },
+      skills: profile.skills || [],
+      five_year_role: profile.five_year_role || "",
+      target_job_titles: Array.isArray(profile.target_job_titles) ? profile.target_job_titles : [],
+      target_industries: Array.isArray(profile.target_industries) ? profile.target_industries : [],
+      primary_domain: profile.primary_domain || "",
+      adjacent_fields: Array.isArray(profile.adjacent_fields) ? profile.adjacent_fields : [],
+      qualification_level: profile.qualification_level || "",
+      employment_status: Array.isArray(profile.employment_status) ? profile.employment_status : [],
+      work_environment: Array.isArray(profile.work_environment) ? profile.work_environment : [],
+      work_type: Array.isArray(profile.work_type) ? profile.work_type : [],
+      salary_expectation: profile.salary_expectation || "",
+      available_start_date: profile.available_start_date || "",
+      open_to_lateral: !!profile.open_to_lateral,
+      open_to_outside_degree: !!profile.open_to_outside_degree,
+      biggest_challenge: Array.isArray(profile.biggest_challenge) ? profile.biggest_challenge : [],
+      cv_tailoring_strategy: profile.cv_tailoring_strategy || "",
+      linkedin_outreach_strategy: profile.linkedin_outreach_strategy || "",
+      role_clarity_score: profile.role_clarity_score ?? null,
+      job_search_efforts: profile.job_search_efforts || "",
+    });
   }, [profile]);
 
   const [skillInput, setSkillInput] = useState("");
-
   const [certForm, setCertForm] = useState({ name: "", issuer: "" });
   const [projectForm, setProjectForm] = useState({ name: "", description: "", skills_demonstrated: [], url: "" });
   const [expForm, setExpForm] = useState({
-    id: null, // set when editing an existing row
+    id: null,
     title: "",
     company: "",
     type: "internship",
@@ -163,27 +380,57 @@ export default function AddInformation() {
     skills_used: [],
   });
 
-  const [tempSkill, setTempSkill] = useState("");
-
   const saveProfile = async () => {
     setSaving(true);
-    // Normalize secondary_education: if everything in it is empty, save null
-    // instead of an empty object — the CV renderer gates rendering on truthy
-    // institution and we don't want to show an empty Education entry.
+    // Normalise secondary_education: empty object → null so the CV renderer
+    // (which gates rendering on truthy institution) doesn't show an empty
+    // Education entry.
     const se = profileForm.secondary_education || {};
-    const seHasContent = !!(se.institution?.trim() || se.location?.trim() || se.dates?.trim() || (se.highlights || []).some((h) => h?.trim()));
+    const seHasContent = !!(
+      se.institution?.trim() ||
+      se.location?.trim() ||
+      se.dates?.trim() ||
+      (se.highlights || []).some((h) => h?.trim())
+    );
     const dbFields = {
+      // Identity / contact
       full_name: profileForm.full_name,
       phone_number: profileForm.phone_number,
       location: profileForm.location,
       linkedin_url: profileForm.linkedin_url,
-      five_year_role: profileForm.five_year_role,
+      summary: profileForm.summary || null,
+      // Education
       education_level: profileForm.education_level,
+      degree: profileForm.degree || null,
       field_of_study: profileForm.field_of_study,
       education_dates: profileForm.education_dates,
-      skills: profileForm.skills,
+      gpa: profileForm.gpa || null,
+      honors: profileForm.honors,
+      relevant_coursework: profileForm.relevant_coursework,
       languages: profileForm.languages,
       secondary_education: seHasContent ? se : null,
+      // Skills + career direction
+      skills: profileForm.skills,
+      five_year_role: profileForm.five_year_role,
+      target_job_titles: profileForm.target_job_titles,
+      target_industries: profileForm.target_industries,
+      primary_domain: profileForm.primary_domain || null,
+      adjacent_fields: profileForm.adjacent_fields,
+      qualification_level: profileForm.qualification_level || null,
+      // Preferences / constraints
+      employment_status: profileForm.employment_status,
+      work_environment: profileForm.work_environment,
+      work_type: profileForm.work_type,
+      salary_expectation: profileForm.salary_expectation || null,
+      available_start_date: profileForm.available_start_date || null,
+      open_to_lateral: profileForm.open_to_lateral,
+      open_to_outside_degree: profileForm.open_to_outside_degree,
+      // Self-assessment
+      biggest_challenge: profileForm.biggest_challenge,
+      cv_tailoring_strategy: profileForm.cv_tailoring_strategy || null,
+      linkedin_outreach_strategy: profileForm.linkedin_outreach_strategy || null,
+      role_clarity_score: profileForm.role_clarity_score,
+      job_search_efforts: profileForm.job_search_efforts || null,
     };
     const { error } = profile
       ? await supabase.from("profiles").update(dbFields).eq("id", user.id)
@@ -309,6 +556,18 @@ export default function AddInformation() {
     );
   }
 
+  // Save button reused at the bottom of every profile-fields tab so users
+  // don't have to navigate back to "Profile" to commit changes made on
+  // "Goals" or "Self-Assessment". All four call the same saveProfile()
+  // because saving is idempotent over the entire profileForm.
+  const SaveProfileButton = () => (
+    <Button onClick={saveProfile} disabled={saving} className="bg-[#0A0A0A] hover:bg-[#262626] text-sm">
+      {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving...</> : "Save Profile"}
+    </Button>
+  );
+
+  const setField = (key, val) => setProfileForm((prev) => ({ ...prev, [key]: val }));
+
   return (
     <div className="max-w-3xl mx-auto px-6 py-8">
       <div className="mb-8">
@@ -321,146 +580,45 @@ export default function AddInformation() {
       <Tabs defaultValue="profile" className="space-y-6">
         <TabsList className="bg-[#F5F5F5] w-full justify-start overflow-x-auto">
           <TabsTrigger value="profile" className="text-xs">Profile</TabsTrigger>
+          <TabsTrigger value="education" className="text-xs">Education</TabsTrigger>
+          <TabsTrigger value="goals" className="text-xs">Goals & Preferences</TabsTrigger>
+          <TabsTrigger value="self-assessment" className="text-xs">Self-Assessment</TabsTrigger>
           <TabsTrigger value="certifications" className="text-xs">Certifications</TabsTrigger>
           <TabsTrigger value="projects" className="text-xs">Projects</TabsTrigger>
           <TabsTrigger value="experience" className="text-xs">Experience</TabsTrigger>
         </TabsList>
 
+        {/* ── Profile tab — identity, contact, summary, skills, resume ──── */}
         <TabsContent value="profile">
           <div className="bg-white rounded-xl border border-[#E5E5E5] p-6 space-y-5">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium">Full Name</label>
-                <Input value={profileForm.full_name} onChange={(e) => setProfileForm({ ...profileForm, full_name: e.target.value })} className="mt-1" />
+                <Input value={profileForm.full_name} onChange={(e) => setField("full_name", e.target.value)} className="mt-1" />
               </div>
               <div>
                 <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium">Phone Number</label>
-                <Input value={profileForm.phone_number} onChange={(e) => setProfileForm({ ...profileForm, phone_number: e.target.value })} className="mt-1" placeholder="054-1234567 or +972 54 123 4567" />
+                <Input value={profileForm.phone_number} onChange={(e) => setField("phone_number", e.target.value)} className="mt-1" placeholder="054-1234567 or +972 54 123 4567" />
               </div>
               <div>
                 <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium">Location</label>
-                <Input value={profileForm.location} onChange={(e) => setProfileForm({ ...profileForm, location: e.target.value })} className="mt-1" placeholder="e.g. Tel Aviv, Israel" />
-              </div>
-              <div>
-                <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium">5-Year Target Role</label>
-                <Input value={profileForm.five_year_role} onChange={(e) => setProfileForm({ ...profileForm, five_year_role: e.target.value })} className="mt-1" placeholder="e.g. Senior Data Scientist" />
-              </div>
-              <div>
-                <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium">Education Level</label>
-                <Select value={profileForm.education_level} onValueChange={(v) => setProfileForm({ ...profileForm, education_level: v })}>
-                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="high_school">High School</SelectItem>
-                    <SelectItem value="bachelors">Bachelors</SelectItem>
-                    <SelectItem value="masters">Masters</SelectItem>
-                    <SelectItem value="phd">PhD</SelectItem>
-                    <SelectItem value="bootcamp">Bootcamp</SelectItem>
-                    <SelectItem value="self_taught">Self Taught</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium">Field of Study</label>
-                <Input value={profileForm.field_of_study} onChange={(e) => setProfileForm({ ...profileForm, field_of_study: e.target.value })} className="mt-1" placeholder="e.g. Computer Science" />
-              </div>
-              <div>
-                <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium">Education Dates</label>
-                <Input value={profileForm.education_dates} onChange={(e) => setProfileForm({ ...profileForm, education_dates: e.target.value })} className="mt-1" placeholder="e.g. 2023 - Present" />
+                <Input value={profileForm.location} onChange={(e) => setField("location", e.target.value)} className="mt-1" placeholder="e.g. Tel Aviv, Israel" />
               </div>
               <div>
                 <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium">LinkedIn URL</label>
-                <Input value={profileForm.linkedin_url} onChange={(e) => setProfileForm({ ...profileForm, linkedin_url: e.target.value })} className="mt-1" placeholder="https://linkedin.com/in/..." />
+                <Input value={profileForm.linkedin_url} onChange={(e) => setField("linkedin_url", e.target.value)} className="mt-1" placeholder="https://linkedin.com/in/..." />
               </div>
             </div>
 
-            {/* Languages editor — free-form language name + proficiency dropdown */}
             <div>
-              <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium mb-2 block">Languages</label>
-              <div className="space-y-2">
-                {profileForm.languages.map((lang, i) => (
-                  <div key={i} className="flex gap-2 items-center">
-                    <Input
-                      value={lang.language || ""}
-                      onChange={(e) => {
-                        const next = [...profileForm.languages];
-                        next[i] = { ...next[i], language: e.target.value };
-                        setProfileForm({ ...profileForm, languages: next });
-                      }}
-                      placeholder="e.g. English"
-                      className="text-sm flex-1"
-                    />
-                    <Select
-                      value={lang.proficiency || ""}
-                      onValueChange={(v) => {
-                        const next = [...profileForm.languages];
-                        next[i] = { ...next[i], proficiency: v };
-                        setProfileForm({ ...profileForm, languages: next });
-                      }}
-                    >
-                      <SelectTrigger className="text-sm w-40">
-                        <SelectValue placeholder="Proficiency" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Native">Native</SelectItem>
-                        <SelectItem value="Fluent">Fluent</SelectItem>
-                        <SelectItem value="Professional">Professional</SelectItem>
-                        <SelectItem value="Conversational">Conversational</SelectItem>
-                        <SelectItem value="Basic">Basic</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        const next = profileForm.languages.filter((_, idx) => idx !== i);
-                        setProfileForm({ ...profileForm, languages: next });
-                      }}
-                    >
-                      <Trash2 className="w-4 h-4 text-[#A3A3A3] hover:text-red-500" />
-                    </Button>
-                  </div>
-                ))}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setProfileForm({ ...profileForm, languages: [...profileForm.languages, { language: "", proficiency: "Fluent" }] })}
-                  className="text-xs"
-                >
-                  <Plus className="w-3.5 h-3.5 mr-1" /> Add language
-                </Button>
-              </div>
-            </div>
-
-            {/* Secondary / high-school education (optional) */}
-            <div>
-              <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium mb-2 block">High School / Secondary Education (optional)</label>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <Input
-                  value={profileForm.secondary_education.institution}
-                  onChange={(e) => setProfileForm({ ...profileForm, secondary_education: { ...profileForm.secondary_education, institution: e.target.value } })}
-                  placeholder="Institution name"
-                  className="text-sm"
-                />
-                <Input
-                  value={profileForm.secondary_education.dates}
-                  onChange={(e) => setProfileForm({ ...profileForm, secondary_education: { ...profileForm.secondary_education, dates: e.target.value } })}
-                  placeholder="e.g. 2014 - 2018"
-                  className="text-sm"
-                />
-                <Input
-                  value={profileForm.secondary_education.location}
-                  onChange={(e) => setProfileForm({ ...profileForm, secondary_education: { ...profileForm.secondary_education, location: e.target.value } })}
-                  placeholder="Location (optional)"
-                  className="text-sm md:col-span-2"
-                />
-                <Textarea
-                  value={(profileForm.secondary_education.highlights || []).join("\n")}
-                  onChange={(e) => setProfileForm({ ...profileForm, secondary_education: { ...profileForm.secondary_education, highlights: e.target.value.split("\n").map((s) => s.trim()).filter(Boolean) } })}
-                  placeholder="Notable roles / activities — one per line (e.g. President of Debate Club)"
-                  rows={2}
-                  className="text-sm md:col-span-2"
-                />
-              </div>
+              <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium">Professional Summary</label>
+              <Textarea
+                value={profileForm.summary}
+                onChange={(e) => setField("summary", e.target.value)}
+                className="mt-1 text-sm"
+                rows={4}
+                placeholder="2–3 sentences. The CV generator uses this as the About Me anchor."
+              />
             </div>
 
             <div>
@@ -491,12 +649,418 @@ export default function AddInformation() {
               </div>
             </div>
 
-            <Button onClick={saveProfile} disabled={saving} className="bg-[#0A0A0A] hover:bg-[#262626] text-sm">
-              {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving...</> : "Save Profile"}
-            </Button>
+            <SaveProfileButton />
           </div>
         </TabsContent>
 
+        {/* ── Education tab — degree, field, gpa, honors, coursework ─────── */}
+        <TabsContent value="education">
+          <div className="bg-white rounded-xl border border-[#E5E5E5] p-6 space-y-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium">Education Level</label>
+                <Select value={profileForm.education_level} onValueChange={(v) => setField("education_level", v)}>
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="high_school">High School</SelectItem>
+                    <SelectItem value="associate">Associate Degree</SelectItem>
+                    <SelectItem value="bachelors">Bachelor&apos;s Degree</SelectItem>
+                    <SelectItem value="masters">Master&apos;s Degree</SelectItem>
+                    <SelectItem value="phd">PhD</SelectItem>
+                    <SelectItem value="bootcamp">Bootcamp</SelectItem>
+                    <SelectItem value="self_taught">Self-Taught</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium">Degree</label>
+                <Input value={profileForm.degree} onChange={(e) => setField("degree", e.target.value)} className="mt-1" placeholder="e.g. BSc, BA, MBA" />
+              </div>
+              <div>
+                <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium">Field of Study</label>
+                <Input value={profileForm.field_of_study} onChange={(e) => setField("field_of_study", e.target.value)} className="mt-1" placeholder="e.g. Business Administration" />
+              </div>
+              <div>
+                <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium">GPA (optional)</label>
+                <Input value={profileForm.gpa} onChange={(e) => setField("gpa", e.target.value)} className="mt-1" placeholder="e.g. 3.7 / 4.0 or 90 / 100" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium">Education Dates</label>
+                <Input value={profileForm.education_dates} onChange={(e) => setField("education_dates", e.target.value)} className="mt-1" placeholder="e.g. 2023 - Present" />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium mb-2 block">Honors / Awards</label>
+              <TagEditor
+                tags={profileForm.honors}
+                onChange={(v) => setField("honors", v)}
+                placeholder="e.g. Dean's List, President's Award"
+              />
+            </div>
+
+            <div>
+              <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium mb-2 block">Relevant Coursework</label>
+              <TagEditor
+                tags={profileForm.relevant_coursework}
+                onChange={(v) => setField("relevant_coursework", v)}
+                placeholder="e.g. Marketing Strategy, Statistics for Business"
+              />
+            </div>
+
+            {/* Languages editor */}
+            <div>
+              <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium mb-2 block">Languages</label>
+              <div className="space-y-2">
+                {profileForm.languages.map((lang, i) => (
+                  <div key={i} className="flex gap-2 items-center">
+                    <Input
+                      value={lang.language || ""}
+                      onChange={(e) => {
+                        const next = [...profileForm.languages];
+                        next[i] = { ...next[i], language: e.target.value };
+                        setField("languages", next);
+                      }}
+                      placeholder="e.g. English"
+                      className="text-sm flex-1"
+                    />
+                    <Select
+                      value={lang.proficiency || ""}
+                      onValueChange={(v) => {
+                        const next = [...profileForm.languages];
+                        next[i] = { ...next[i], proficiency: v };
+                        setField("languages", next);
+                      }}
+                    >
+                      <SelectTrigger className="text-sm w-40">
+                        <SelectValue placeholder="Proficiency" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Native">Native</SelectItem>
+                        <SelectItem value="Fluent">Fluent</SelectItem>
+                        <SelectItem value="Professional">Professional</SelectItem>
+                        <SelectItem value="Conversational">Conversational</SelectItem>
+                        <SelectItem value="Basic">Basic</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const next = profileForm.languages.filter((_, idx) => idx !== i);
+                        setField("languages", next);
+                      }}
+                    >
+                      <Trash2 className="w-4 h-4 text-[#A3A3A3] hover:text-red-500" />
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setField("languages", [...profileForm.languages, { language: "", proficiency: "Fluent" }])}
+                  className="text-xs"
+                >
+                  <Plus className="w-3.5 h-3.5 mr-1" /> Add language
+                </Button>
+              </div>
+            </div>
+
+            {/* Secondary education */}
+            <div>
+              <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium mb-2 block">High School / Secondary Education (optional)</label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <Input
+                  value={profileForm.secondary_education.institution}
+                  onChange={(e) => setField("secondary_education", { ...profileForm.secondary_education, institution: e.target.value })}
+                  placeholder="Institution name"
+                  className="text-sm"
+                />
+                <Input
+                  value={profileForm.secondary_education.dates}
+                  onChange={(e) => setField("secondary_education", { ...profileForm.secondary_education, dates: e.target.value })}
+                  placeholder="e.g. 2014 - 2018"
+                  className="text-sm"
+                />
+                <Input
+                  value={profileForm.secondary_education.location}
+                  onChange={(e) => setField("secondary_education", { ...profileForm.secondary_education, location: e.target.value })}
+                  placeholder="Location (optional)"
+                  className="text-sm md:col-span-2"
+                />
+                <Textarea
+                  value={(profileForm.secondary_education.highlights || []).join("\n")}
+                  onChange={(e) => setField("secondary_education", { ...profileForm.secondary_education, highlights: e.target.value.split("\n").map((s) => s.trim()).filter(Boolean) })}
+                  placeholder="Notable roles / activities — one per line (e.g. President of Debate Club)"
+                  rows={2}
+                  className="text-sm md:col-span-2"
+                />
+              </div>
+            </div>
+
+            <SaveProfileButton />
+          </div>
+        </TabsContent>
+
+        {/* ── Goals & Preferences tab ─────────────────────────────────────── */}
+        <TabsContent value="goals">
+          <div className="bg-white rounded-xl border border-[#E5E5E5] p-6 space-y-5">
+            <p className="text-xs text-[#525252] bg-[#F5F5F5] border border-[#E5E5E5] rounded-lg px-3 py-2">
+              These fields drive tier scoring and role recommendations. Editing them retriggers
+              <code className="text-[#0A0A0A] mx-1">analyze-job-match</code>
+              the next time you save a JD on the Tracker, so the right tier reflects your latest target.
+            </p>
+
+            <div>
+              <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium">5-Year Target Role</label>
+              <Input value={profileForm.five_year_role} onChange={(e) => setField("five_year_role", e.target.value)} className="mt-1" placeholder="e.g. Product Manager, Senior Data Analyst" />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium">Primary Domain</label>
+                <Select value={profileForm.primary_domain || "__none__"} onValueChange={(v) => setField("primary_domain", v === "__none__" ? "" : v)}>
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select domain" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">— Not set —</SelectItem>
+                    {PRIMARY_DOMAIN_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-[#A3A3A3] mt-1">The role family that anchors your career story.</p>
+              </div>
+              <div>
+                <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium">Qualification Level</label>
+                <Select value={profileForm.qualification_level || "__none__"} onValueChange={(v) => setField("qualification_level", v === "__none__" ? "" : v)}>
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select level" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">— Not set (system will infer) —</SelectItem>
+                    {QUALIFICATION_LEVEL_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-[#A3A3A3] mt-1">Controls the seniority ceiling on tier_1 recommendations.</p>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium mb-2 block">Job Titles You&apos;re Targeting Now</label>
+              <TagEditor
+                tags={profileForm.target_job_titles}
+                onChange={(v) => setField("target_job_titles", v)}
+                placeholder="e.g. Marketing Coordinator, Junior Product Analyst"
+              />
+            </div>
+
+            <div>
+              <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium mb-2 block">Target Industries</label>
+              <TagEditor
+                tags={profileForm.target_industries}
+                onChange={(v) => setField("target_industries", v)}
+                placeholder="e.g. Fintech, Healthcare, Cybersecurity"
+              />
+            </div>
+
+            <div>
+              <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium mb-2 block">Adjacent Fields</label>
+              <TagEditor
+                tags={profileForm.adjacent_fields}
+                onChange={(v) => setField("adjacent_fields", v)}
+                placeholder="Other domains relevant to your background"
+              />
+              <p className="text-[11px] text-[#A3A3A3] mt-1">Used by the roadmap to surface bridge roles between your current and target domain.</p>
+            </div>
+
+            <div>
+              <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium mb-2 block">Current Employment Status</label>
+              <MultiSelectTiles
+                options={EMPLOYMENT_STATUS_OPTIONS}
+                selected={profileForm.employment_status}
+                onChange={(v) => setField("employment_status", v)}
+              />
+              <p className="text-[11px] text-[#A3A3A3] mt-1">If you select &quot;Student&quot;, tier scoring caps recommendations at the level you can be hired into now.</p>
+            </div>
+
+            <div>
+              <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium mb-2 block">Preferred Work Environment</label>
+              <MultiSelectTiles
+                options={WORK_ENVIRONMENT_OPTIONS}
+                selected={profileForm.work_environment}
+                onChange={(v) => setField("work_environment", v)}
+              />
+            </div>
+
+            <div>
+              <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium mb-2 block">Work Arrangement</label>
+              <MultiSelectTiles
+                options={WORK_TYPE_OPTIONS}
+                selected={profileForm.work_type}
+                onChange={(v) => setField("work_type", v)}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium">Salary Expectation (optional)</label>
+                <Input value={profileForm.salary_expectation} onChange={(e) => setField("salary_expectation", e.target.value)} className="mt-1" placeholder="e.g. ₪12,000 - ₪15,000 / month" />
+              </div>
+              <div>
+                <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium">Earliest Start Date</label>
+                <Input
+                  type="date"
+                  value={profileForm.available_start_date}
+                  onChange={(e) => setField("available_start_date", e.target.value)}
+                  className="mt-1"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-3 pt-1">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={profileForm.open_to_lateral}
+                  onChange={(e) => setField("open_to_lateral", e.target.checked)}
+                  className="rounded"
+                />
+                <div>
+                  <p className="text-sm text-[#0A0A0A] font-medium">Open to lateral roles</p>
+                  <p className="text-xs text-[#A3A3A3]">Roles at the same level in a different function or industry.</p>
+                </div>
+              </label>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={profileForm.open_to_outside_degree}
+                  onChange={(e) => setField("open_to_outside_degree", e.target.checked)}
+                  className="rounded"
+                />
+                <div>
+                  <p className="text-sm text-[#0A0A0A] font-medium">Open to roles outside my degree field</p>
+                  <p className="text-xs text-[#A3A3A3]">e.g. a Finance major applying to Operations or Product roles.</p>
+                </div>
+              </label>
+            </div>
+
+            <SaveProfileButton />
+          </div>
+        </TabsContent>
+
+        {/* ── Self-Assessment tab — mirrors StepSurvey ────────────────────── */}
+        <TabsContent value="self-assessment">
+          <div className="bg-white rounded-xl border border-[#E5E5E5] p-6 space-y-6">
+            <p className="text-xs text-[#525252] bg-[#F5F5F5] border border-[#E5E5E5] rounded-lg px-3 py-2">
+              The same questions from onboarding. Update any of these as your situation changes — they
+              feed the weekly task generator and the chat agents&apos; understanding of where you&apos;re stuck.
+            </p>
+
+            <div>
+              <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium mb-2 block">
+                Biggest Job-Search Challenges
+              </label>
+              <div className="grid grid-cols-1 gap-2">
+                {CHALLENGES.map((c) => {
+                  const isSelected = profileForm.biggest_challenge.includes(c);
+                  return (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => {
+                        const next = isSelected
+                          ? profileForm.biggest_challenge.filter((x) => x !== c)
+                          : [...profileForm.biggest_challenge, c];
+                        setField("biggest_challenge", next);
+                      }}
+                      className={`text-left text-sm px-4 py-3 rounded-lg border transition-colors ${
+                        isSelected
+                          ? "bg-[#0A0A0A] text-white border-[#0A0A0A]"
+                          : "bg-white text-[#525252] border-[#E5E5E5] hover:border-[#A3A3A3]"
+                      }`}
+                    >
+                      {c}
+                    </button>
+                  );
+                })}
+              </div>
+              {/* Custom challenge chips (free-text answers from onboarding) */}
+              {profileForm.biggest_challenge.filter((c) => !CHALLENGES.includes(c)).length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {profileForm.biggest_challenge.filter((c) => !CHALLENGES.includes(c)).map((c) => (
+                    <span key={c} className="inline-flex items-center gap-1 bg-[#0A0A0A] text-white text-xs px-2.5 py-1 rounded-md">
+                      {c}
+                      <button type="button" onClick={() => setField("biggest_challenge", profileForm.biggest_challenge.filter((x) => x !== c))} className="hover:text-red-300">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium mb-2 block">
+                CV Tailoring Strategy
+              </label>
+              <StackedRadio
+                options={CV_OPTIONS}
+                value={profileForm.cv_tailoring_strategy}
+                onChange={(v) => setField("cv_tailoring_strategy", v)}
+              />
+            </div>
+
+            <div>
+              <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium mb-2 block">
+                LinkedIn Outreach Strategy
+              </label>
+              <StackedRadio
+                options={LINKEDIN_OPTIONS}
+                value={profileForm.linkedin_outreach_strategy}
+                onChange={(v) => setField("linkedin_outreach_strategy", v)}
+              />
+            </div>
+
+            <div>
+              <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium mb-2 block">
+                Role Clarity (1–5)
+              </label>
+              <div className="flex gap-2 flex-wrap">
+                {CLARITY_OPTIONS.map((o) => (
+                  <button
+                    key={o.value}
+                    type="button"
+                    onClick={() => setField("role_clarity_score", profileForm.role_clarity_score === o.value ? null : o.value)}
+                    className={`text-sm px-4 py-2 rounded-lg border transition-colors ${
+                      profileForm.role_clarity_score === o.value
+                        ? "bg-[#0A0A0A] text-white border-[#0A0A0A]"
+                        : "bg-white text-[#525252] border-[#E5E5E5] hover:border-[#A3A3A3]"
+                    }`}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-[#A3A3A3] mt-2">Click again to clear.</p>
+            </div>
+
+            <div>
+              <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium mb-2 block">
+                Job-Search Efforts So Far
+              </label>
+              <Textarea
+                value={profileForm.job_search_efforts}
+                onChange={(e) => setField("job_search_efforts", e.target.value)}
+                placeholder="e.g. Applied to 50+ roles, attended career fairs, updated my LinkedIn..."
+                className="text-sm min-h-[80px]"
+              />
+            </div>
+
+            <SaveProfileButton />
+          </div>
+        </TabsContent>
+
+        {/* ── Certifications tab (unchanged) ──────────────────────────────── */}
         <TabsContent value="certifications">
           <div className="space-y-4">
             <div className="bg-white rounded-xl border border-[#E5E5E5] p-6 space-y-4">
@@ -534,6 +1098,7 @@ export default function AddInformation() {
           </div>
         </TabsContent>
 
+        {/* ── Projects tab (unchanged) ────────────────────────────────────── */}
         <TabsContent value="projects">
           <div className="space-y-4">
             <div className="bg-white rounded-xl border border-[#E5E5E5] p-6 space-y-4">
@@ -575,6 +1140,7 @@ export default function AddInformation() {
           </div>
         </TabsContent>
 
+        {/* ── Experience tab (unchanged) ──────────────────────────────────── */}
         <TabsContent value="experience">
           <div className="space-y-4">
             <div className="bg-white rounded-xl border border-[#E5E5E5] p-6 space-y-4">
