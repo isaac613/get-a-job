@@ -12,6 +12,10 @@ import { startMetric, finishMetric } from '../_shared/metrics.ts'
 // consumes baseline_data as the "current LinkedIn" context the LLM compares
 // against when generating improved sections.
 //
+// baseline_data sections (all optional — only populated when present in the
+// archive): profile, positions, education, skills, recommendations, honors,
+// volunteering, languages, preferences.
+//
 // Privacy posture (CRITICAL):
 //   - The ZIP lives in function memory only — never written to Storage,
 //     never persisted to disk. Garbage collected when the response returns.
@@ -54,6 +58,14 @@ const TARGETED_FILES: Record<string, string[]> = {
   honors: ['Honors.csv', 'Honors_and_Awards.csv', 'Honors and Awards.csv'],
   volunteering: ['Volunteering.csv', 'Volunteer_Experience.csv', 'Volunteer Experience.csv'],
   languages: ['Languages.csv'],
+  // Job Seeker Preferences ships under a Jobs/ subdirectory in LinkedIn's
+  // archive ('Jobs/Job Seeker Preferences.csv'). The path is stripped to
+  // basename before this lookup, so just the leaf filename is needed here.
+  // Carries Job Titles / Industries / Dream Companies / Locations etc — high-
+  // signal data the user explicitly set. Downstream consumers: Career Roadmap
+  // cross-check (does our generated target_job_titles match what they want?)
+  // and Internship Company Picker seed list.
+  preferences: ['Job Seeker Preferences.csv'],
 }
 
 // Files we EXPLICITLY refuse to parse — these contain third-party PII or are
@@ -288,6 +300,47 @@ function mapLanguages(rows: Record<string, string>[]): Array<Record<string, unkn
   }).filter(l => l.name)
 }
 
+// Job Seeker Preferences is a single-row file with deliberate user-set
+// targeting fields. Multi-value fields use pipe ('|') delimiters in
+// LinkedIn's export — confirmed from real archive inspection.
+//
+// PII discipline: Phone Number and Commute Preference Starting Address are
+// EXPLICITLY skipped — those are home address / contact info that don't
+// belong in baseline_data. Other low-signal fields (visibility flags,
+// commute mode, etc) are also dropped to keep the JSONB lean and the
+// downstream LLM prompt focused on targeting signal.
+function splitPipe(s: string): string[] {
+  if (!s) return []
+  return s.split('|').map(x => x.trim()).filter(Boolean)
+}
+function mapPreferences(rows: Record<string, string>[]): Record<string, unknown> | null {
+  if (!rows.length) return null
+  const r = rows[0]
+  const out: Record<string, unknown> = {
+    job_titles: splitPipe(pickFirst(r, ['Job Titles'])),
+    industries: splitPipe(pickFirst(r, ['Industries'])),
+    locations: splitPipe(pickFirst(r, ['Locations'])),
+    dream_companies: splitPipe(pickFirst(r, ['Dream Companies'])),
+    preferred_job_types: splitPipe(pickFirst(r, ['Preferred Job Types'])),
+    company_employee_count: splitPipe(pickFirst(r, ['Company Employee Count'])),
+    job_title_for_fast_growing: pickFirst(r, ['Job Title For Searching Fast Growing Companies']),
+    introduction_statement: pickFirst(r, ['Introduction Statement']),
+    semantic_preferences: pickFirst(r, ['Semantic Preferences']),
+    open_to_recruiters: pickFirst(r, ['Open To Recruiters']),
+    job_seeker_activity_level: pickFirst(r, ['Job Seeker Activity Level']),
+    job_seeking_urgency_level: pickFirst(r, ['Job Seeking Urgency Level']),
+    preferred_start_time_range: pickFirst(r, ['Preferred Start Time Range']),
+  }
+  // Strip empty strings AND empty arrays — keeps the JSONB lean. An empty
+  // dream_companies array carries no signal and clutters the prompt context.
+  for (const k of Object.keys(out)) {
+    const v = out[k]
+    if (!v) delete out[k]
+    else if (Array.isArray(v) && v.length === 0) delete out[k]
+  }
+  return Object.keys(out).length ? out : null
+}
+
 const MAPPERS: Record<string, (rows: Record<string, string>[]) => unknown> = {
   profile: mapProfile,
   positions: mapPositions,
@@ -297,6 +350,7 @@ const MAPPERS: Record<string, (rows: Record<string, string>[]) => unknown> = {
   honors: mapHonors,
   volunteering: mapVolunteering,
   languages: mapLanguages,
+  preferences: mapPreferences,
 }
 
 // Parse the ZIP from a Uint8Array, returning the structured baseline + a
