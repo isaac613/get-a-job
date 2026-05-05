@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
-import { Loader2, Copy, Check, Linkedin, RefreshCw, AlertCircle, Upload, FileArchive, ShieldCheck } from "lucide-react";
+import { Loader2, Copy, Check, Linkedin, RefreshCw, AlertCircle, Upload, FileArchive, ShieldCheck, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
@@ -81,13 +81,85 @@ function TextBlock({ text, placeholder }) {
 // Compare-card variant: when baseline is present, show Baseline | Generated
 // tabs so the user can flip between their CURRENT LinkedIn text and the
 // improved version. Char count and Copy button always reflect the visible tab.
-function CompareCard({ title, baseline, generated, max, footer }) {
+// Per-section refinement form. Inline textarea + Refine/Cancel buttons. The
+// LLM gets the prior text + user's instruction (or "different angle" if
+// empty) and returns just this section. Empty instruction is allowed —
+// "regen with a different angle" is a valid use case per the design.
+function RefineForm({ onSubmit, onCancel, refining }) {
+  const [text, setText] = useState("");
+  const taRef = useRef(null);
+  useEffect(() => { taRef.current?.focus(); }, []);
+  return (
+    <div className="mt-3 p-3 bg-[#F9FAFB] border border-[#E5E5E5] rounded-lg">
+      <textarea
+        ref={taRef}
+        value={text}
+        onChange={(e) => setText(e.target.value.slice(0, 600))}
+        disabled={refining}
+        placeholder="Optional: how to improve this section. e.g. 'focus more on product management', 'mention my military leadership', 'make it shorter'. Leave blank to regenerate with a different angle."
+        className="w-full text-sm border border-[#E5E5E5] rounded-md px-3 py-2 bg-white resize-none focus:outline-none focus:ring-1 focus:ring-[#0A0A0A] focus:border-[#0A0A0A] disabled:opacity-60"
+        rows={3}
+      />
+      <div className="flex items-center justify-between mt-2 gap-3">
+        <span className="text-[11px] text-[#A3A3A3]">{text.length}/600</span>
+        <div className="flex gap-2">
+          <button
+            onClick={onCancel}
+            disabled={refining}
+            className="text-xs px-3 py-1.5 text-[#525252] hover:text-[#0A0A0A] disabled:opacity-60"
+          >Cancel</button>
+          <Button
+            onClick={() => onSubmit(text.trim())}
+            disabled={refining}
+            className="bg-[#0A0A0A] hover:bg-[#262626] text-xs h-8 px-3"
+          >
+            {refining ? (
+              <><Loader2 className="w-3 h-3 mr-1.5 animate-spin" />Refining…</>
+            ) : (
+              <><Sparkles className="w-3 h-3 mr-1.5" />Refine</>
+            )}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CompareCard({ title, baseline, generated, max, footer, sectionKey, onRefine }) {
   const hasBoth = baseline && generated;
   const [tab, setTab] = useState(generated ? "generated" : "baseline");
+  const [refineOpen, setRefineOpen] = useState(false);
+  const [refining, setRefining] = useState(false);
+  const [refineError, setRefineError] = useState(null);
   // If a regen lands while the user has Baseline open, default them back to
   // Generated (they're here to see the improved version, not their old one).
   useEffect(() => { if (generated) setTab("generated"); }, [generated]);
+  // Auto-close the refine form when a refinement lands (generated changes).
+  useEffect(() => {
+    if (refining) {
+      setRefineOpen(false);
+      setRefining(false);
+      setRefineError(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [generated]);
   const visible = tab === "baseline" ? baseline : generated;
+
+  const canRefine = sectionKey && onRefine && generated;
+  const handleSubmit = async (instruction) => {
+    setRefining(true);
+    setRefineError(null);
+    try {
+      await onRefine(sectionKey, instruction);
+      // Success: parent will update `generated`, and the effect above will
+      // close the form. Don't toggle refining=false here — let the effect
+      // do it on the next render after generated changes.
+    } catch (e) {
+      setRefining(false);
+      setRefineError(e?.message || "Refinement failed. Please try again.");
+    }
+  };
+
   return (
     <div className="bg-white rounded-xl border border-[#E5E5E5] p-5 mb-4">
       <div className="flex items-center justify-between mb-2 gap-3 flex-wrap">
@@ -107,12 +179,34 @@ function CompareCard({ title, baseline, generated, max, footer }) {
           )}
           {max != null && <CharCount value={visible} max={max} />}
           {visible && <CopyButton text={visible} />}
+          {canRefine && !refineOpen && (
+            <button
+              onClick={() => { setRefineOpen(true); setRefineError(null); }}
+              className="text-[11px] font-medium text-[#525252] hover:text-[#0A0A0A] inline-flex items-center gap-1"
+              title="Regenerate just this section with optional guidance"
+            >
+              <Sparkles className="w-3 h-3" /> Refine
+            </button>
+          )}
         </div>
       </div>
       <TextBlock
         text={visible}
         placeholder={tab === "baseline" ? "No baseline available for this section." : "No generation yet."}
       />
+      {refineOpen && (
+        <RefineForm
+          onSubmit={handleSubmit}
+          onCancel={() => { setRefineOpen(false); setRefineError(null); }}
+          refining={refining}
+        />
+      )}
+      {refineError && (
+        <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-[11px] text-red-800 flex items-start gap-1.5">
+          <AlertCircle className="w-3 h-3 text-red-600 flex-shrink-0 mt-0.5" />
+          <span>{refineError}</span>
+        </div>
+      )}
       {footer && <p className="text-[11px] text-[#A3A3A3] mt-2">{footer}</p>}
     </div>
   );
@@ -334,6 +428,27 @@ export default function LinkedinOptimizer() {
     }
   };
 
+  // Per-section refinement: invoke generate-linkedin-content with {section,
+  // instruction}, the function returns merged_content with just the target
+  // section updated. Throws on failure so the CompareCard can show inline
+  // error; rate limit / not-found errors get human-readable messages.
+  const handleRefine = async (sectionKey, instruction) => {
+    if (!user?.id) throw new Error("Not signed in.");
+    const { data, error: invokeErr } = await supabase.functions.invoke("generate-linkedin-content", {
+      body: { section: sectionKey, instruction: instruction || "" },
+    });
+    if (invokeErr) {
+      const status = invokeErr?.context?.status;
+      if (status === 429) throw new Error("Rate limit reached (30/hour). Try again in a bit.");
+      if (status === 409) throw new Error("Run a full Generate first before refining individual sections.");
+      if (status === 404) throw new Error("Section not found. Try refreshing the page.");
+      throw new Error(invokeErr.message || "Refinement failed. Please try again.");
+    }
+    if (!data?.merged_content) throw new Error("AI returned an unexpected response.");
+    setContent(data.merged_content);
+    toast.success("Section refined.");
+  };
+
   const expLabels = content?.experience_labels || {};
 
   // Compute total chars across all sections for the header summary
@@ -425,6 +540,8 @@ export default function LinkedinOptimizer() {
             baseline={baseline?.profile?.headline}
             generated={content.headline}
             max={LIMITS.headline}
+            sectionKey="headline"
+            onRefine={handleRefine}
           />
 
           <CompareCard
@@ -433,6 +550,8 @@ export default function LinkedinOptimizer() {
             generated={content.about}
             max={LIMITS.about}
             footer="Paste into LinkedIn's About section. First paragraph shows above the fold; structure accordingly."
+            sectionKey="about"
+            onRefine={handleRefine}
           />
 
           {content.experiences?.length > 0 && (
@@ -449,6 +568,8 @@ export default function LinkedinOptimizer() {
               baseline={baselineByExpId.get(e.experience_id)}
               generated={e.description}
               max={LIMITS.experience_desc}
+              sectionKey={`experience:${e.experience_id}`}
+              onRefine={handleRefine}
             />
           ))}
 
@@ -466,6 +587,8 @@ export default function LinkedinOptimizer() {
               baseline={baselineByExpId.get(v.experience_id)}
               generated={v.description}
               max={LIMITS.volunteering_desc}
+              sectionKey={`volunteering:${v.experience_id}`}
+              onRefine={handleRefine}
             />
           ))}
 
@@ -478,14 +601,15 @@ export default function LinkedinOptimizer() {
             </div>
           )}
           {content.military?.map((mil) => (
-            <SectionCard
+            <CompareCard
               key={mil.experience_id}
               title={expLabels[mil.experience_id] || "Military service"}
-              text={mil.description}
+              baseline={baselineByExpId.get(mil.experience_id)}
+              generated={mil.description}
               max={LIMITS.military_desc}
-            >
-              <TextBlock text={mil.description} placeholder="No description generated." />
-            </SectionCard>
+              sectionKey={`military:${mil.experience_id}`}
+              onRefine={handleRefine}
+            />
           ))}
 
           <SectionCard
