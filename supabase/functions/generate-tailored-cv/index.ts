@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { startMetric, finishMetric, type Metric } from '../_shared/metrics.ts'
+import { CV_VOICE_RULES } from '../_shared/voice-rules.ts'
 // docx package produces a real .docx file the user can edit in Word/Google
 // Docs and export to PDF themselves. Imported via esm.sh so Deno's edge
 // runtime can resolve the full dependency tree. Version pinned for stability.
@@ -724,26 +725,6 @@ TAILORING (apply aggressively — this is the most important part of your job):
 - NEVER invent experiences, skills, tools, certifications, or metrics. Rephrasing is allowed; fabrication is not. "Managed multiple cases" can become "Prioritised and managed a backlog of concurrent cases" if that's what actually happened, but CANNOT become "Managed a product backlog" if the user didn't work on one.
 `;
 
-    const BANNED_VOCAB_RULES = `AI-FINGERPRINT VOCABULARY — DO NOT USE THESE WORDS OR PHRASES:
-
-The following are strong AI-tells. They signal LLM-written copy to recruiters and ATS systems. Substitute concrete, user-specific verbs and outcomes.
-
-BANNED VERBS (when generic — OK in proper nouns or with specific quantified context):
-leverage, leveraged, spearhead, spearheaded, orchestrate, orchestrated, utilize, utilized, utilise, utilised, drive, drove (when generic e.g. "drove growth"), facilitate, facilitated, navigate, navigated, deliver (when generic), enable, enabled, empower, empowered, harness, harnessed, streamline, streamlined.
-
-BANNED ADJECTIVES:
-robust, seamless, seamlessly, dynamic, proactive, results-driven, results-oriented, detail-oriented, self-motivated, passionate, passion, innovative, comprehensive, scalable (when generic), strategic (when generic), holistic, end-to-end (when generic), best-in-class, world-class, cutting-edge.
-
-BANNED PHRASES:
-"team player", "go-getter", "think outside the box", "synergy", "synergies", "value-add", "value add", "core competencies", "wheelhouse", "deep dive", "circle back", "low-hanging fruit", "moving the needle", "track record of", "passionate about", "eager to", "driven by", "thrive in", "well-versed", "well-suited", "strong candidate", "perfect fit", "ideal candidate".
-
-EXCEPTIONS:
-- A banned word is OK when it appears as a proper noun (company name, product name), as a literal job title from the source data, or with substantive quantified context.
-- "Drove $1M in pipeline" with a real source metric is OK.
-- "Orchestrated Kubernetes deployment of 12 microservices" with substantive detail is OK.
-- Test: if you remove the word, does the sentence still convey the same specific information? If yes, the word is filler — replace it with a more concrete verb. If the word adds vague impressiveness without specifics, drop it entirely.
-`;
-
     // Extracted keywords — the single most effective lever for forcing
     // tailoring. Appended to the END of the user prompt (not the system
     // prompt) because GPT-4o-mini weights the tail of the user message
@@ -803,7 +784,7 @@ ${JSON.stringify(relevantSignals, null, 2)}
       `You are generating a TAILORED CV. The CV must be specifically customized for the target job description. Generic CVs that don't incorporate JD-specific language will be rejected.\n\n` +
       ONE_PAGE_RULE + `\n` +
       TRUTHFULNESS_RULES + `\n` +
-      BANNED_VOCAB_RULES + `\n` +
+      CV_VOICE_RULES + `\n` +
       STRUCTURE_RULES + `\n` +
       TAILORING_RULES + `\n` +
       LIBRARY_CONTEXT + `\n` +
