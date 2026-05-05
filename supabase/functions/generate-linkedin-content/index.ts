@@ -104,6 +104,13 @@ CHARACTER LIMITS (LinkedIn enforces these — if you exceed, the section won't p
 - Military description: ${LIMITS.MILITARY_DESC} chars max each
 - Honor description: ${LIMITS.HONOR_DESC} chars max each
 
+BASELINE COMPARE-AND-IMPROVE (when present):
+- USER DATA may include a "current_linkedin" object containing the user's CURRENT LinkedIn content (parsed from their LinkedIn data archive: their existing headline, about, position descriptions, etc).
+- When current_linkedin is present, your job is to IMPROVE on what they have — preserve what is working, rewrite what is weak, fill gaps with their grounded profile/story data.
+- Specifically: if current_linkedin.profile.headline is strong, riff on it; if weak or missing, write a fresh headline from scratch using profile + stories. Same for about and per-position descriptions (match by company+title where possible).
+- NEVER copy current_linkedin text verbatim — always improve it. NEVER discard a real metric or proper noun the user already has on LinkedIn just because it's not in their profile/stories — those are also confirmed-real signals.
+- When current_linkedin is absent (user hasn't imported their archive), generate from profile + stories alone exactly as before.
+
 REMINDER — banned vocabulary you MUST AVOID in every section:
 - Banned verbs (when generic): leverage, leveraging, leveraged, spearhead, spearheading, orchestrate, utilize, drive (when generic), facilitate, navigate, deliver (when generic), enable, empower, harness, streamline.
 - Banned adjectives: passionate, results-driven, results-oriented, detail-oriented, self-motivated, dynamic, innovative (when generic).
@@ -281,10 +288,18 @@ Deno.serve(async (req) => {
     }
 
     // Fetch user data. Single round-trip for everything we need.
-    const [profileRes, experiencesRes, storiesRes] = await Promise.all([
+    // baseline (linkedin_optimizations) is fetched in parallel — when present,
+    // it feeds a "current_linkedin" context block so the LLM can compare-and-
+    // improve. maybeSingle() because most users won't have imported yet.
+    const [profileRes, experiencesRes, storiesRes, baselineRes] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', user.id).single(),
       supabase.from('experiences').select('*').eq('user_id', user.id),
       supabase.from('stories').select('*').eq('user_id', user.id),
+      supabase
+        .from('linkedin_optimizations')
+        .select('baseline_data')
+        .eq('user_id', user.id)
+        .maybeSingle(),
     ])
 
     const profile = profileRes.data
@@ -350,7 +365,44 @@ Deno.serve(async (req) => {
       }
     }
 
-    const userData = {
+    // Strip the baseline down to just the fields that influence generation
+    // (profile, positions, education, recommendations, honors, volunteering,
+    // skills) and drop _meta + any large content we don't need in the prompt.
+    // Per-field truncation keeps prompt growth bounded even for users with
+    // many positions or long About text on their existing LinkedIn.
+    const baselineRaw = baselineRes.data?.baseline_data as Record<string, any> | null
+    const currentLinkedin = baselineRaw ? {
+      profile: baselineRaw.profile ? {
+        headline: trunc(baselineRaw.profile.headline, 300),
+        about: trunc(baselineRaw.profile.about, 3000),
+        industry: trunc(baselineRaw.profile.industry, 100),
+      } : undefined,
+      positions: safeArr(baselineRaw.positions).slice(0, 15).map((p: any) => ({
+        company: trunc(p.company, 200),
+        title: trunc(p.title, 200),
+        description: trunc(p.description, 1500),
+        started_on: trunc(p.started_on, 30),
+        finished_on: trunc(p.finished_on, 30),
+      })),
+      education: safeArr(baselineRaw.education).slice(0, 6).map((e: any) => ({
+        school: trunc(e.school, 200),
+        degree: trunc(e.degree, 200),
+        field: trunc(e.field, 200),
+      })),
+      skills: safeArr(baselineRaw.skills).slice(0, 80).map((s: any) => trunc(s, 60)),
+      honors: safeArr(baselineRaw.honors).slice(0, 15).map((h: any) => ({
+        title: trunc(h.title, 200),
+        description: trunc(h.description, 400),
+      })),
+      volunteering: safeArr(baselineRaw.volunteering).slice(0, 10).map((v: any) => ({
+        organization: trunc(v.organization, 200),
+        role: trunc(v.role, 200),
+        description: trunc(v.description, 1000),
+      })),
+      recommendations_count: safeArr(baselineRaw.recommendations).length,
+    } : null
+
+    const userData: Record<string, unknown> = {
       full_name: trunc(profile.full_name, 100),
       summary: trunc(profile.summary, 800),
       primary_domain: trunc(profile.primary_domain, 100),
@@ -369,6 +421,7 @@ Deno.serve(async (req) => {
       volunteering_experiences: volunteeringExperiences.map(buildExpForLlm),
       military_experiences: militaryExperiences.map(buildExpForLlm),
     }
+    if (currentLinkedin) userData.current_linkedin = currentLinkedin
 
     const userPrompt = `USER DATA:
 ${JSON.stringify(userData, null, 2)}
@@ -434,8 +487,31 @@ Generate LinkedIn content for all 6 sections per the schema in your instructions
       expLabels[e.id] = `${e.title || ''}${e.company ? ` at ${e.company}` : ''}`.trim() || 'Untitled experience'
     }
 
+    // Persist the generated output so the frontend can render baseline-vs-
+    // generated tabs without re-running the LLM. Fire-and-forget — a write
+    // failure here shouldn't block the user from seeing their generation.
+    // Upsert covers both first-time-generate (no prior row) and re-generate.
+    const generatedAt = new Date().toISOString()
+    serviceClient
+      .from('linkedin_optimizations')
+      .upsert({
+        user_id: user.id,
+        generated_data: { ...sections, experience_labels: expLabels },
+        generated_at: generatedAt,
+      }, { onConflict: 'user_id' })
+      .then(({ error: upsertError }: { error: { message: string } | null }) => {
+        if (upsertError) {
+          console.error('[generate-linkedin-content] persist failed:', upsertError.message)
+        }
+      })
+
     _ok = true; _http = 200
-    return new Response(JSON.stringify({ ...sections, experience_labels: expLabels }), {
+    return new Response(JSON.stringify({
+      ...sections,
+      experience_labels: expLabels,
+      has_baseline: !!currentLinkedin,
+      generated_at: generatedAt,
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
 
