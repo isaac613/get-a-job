@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, FileText, Sparkles, Download, Save } from "lucide-react";
+import { Loader2, FileText, Sparkles, Download, Save, FileSearch, FileCheck } from "lucide-react";
 import { toast } from "sonner";
 
 export default function CVManagement({ app, onUpdate }) {
@@ -12,6 +12,11 @@ export default function CVManagement({ app, onUpdate }) {
   const [cvStatus, setCvStatus] = useState(app.cv_status || "not_started");
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Template style — controls visual chrome on the generated docx. Both
+  // are single-column for ATS survival; Polished adds color accents,
+  // section rules, optional photo. Default to ATS-Optimized — safer for
+  // students applying via job portals where parsing matters most.
+  const [templateStyle, setTemplateStyle] = useState("ats-optimized");
 
   const handleSave = async () => {
     setSaving(true);
@@ -40,6 +45,7 @@ export default function CVManagement({ app, onUpdate }) {
           job_description: app.job_description,
           target_role: app.role_title,
           application_id: app.id,
+          template_style: templateStyle,
         },
       });
 
@@ -117,6 +123,48 @@ export default function CVManagement({ app, onUpdate }) {
           </a>
         </div>
       )}
+
+      <div>
+        <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium mb-2 block">
+          CV Style
+        </label>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => setTemplateStyle("ats-optimized")}
+            className={`text-left rounded-lg border p-3 transition-colors ${
+              templateStyle === "ats-optimized"
+                ? "border-[#0A0A0A] bg-[#FAFAFA]"
+                : "border-[#E5E5E5] hover:border-[#A3A3A3]"
+            }`}
+          >
+            <div className="flex items-center gap-1.5 mb-1">
+              <FileSearch className="w-3.5 h-3.5 text-[#525252]" />
+              <span className="text-xs font-semibold text-[#0A0A0A]">ATS-Optimized</span>
+            </div>
+            <p className="text-[11px] text-[#525252] leading-snug">
+              Best for applying through job portals and company application forms where your CV is parsed by software first.
+            </p>
+          </button>
+          <button
+            type="button"
+            onClick={() => setTemplateStyle("polished")}
+            className={`text-left rounded-lg border p-3 transition-colors ${
+              templateStyle === "polished"
+                ? "border-[#0A0A0A] bg-[#FAFAFA]"
+                : "border-[#E5E5E5] hover:border-[#A3A3A3]"
+            }`}
+          >
+            <div className="flex items-center gap-1.5 mb-1">
+              <FileCheck className="w-3.5 h-3.5 text-[#525252]" />
+              <span className="text-xs font-semibold text-[#0A0A0A]">Polished</span>
+            </div>
+            <p className="text-[11px] text-[#525252] leading-snug">
+              Best for sending directly to a recruiter, networking contacts, or email applications where a human reads it first.
+            </p>
+          </button>
+        </div>
+      </div>
 
       <div className="flex gap-2">
         <Button

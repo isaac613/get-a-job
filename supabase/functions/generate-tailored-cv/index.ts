@@ -1,25 +1,9 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { startMetric, finishMetric, type Metric } from '../_shared/metrics.ts'
 import { CV_VOICE_RULES } from '../_shared/voice-rules.ts'
-// docx package produces a real .docx file the user can edit in Word/Google
-// Docs and export to PDF themselves. Imported via esm.sh so Deno's edge
-// runtime can resolve the full dependency tree. Version pinned for stability.
-import {
-  AlignmentType,
-  BorderStyle,
-  Document,
-  HeadingLevel,
-  LineRuleType,
-  Packer,
-  Paragraph,
-  Table,
-  TableCell,
-  TableRow,
-  TabStopPosition,
-  TabStopType,
-  TextRun,
-  WidthType,
-} from "https://esm.sh/docx@8.5.0";
+import { buildCV } from '../_shared/cv-templates/build.ts'
+import { matchRoleToLibrary, resolveSectorTheme } from '../_shared/cv-templates/sector-mapping.ts'
+import type { TemplateStyle, SectionKey } from '../_shared/cv-templates/types.ts'
 
 // --- Load JSON Libraries ---
 import { roleLibrary } from "./shared/libraries/00_role_library.ts";
@@ -194,10 +178,15 @@ Deno.serve(async (req) => {
       _http = 413; _err = 'payload_too_large'
       return json({ error: 'Request payload too large.' }, 413);
     }
-    const { job_description, target_role, application_id } = body;
+    const { job_description, target_role, application_id, template_style } = body;
     const safeTargetRole = String(target_role ?? '').slice(0, 200);
     let safeJobDescription = String(job_description ?? '').slice(0, 5000);
     let targetCompany = ""; // populated from the linked application when available
+    // Template style: 'ats-optimized' (default — safest parse) or 'polished'
+    // (visually richer, still single-column for ATS). Validated against the
+    // exhaustive set so a bad client can't trigger a downstream error.
+    const safeTemplateStyle: TemplateStyle =
+      template_style === 'polished' ? 'polished' : 'ats-optimized';
 
     if (!safeTargetRole) {
       _http = 400; _err = 'missing_input'
@@ -587,22 +576,27 @@ Deno.serve(async (req) => {
       } : null,
     };
 
-    // --- Deterministic role lookup (replaces full library dump) ---
-    const normalize = (s: string) => s.toLowerCase().replace(/[\s_\-]+/g, " ").trim();
-    const targetNormalized = normalize(safeTargetRole);
-
-    const targetRoleDef = (roleLibrary as any).roles.find((r: any) =>
-      r.role_id === safeTargetRole ||
-      r.id === safeTargetRole ||
-      (r.title && normalize(r.title) === targetNormalized) ||
-      (r.standardized_title && normalize(r.standardized_title) === targetNormalized)
-    );
+    // --- Role library lookup via shared matcher ---
+    // matchRoleToLibrary handles parens-stripping, seniority-prefix
+    // stripping, alternate_titles search, and slash-split fallback.
+    // Empirical match rate against real application titles lifted from
+    // 17% → 42% with this matcher (n=12 sampled 2026-05-05). The
+    // library_match flag drives the LIBRARY_CONTEXT prompt block, so
+    // higher match rate = more CVs benefit from role-library tailoring.
+    const matchResult = matchRoleToLibrary(safeTargetRole, roleLibrary as any);
+    const targetRoleDef = matchResult?.role || null;
+    const matchVia = matchResult?.via || null;
 
     const targetMapping = (roleSkillMapping as any).role_skill_mapping.find((m: any) =>
       m.role_id === (targetRoleDef?.role_id || targetRoleDef?.id || safeTargetRole)
     );
 
     const library_match = Boolean(targetRoleDef);
+    if (library_match) {
+      console.log(`[CV] role library match: "${safeTargetRole}" → ${targetRoleDef?.role_family} (via ${matchVia})`);
+    } else {
+      console.log(`[CV] role library miss: "${safeTargetRole}" — falling back to keyword/profile sector resolution`);
+    }
 
     // Collect skill IDs from both possible mapping schemas
     const allSkillIds = new Set<string>();
@@ -1202,10 +1196,13 @@ Return ONLY valid JSON. No markdown, no prose outside the JSON object.`;
       return lines;
     };
 
-    // Single threshold for the single style. At 500-twip top/bottom A4
-    // margins and 10pt body type, ~48 paragraph-lines fit on one page with
-    // a small safety cushion before visual overflow.
-    const maxLines = 48;
+    // Tightened from 48 → 42 lines on the page-fit budget. Margins moved
+    // from 500-twip (~0.35") to 1008-twip (0.7") to give the new template
+    // research-backed breathing room — that costs about 6 lines of vertical
+    // budget, which we eat by trimming bullets harder. Pilot users are
+    // students with sub-2-year experience; three strong bullets per role
+    // beats four generic ones (PR A research call).
+    const maxLines = 42;
 
     const initialEstimatedLines = estimatePageLines(cvData);
     let estimatedLines = initialEstimatedLines;
@@ -1249,418 +1246,27 @@ Return ONLY valid JSON. No markdown, no prose outside the JSON object.`;
       console.log(`[CV] Post-trim estimate: ${estimatedLines} lines`);
     }
 
-    // --- Build DOCX (professional single-column CV) ---
-    // Users can open the generated file in Word or Google Docs, tweak it
-    // further, and export to PDF themselves. This eliminates every jsPDF
-    // layout problem we had (font, margins, overflow, styling) in exchange
-    // for a slightly larger payload.
-    //
-    // docx units:
-    //   - font size is in half-points (20 = 10pt, 26 = 13pt, 56 = 28pt)
-    //   - twips: 1 inch = 1440 twips, 1 mm ≈ 56.7 twips
-    //   - margins 20mm top/bottom ≈ 1134 twips, 25mm left/right ≈ 1417 twips
-    //   - tab stop max ≈ 9072 twips (inside a 21cm page with 25mm margins)
-    //   - line: 240 = single, 276 = 1.15x, 288 = 1.2x, 360 = 1.5x
-    // Single hardcoded style (the pre-template-refactor layout that produced
-    // clean one-page CVs). Font sizes are in half-points.
-    const FONT = "Calibri";
-    const BLACK = "000000";
-    const MUTED_COLOR = "555555";
-    const BODY_SIZE = 20;        // 10pt — About Me
-    const BULLET_SIZE = 18;      // 9pt — bullets
-    const HEADING_SIZE = 22;     // 11pt — section heading
-    const SUBHEADING_SIZE = 19;  // 9.5pt — sub-section
-    const ENTRY_TITLE_SIZE = 20; // 10pt — entry title
-    const CONTACT_SIZE = 19;     // 9.5pt
-    const DATE_SIZE = 19;        // 9.5pt
-    const NAME_SIZE = 48;        // 24pt — uppercase name
-    const ROLE_SUBTITLE_SIZE = 22; // 11pt
-    // Right tab stop just inside the right margin on an A4 page with 700-
-    // twip L/R margins (page 11906 twips wide, margin 700 each side → 10506).
-    const RIGHT_TAB = 10400;
+    // --- Build DOCX via shared cv-templates engine ---
+    // Section order: experience-first when the user has 2+ professional
+    // experiences, education-first otherwise. Pilot users (students) often
+    // have <2 — they should lead with education. Mid-career users with
+    // multiple roles lead with experience. Conditional, not stylistic.
+    const proCount = Array.isArray(cvData.professional_experiences)
+      ? cvData.professional_experiences.length
+      : 0
+    const sectionOrder: SectionKey[] = proCount >= 2
+      ? ['about', 'experience', 'education', 'skills', 'languages', 'honors', 'certifications', 'projects']
+      : ['about', 'education', 'experience', 'skills', 'languages', 'honors', 'certifications', 'projects']
 
-    // Spacing constants in twips (1pt = 20 twips). 1.0 line = 240.
-    // Single hardcoded spacing set — the original values that produced the
-    // good-looking one-page CV before the template refactor.
-    const SP_AFTER_NAME = 0;
-    const SP_AFTER_SUBTITLE = 20;
-    const SP_AFTER_CONTACT = 80;
-    const SP_BEFORE_SECTION = 140;
-    const SP_AFTER_SECTION = 40;
-    const SP_BEFORE_ENTRY = 60;
-    const SP_AFTER_BULLET = 10;
-    const SP_BEFORE_EDU = 40;
-    const SP_AFTER_SKILL = 10;
-    const LINE_SINGLE = 240; // 1.0 line spacing
-    const LINE_ABOUT = 252;  // 1.05 for About Me
+    const sectorResolution = resolveSectorTheme(safeTargetRole, roleLibrary as any, profile as any)
+    console.log(`[CV] sector theme: ${sectorResolution.theme.label} (${sectorResolution.source})`)
 
-    const paragraphs: Array<Paragraph | Table> = [];
-
-    // Small helpers — each returns a Paragraph pushed into `paragraphs`.
-    const text = (s: string, opts: Record<string, unknown> = {}) =>
-      new TextRun({ text: s, font: FONT, size: BODY_SIZE, ...opts });
-
-    // Single section-heading style: UPPERCASE bold with thin gray paragraph
-    // bottom border. This matches the pre-template-refactor layout.
-    const sectionHeading = (label: string): Paragraph => new Paragraph({
-      spacing: { before: SP_BEFORE_SECTION, after: SP_AFTER_SECTION },
-      border: { bottom: { color: "BFBFBF", style: BorderStyle.SINGLE, size: 6, space: 1 } },
-      children: [new TextRun({ text: label.toUpperCase(), bold: true, size: HEADING_SIZE, font: FONT })],
-    });
-
-    const subsectionHeading = (label: string) => new Paragraph({
-      spacing: { before: SP_BEFORE_ENTRY, after: 0 },
-      children: [new TextRun({ text: label, bold: true, size: SUBHEADING_SIZE, font: FONT })],
-    });
-
-    // Experience-style entry: "Role, Organization" bold on the left, dates
-    // muted and right-aligned on the same line via a right tab stop.
-    // `withGap` = whether to add 4pt breathing room above this entry (true
-    // for every entry except the first inside a section).
-    const experienceEntryLine = (title: string, org: string | undefined, dates: string | undefined, withGap = false) => {
-      const titleText = String(title || "").trim();
-      const orgText = String(org || "").trim();
-      const combined = orgText ? `${titleText}, ${orgText}` : titleText;
-      const children: TextRun[] = [
-        new TextRun({ text: combined, bold: true, size: ENTRY_TITLE_SIZE, font: FONT }),
-      ];
-      if (dates && String(dates).trim()) {
-        children.push(new TextRun({ text: "\t", size: ENTRY_TITLE_SIZE }));
-        children.push(new TextRun({ text: String(dates).trim(), size: DATE_SIZE, color: MUTED_COLOR, font: FONT }));
-      }
-      return new Paragraph({
-        tabStops: [{ type: TabStopType.RIGHT, position: RIGHT_TAB }],
-        spacing: { before: withGap ? SP_BEFORE_ENTRY : 0, after: 0 },
-        children,
-      });
-    };
-
-    // Education-style entry: bold degree + right-aligned dates on line 1,
-    // plain institution / location on line 2.
-    const educationEntryLines = (title: string, subtitle: string | undefined, dates: string | undefined, withGap = false) => {
-      const out: Paragraph[] = [];
-      const titleChildren: TextRun[] = [
-        new TextRun({ text: String(title || "").trim(), bold: true, size: ENTRY_TITLE_SIZE, font: FONT }),
-      ];
-      if (dates && String(dates).trim()) {
-        titleChildren.push(new TextRun({ text: "\t", size: ENTRY_TITLE_SIZE }));
-        titleChildren.push(new TextRun({ text: String(dates).trim(), size: DATE_SIZE, color: MUTED_COLOR, font: FONT }));
-      }
-      out.push(new Paragraph({
-        tabStops: [{ type: TabStopType.RIGHT, position: RIGHT_TAB }],
-        spacing: { before: withGap ? SP_BEFORE_EDU : 0, after: 0 },
-        children: titleChildren,
-      }));
-      const subText = String(subtitle || "").trim();
-      if (subText) {
-        out.push(new Paragraph({
-          spacing: { before: 0, after: 0 },
-          children: [new TextRun({ text: subText, size: BULLET_SIZE, color: MUTED_COLOR, font: FONT })],
-        }));
-      }
-      return out;
-    };
-
-    // Bulleted list item — Word bullet list style, tiny after-spacing so
-    // bullets are visibly distinct without ballooning page length.
-    const bulletParagraph = (s: string) => new Paragraph({
-      bullet: { level: 0 },
-      spacing: { before: 0, after: SP_AFTER_BULLET, line: LINE_SINGLE, lineRule: LineRuleType.AUTO },
-      children: [new TextRun({ text: String(s || ""), size: BULLET_SIZE, font: FONT })],
-    });
-
-    // About Me body paragraph. Justified, 1.05 line.
-    const bodyParagraph = (s: string) => new Paragraph({
-      alignment: AlignmentType.JUSTIFIED,
-      spacing: { before: 0, after: 0, line: LINE_ABOUT, lineRule: LineRuleType.AUTO },
-      children: [new TextRun({ text: String(s || ""), size: BODY_SIZE, font: FONT })],
-    });
-
-    // Bold label + value paragraph, e.g. "Domain: X, Y, Z".
-    const labelledLine = (label: string, values: string[] | string) => {
-      if (!values || (Array.isArray(values) && values.length === 0)) return null;
-      const valueText = Array.isArray(values) ? values.join(", ") : String(values);
-      return new Paragraph({
-        spacing: { before: 0, after: SP_AFTER_SKILL },
-        children: [
-          new TextRun({ text: `${label}: `, bold: true, size: BULLET_SIZE, font: FONT }),
-          new TextRun({ text: valueText, size: BULLET_SIZE, font: FONT }),
-        ],
-      });
-    };
-
-    // Plain single-line paragraph — used for Languages.
-    const plainLine = (s: string) => new Paragraph({
-      spacing: { before: 0, after: SP_AFTER_SKILL },
-      children: [new TextRun({ text: s, size: BULLET_SIZE, font: FONT })],
-    });
-
-    // ─── Header (centered name / current-identity subtitle / contact line) ───
-    // The subtitle describes who the candidate IS today (e.g. "Business
-    // Administration Student | Digital Innovation"), NOT the target role —
-    // the target role connection is made in About Me. Computed server-side
-    // in the reconcile block above.
-    const header = (cvData.header || {}) as any;
-    const nameText = String(header.name || userContext.full_name || "").toUpperCase();
-    paragraphs.push(new Paragraph({
-      alignment: AlignmentType.CENTER,
-      spacing: { before: 0, after: SP_AFTER_NAME },
-      children: [new TextRun({ text: nameText, bold: true, size: NAME_SIZE, font: FONT })],
-    }));
-
-    const subtitleText = String(header.subtitle || "").trim();
-    if (subtitleText) {
-      paragraphs.push(new Paragraph({
-        alignment: AlignmentType.CENTER,
-        spacing: { before: 0, after: SP_AFTER_SUBTITLE },
-        children: [new TextRun({ text: subtitleText, size: ROLE_SUBTITLE_SIZE, color: MUTED_COLOR, font: FONT })],
-      }));
-    }
-
-    const contactBits: string[] = [];
-    const pushBit = (v: string | null | undefined) => {
-      const s = (v ?? "").toString().trim();
-      if (s) contactBits.push(s);
-    };
-    pushBit(header.phone || userContext.phone_number);
-    pushBit(header.email || userContext.email);
-    pushBit(header.location || userContext.location);
-    pushBit(header.linkedin || userContext.linkedin_url);
-    if (contactBits.length > 0) {
-      paragraphs.push(new Paragraph({
-        alignment: AlignmentType.CENTER,
-        spacing: { before: 0, after: SP_AFTER_CONTACT },
-        children: [new TextRun({ text: contactBits.join("  \u00B7  "), size: CONTACT_SIZE, font: FONT })],
-      }));
-    }
-
-    // ─── About Me ───
-    const aboutText = String(cvData.summary || cvData.about_me || "").trim();
-    if (aboutText) {
-      paragraphs.push(sectionHeading("About Me"));
-      paragraphs.push(bodyParagraph(aboutText));
-    }
-
-    // ─── EXPERIENCE (umbrella with sub-headings) ───
-    const professional: any[] = Array.isArray(cvData.professional_experiences)
-      ? cvData.professional_experiences
-      : (Array.isArray(cvData.experiences) ? cvData.experiences : []);
-    const militaryList: any[] = Array.isArray(cvData.military_experiences)
-      ? cvData.military_experiences
-      : (cvData.military_service && cvData.military_service.unit ? [cvData.military_service] : []);
-    const volunteeringList: any[] = Array.isArray(cvData.volunteering_experiences)
-      ? cvData.volunteering_experiences
-      : (Array.isArray(cvData.volunteering) ? cvData.volunteering : []);
-    const leadershipList: any[] = Array.isArray(cvData.leadership_experiences)
-      ? cvData.leadership_experiences
-      : [];
-
-    const hasAnyExperience =
-      professional.length + militaryList.length + volunteeringList.length + leadershipList.length > 0;
-
-    const renderEntryBlock = (entries: any[], orgKey: string) => {
-      entries.forEach((exp: any, idx: number) => {
-        // First entry has no leading gap — flush under the sub-section
-        // heading. Subsequent entries get 4pt of breathing room above.
-        paragraphs.push(experienceEntryLine(exp.title || "", exp[orgKey], exp.dates, idx > 0));
-        (exp.bullets || []).forEach((b: string) => paragraphs.push(bulletParagraph(b)));
-      });
-    };
-
-    if (hasAnyExperience) {
-      paragraphs.push(sectionHeading("Experience"));
-      if (professional.length > 0) {
-        paragraphs.push(subsectionHeading("Professional Experience"));
-        renderEntryBlock(professional, "company");
-      }
-      if (militaryList.length > 0) {
-        paragraphs.push(subsectionHeading("Military Service"));
-        renderEntryBlock(militaryList, "unit");
-      }
-      if (volunteeringList.length > 0) {
-        paragraphs.push(subsectionHeading("Volunteering"));
-        renderEntryBlock(volunteeringList, "organization");
-      }
-      if (leadershipList.length > 0) {
-        paragraphs.push(subsectionHeading("Leadership"));
-        renderEntryBlock(leadershipList, "organization");
-      }
-    }
-
-    // ─── Education (university + optional secondary) ───
-    const llmEducation: any[] = Array.isArray(cvData.education) ? cvData.education : [];
-    const secondary = (userContext as any).secondary_education;
-    const normInst = (s: unknown) => String(s || "").replace(/\s+/g, " ").trim().toLowerCase();
-
-    const mergedEducation: any[] = [...llmEducation];
-    if (secondary && secondary.institution) {
-      const already = mergedEducation.some((e) => normInst(e.institution) === normInst(secondary.institution));
-      if (!already) {
-        mergedEducation.push({
-          institution: secondary.institution,
-          degree: "",
-          dates: secondary.dates,
-          coursework: [],
-          highlights: secondary.highlights || [],
-          _secondary_location: secondary.location,
-        });
-      }
-    }
-
-    if (mergedEducation.length > 0) {
-      paragraphs.push(sectionHeading("Education"));
-      // Honors set for deduping — accepts legacy string[] or {name, description}[].
-      const honorsSet = new Set(
-        safeArray(cvData.honors_and_awards)
-          .map((h: any) => {
-            if (!h) return "";
-            if (typeof h === "string") return h;
-            return String(h.name || "").trim();
-          })
-          .map((s) => String(s).replace(/\s+/g, " ").trim().toLowerCase())
-          .filter(Boolean),
-      );
-
-      mergedEducation.forEach((edu: any, idx: number) => {
-        const topLine = edu.degree?.trim() ? edu.degree : edu.institution;
-        const subLine = edu.degree?.trim() ? edu.institution : (edu._secondary_location || "");
-        educationEntryLines(topLine || "", subLine, edu.dates, idx > 0).forEach((p) => paragraphs.push(p));
-        if (edu.gpa) paragraphs.push(bulletParagraph(`GPA: ${edu.gpa}`));
-
-        let coursework = safeArray(edu.coursework || edu.relevant_coursework).map(String);
-        let activities = safeArray(edu.activities).map(String);
-        if (coursework.length === 0 && activities.length === 0) {
-          const loose = [...safeArray(edu.details), ...safeArray(edu.highlights)].map(String);
-          for (const item of loose) {
-            const t = item.trim();
-            if (!t) continue;
-            if (t.length < 30 && !/[.!?:;]/.test(t) && !/\b(club|president|editor|captain|volunteer|led|managed|organized|mentor)\b/i.test(t)) {
-              coursework.push(t);
-            } else {
-              activities.push(t);
-            }
-          }
-        }
-
-        if (coursework.length > 0) {
-          paragraphs.push(bulletParagraph(`Relevant coursework: ${coursework.join(", ")}`));
-        }
-        const seen = new Set<string>();
-        activities.forEach((a) => {
-          const raw = String(a || "").trim();
-          if (!raw) return;
-          const key = raw.replace(/\s+/g, " ").toLowerCase();
-          if (seen.has(key)) return;
-          seen.add(key);
-          if (honorsSet.has(key)) return;
-          paragraphs.push(bulletParagraph(raw));
-        });
-      });
-    }
-
-    // ─── Skills & Tools ───
-    const skills = (cvData.skills || {}) as any;
-    const hasSkills = (skills.domain?.length || skills.tools?.length || skills.technical?.length);
-    if (hasSkills) {
-      paragraphs.push(sectionHeading("Skills & Tools"));
-      if (skills.domain?.length > 0) {
-        const p = labelledLine("Domain", skills.domain);
-        if (p) paragraphs.push(p);
-      }
-      if (skills.tools?.length > 0) {
-        const p = labelledLine("Tools", skills.tools);
-        if (p) paragraphs.push(p);
-      }
-      if (skills.technical?.length > 0) {
-        const p = labelledLine("Technical", skills.technical);
-        if (p) paragraphs.push(p);
-      }
-    }
-
-    // ─── Languages ───
-    let languageLines: string[] = [];
-    if (Array.isArray(cvData.languages)) {
-      languageLines = (cvData.languages as any[])
-        .map((l) => {
-          if (!l) return "";
-          if (typeof l === "string") return l;
-          const lang = String(l.language || "").trim();
-          const level = String(l.proficiency || l.level || "").trim();
-          return lang && level ? `${lang} (${level})` : lang;
-        })
-        .filter((s) => s.length > 0);
-    } else if (Array.isArray(skills.languages)) {
-      languageLines = (skills.languages as any[]).map((s) => String(s)).filter(Boolean);
-    }
-    if (languageLines.length > 0) {
-      paragraphs.push(sectionHeading("Languages"));
-      // Heading already says "LANGUAGES" — don't repeat it as a label.
-      paragraphs.push(plainLine(languageLines.join(", ")));
-    }
-
-    // ─── Honors & Awards ───
-    const honorsRaw = safeArray(cvData.honors_and_awards);
-    const honorLines: string[] = honorsRaw
-      .map((h: any) => {
-        if (!h) return "";
-        if (typeof h === "string") return h;
-        const name = String(h.name || "").trim();
-        const desc = String(h.description || "").trim();
-        return name && desc ? `${name} \u2014 ${desc}` : name;
-      })
-      .filter((s) => s.length > 0);
-    if (honorLines.length > 0) {
-      paragraphs.push(sectionHeading("Honors & Awards"));
-      honorLines.forEach((h) => paragraphs.push(bulletParagraph(h)));
-    }
-
-    // ─── Certifications ───
-    const certs = Array.isArray(cvData.certifications) ? cvData.certifications : [];
-    if (certs.length > 0) {
-      paragraphs.push(sectionHeading("Certifications"));
-      certs.forEach((cert: any) => {
-        const parts: string[] = [];
-        if (cert.name) parts.push(String(cert.name));
-        if (cert.issuer) parts.push(String(cert.issuer));
-        const line = parts.join(", ") + (cert.date ? `  (${cert.date})` : "");
-        if (line.trim()) paragraphs.push(bulletParagraph(line));
-      });
-    }
-
-    // ─── Projects ───
-    const projectsOut = Array.isArray(cvData.projects) ? cvData.projects : [];
-    if (projectsOut.length > 0) {
-      paragraphs.push(sectionHeading("Projects"));
-      projectsOut.forEach((proj: any, idx: number) => {
-        paragraphs.push(experienceEntryLine(proj.name || "", undefined, undefined, idx > 0));
-        (proj.bullets || []).forEach((b: string) => paragraphs.push(bulletParagraph(b)));
-      });
-    }
-
-    // Assemble the document. Top/bottom 20mm, left/right 25mm per spec.
-    const docFile = new Document({
-      styles: {
-        default: {
-          document: { run: { font: FONT, size: BODY_SIZE } },
-        },
-      },
-      sections: [{
-        properties: {
-          page: {
-            // Tight margins for one-page enforcement: ~0.35" top/bottom,
-            // ~0.49" left/right. A4 size is the docx default (11906×16838).
-            margin: { top: 500, bottom: 500, left: 700, right: 700 },
-          },
-        },
-        children: paragraphs,
-      }],
-    });
-
-    // Packer.toBase64String is the most portable in Deno edge runtime —
-    // toBlob / toBuffer rely on host APIs that aren't always available. We
-    // decode the base64 into a Uint8Array for Supabase storage.
-    const docBase64 = await Packer.toBase64String(docFile);
-    const docBytes = Uint8Array.from(atob(docBase64), (c) => c.charCodeAt(0));
+    const docBytes = await buildCV(cvData, userContext as any, {
+      style: safeTemplateStyle,
+      theme: sectorResolution.theme,
+      sectionOrder,
+      photo: null, // PR B wires this up
+    })
 
     const safeRole = safeTargetRole.replace(/[^a-zA-Z0-9_\-]/g, "_");
     const fileName = `${user.id}/${safeRole}_CV_${Date.now()}.docx`;
