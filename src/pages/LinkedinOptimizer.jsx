@@ -1,7 +1,7 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
-import { Loader2, Copy, Check, Linkedin, RefreshCw, AlertCircle } from "lucide-react";
+import { Loader2, Copy, Check, Linkedin, RefreshCw, AlertCircle, Upload, FileArchive, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
@@ -78,11 +78,229 @@ function TextBlock({ text, placeholder }) {
   return <pre className="text-sm text-[#0A0A0A] whitespace-pre-wrap font-sans leading-relaxed">{text}</pre>;
 }
 
+// Compare-card variant: when baseline is present, show Baseline | Generated
+// tabs so the user can flip between their CURRENT LinkedIn text and the
+// improved version. Char count and Copy button always reflect the visible tab.
+function CompareCard({ title, baseline, generated, max, footer }) {
+  const hasBoth = baseline && generated;
+  const [tab, setTab] = useState(generated ? "generated" : "baseline");
+  // If a regen lands while the user has Baseline open, default them back to
+  // Generated (they're here to see the improved version, not their old one).
+  useEffect(() => { if (generated) setTab("generated"); }, [generated]);
+  const visible = tab === "baseline" ? baseline : generated;
+  return (
+    <div className="bg-white rounded-xl border border-[#E5E5E5] p-5 mb-4">
+      <div className="flex items-center justify-between mb-2 gap-3 flex-wrap">
+        <h3 className="text-sm font-semibold text-[#0A0A0A]">{title}</h3>
+        <div className="flex items-center gap-3 flex-shrink-0">
+          {hasBoth && (
+            <div className="flex bg-[#F5F5F5] rounded-md p-0.5 text-[11px]">
+              <button
+                onClick={() => setTab("baseline")}
+                className={`px-2 py-0.5 rounded ${tab === "baseline" ? "bg-white text-[#0A0A0A] shadow-sm font-medium" : "text-[#A3A3A3]"}`}
+              >Baseline</button>
+              <button
+                onClick={() => setTab("generated")}
+                className={`px-2 py-0.5 rounded ${tab === "generated" ? "bg-white text-[#0A0A0A] shadow-sm font-medium" : "text-[#A3A3A3]"}`}
+              >Generated</button>
+            </div>
+          )}
+          {max != null && <CharCount value={visible} max={max} />}
+          {visible && <CopyButton text={visible} />}
+        </div>
+      </div>
+      <TextBlock
+        text={visible}
+        placeholder={tab === "baseline" ? "No baseline available for this section." : "No generation yet."}
+      />
+      {footer && <p className="text-[11px] text-[#A3A3A3] mt-2">{footer}</p>}
+    </div>
+  );
+}
+
+function ArchiveUploader({ baseline, onImported }) {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState(null);
+  const inputRef = useRef(null);
+
+  const handleFile = async (file) => {
+    if (!file) return;
+    if (!/\.zip$/i.test(file.name)) {
+      setError("Please upload a .zip file (your LinkedIn data archive).");
+      return;
+    }
+    if (file.size > 50 * 1024 * 1024) {
+      setError("File too large. Max 50MB.");
+      return;
+    }
+    setError(null);
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const { data, error: invokeErr } = await supabase.functions.invoke("import-linkedin-archive", {
+        body: fd,
+      });
+      if (invokeErr) {
+        const status = invokeErr?.context?.status;
+        if (status === 429) setError("Rate limit reached. Try again in an hour.");
+        else if (status === 413) setError("File too large. Max 50MB.");
+        else if (status === 400) setError("Couldn't parse the archive. Make sure it's a LinkedIn data export ZIP.");
+        else setError(invokeErr.message || "Import failed. Please try again.");
+        return;
+      }
+      onImported(data);
+      toast.success("LinkedIn baseline imported.");
+    } catch (e) {
+      console.error("Archive import error:", e);
+      setError("Couldn't reach the import service. Please try again.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const counts = baseline?._meta?.counts;
+  const importedAt = baseline?._meta?.imported_at;
+
+  return (
+    <div className="bg-white rounded-xl border border-[#E5E5E5] p-5 mb-6">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <FileArchive className="w-4 h-4 text-[#525252]" />
+            <h3 className="text-sm font-semibold text-[#0A0A0A]">LinkedIn baseline</h3>
+            {baseline && (
+              <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 bg-emerald-50 text-emerald-700 rounded">
+                Imported
+              </span>
+            )}
+          </div>
+          {baseline ? (
+            <p className="text-xs text-[#525252]">
+              {counts && (
+                <>{counts.positions || 0} positions · {counts.skills || 0} skills · {counts.education || 0} education · {counts.honors || 0} honors · {counts.volunteering || 0} volunteering</>
+              )}
+              {importedAt && (
+                <span className="text-[#A3A3A3]"> · imported {new Date(importedAt).toLocaleDateString()}</span>
+              )}
+            </p>
+          ) : (
+            <p className="text-xs text-[#525252]">
+              Optional. Upload your LinkedIn data archive (ZIP) and the AI will compare-and-improve your current profile rather than writing from scratch.
+            </p>
+          )}
+          <p className="text-[11px] text-[#A3A3A3] mt-1.5 inline-flex items-center gap-1">
+            <ShieldCheck className="w-3 h-3" />
+            Your zip is parsed in-memory and never stored. Connections, messages, and ad data are skipped.
+          </p>
+        </div>
+        <div className="flex-shrink-0">
+          <input
+            ref={inputRef}
+            type="file"
+            accept=".zip,application/zip"
+            className="hidden"
+            onChange={(e) => handleFile(e.target.files?.[0])}
+          />
+          <Button
+            onClick={() => inputRef.current?.click()}
+            disabled={uploading}
+            variant={baseline ? "outline" : "default"}
+            className={baseline ? "text-sm" : "bg-[#0A66C2] hover:bg-[#004182] text-white text-sm"}
+          >
+            {uploading ? (
+              <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Parsing…</>
+            ) : (
+              <><Upload className="w-4 h-4 mr-2" />{baseline ? "Replace baseline" : "Import LinkedIn archive"}</>
+            )}
+          </Button>
+        </div>
+      </div>
+      {error && (
+        <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+          <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+          <p className="text-xs text-red-800">{error}</p>
+        </div>
+      )}
+      {!baseline && (
+        <p className="text-[11px] text-[#A3A3A3] mt-3">
+          To get your archive: LinkedIn → Settings → Data Privacy → Get a copy of your data → "Want something in particular?" → Profile, Positions, Skills, Education (24h wait).
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function LinkedinOptimizer() {
   const { user } = useAuth();
   const [content, setContent] = useState(null);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState(null);
+  const [baseline, setBaseline] = useState(null);
+  const [baselineLoading, setBaselineLoading] = useState(true);
+
+  // Hydrate the baseline + last-generated content from linkedin_optimizations
+  // so the user lands on a populated page after import or after returning to
+  // the tab. Both are best-effort — a failure here just means the user sees
+  // the empty/upload state.
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from("linkedin_optimizations")
+          .select("baseline_data, generated_data")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (cancelled) return;
+        if (data?.baseline_data) setBaseline(data.baseline_data);
+        if (data?.generated_data?.headline) setContent(data.generated_data);
+      } catch (e) {
+        console.error("hydrate linkedin_optimizations:", e);
+      } finally {
+        if (!cancelled) setBaselineLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id]);
+
+  // Helpers to look up the baseline counterpart of a generated section.
+  // Match positions/volunteering by company+title since baseline rows have no
+  // experience_id (they're parsed from the archive, not our experiences table).
+  const baselineByExpId = useMemo(() => {
+    const map = new Map();
+    if (!baseline || !content?.experience_labels) return map;
+    const labelToId = new Map(Object.entries(content.experience_labels).map(([id, label]) => [label.toLowerCase(), id]));
+    for (const p of (baseline.positions || [])) {
+      const label = `${p.title || ""}${p.company ? ` at ${p.company}` : ""}`.trim().toLowerCase();
+      const id = labelToId.get(label);
+      if (id) map.set(id, p.description || "");
+    }
+    for (const v of (baseline.volunteering || [])) {
+      const label = `${v.role || ""}${v.organization ? ` at ${v.organization}` : ""}`.trim().toLowerCase();
+      const id = labelToId.get(label);
+      if (id) map.set(id, v.description || "");
+    }
+    return map;
+  }, [baseline, content?.experience_labels]);
+
+  const handleImported = async (importResp) => {
+    // After successful import, re-fetch baseline_data from the row (the
+    // import response only sends summary metadata; the parsed baseline lives
+    // in linkedin_optimizations.baseline_data).
+    setBaselineLoading(true);
+    try {
+      const { data } = await supabase
+        .from("linkedin_optimizations")
+        .select("baseline_data")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (data?.baseline_data) setBaseline(data.baseline_data);
+    } finally {
+      setBaselineLoading(false);
+    }
+  };
 
   const handleGenerate = async () => {
     if (generating || !user?.id) return;
@@ -157,6 +375,10 @@ export default function LinkedinOptimizer() {
         </Button>
       </div>
 
+      {!baselineLoading && (
+        <ArchiveUploader baseline={baseline} onImported={handleImported} />
+      )}
+
       {error && (
         <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2">
           <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
@@ -168,7 +390,8 @@ export default function LinkedinOptimizer() {
         <div className="bg-white rounded-xl border border-[#E5E5E5] p-8 text-center">
           <Linkedin className="w-8 h-8 text-[#A3A3A3] mx-auto mb-3" />
           <p className="text-sm text-[#525252] mb-1">
-            Click <strong>Generate</strong> to create LinkedIn content from your profile + Story Bank.
+            Click <strong>Generate</strong> to create LinkedIn content from your profile + Story Bank
+            {baseline ? <> (and improve on your imported baseline)</> : null}.
           </p>
           <p className="text-xs text-[#A3A3A3]">
             6 sections: Headline, About, Experience descriptions, Volunteering descriptions, Skills priority,
@@ -197,18 +420,20 @@ export default function LinkedinOptimizer() {
             and paste into LinkedIn's edit fields.
           </p>
 
-          <SectionCard title="Headline" text={content.headline} max={LIMITS.headline}>
-            <TextBlock text={content.headline} placeholder="No headline generated." />
-          </SectionCard>
+          <CompareCard
+            title="Headline"
+            baseline={baseline?.profile?.headline}
+            generated={content.headline}
+            max={LIMITS.headline}
+          />
 
-          <SectionCard
+          <CompareCard
             title="About"
-            text={content.about}
+            baseline={baseline?.profile?.about}
+            generated={content.about}
             max={LIMITS.about}
             footer="Paste into LinkedIn's About section. First paragraph shows above the fold; structure accordingly."
-          >
-            <TextBlock text={content.about} placeholder="No about generated." />
-          </SectionCard>
+          />
 
           {content.experiences?.length > 0 && (
             <div className="mt-6 mb-2">
@@ -218,14 +443,13 @@ export default function LinkedinOptimizer() {
             </div>
           )}
           {content.experiences?.map((e) => (
-            <SectionCard
+            <CompareCard
               key={e.experience_id}
               title={expLabels[e.experience_id] || "Experience"}
-              text={e.description}
+              baseline={baselineByExpId.get(e.experience_id)}
+              generated={e.description}
               max={LIMITS.experience_desc}
-            >
-              <TextBlock text={e.description} placeholder="No description generated." />
-            </SectionCard>
+            />
           ))}
 
           {content.volunteering?.length > 0 && (
@@ -236,14 +460,13 @@ export default function LinkedinOptimizer() {
             </div>
           )}
           {content.volunteering?.map((v) => (
-            <SectionCard
+            <CompareCard
               key={v.experience_id}
               title={expLabels[v.experience_id] || "Volunteering"}
-              text={v.description}
+              baseline={baselineByExpId.get(v.experience_id)}
+              generated={v.description}
               max={LIMITS.volunteering_desc}
-            >
-              <TextBlock text={v.description} placeholder="No description generated." />
-            </SectionCard>
+            />
           ))}
 
           {content.military?.length > 0 && (
