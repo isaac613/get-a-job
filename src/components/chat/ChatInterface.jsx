@@ -162,6 +162,43 @@ function ApplicationActionsCard({ messageId, actions, applied, onApply }) {
   );
 }
 
+// Heuristic gate for the story-capture follow-up that fires after CV
+// generation. Returns true only when the message text plausibly contains
+// a concrete past moment — long enough, has a past-tense first-person
+// verb, isn't a generation/ack/question. The gate is intentionally
+// strict: false-positive follow-ups (asking the user to save a "story"
+// when they only said "generate the CV") are far worse for trust than
+// missing the occasional legit story, which the user can still capture
+// manually via the floating quick-add button on AddInformation.
+//
+// The same logic could live server-side in ai-chat, but doing it on the
+// frontend means we skip the LLM call entirely when the gate fails —
+// faster, cheaper, deterministic. Also lets the rule evolve without
+// redeploying the edge function.
+const PAST_TENSE_FIRST_PERSON_RE = /\b(I|we)\s+(led|ran|built|shipped|launched|owned|drove|managed|created|wrote|coded|designed|migrated|reduced|increased|improved|grew|hit|delivered|negotiated|coordinated|implemented|deployed|presented|analy[sz]ed|researched|interviewed|surveyed|recruited|trained|mentored|onboarded|automated|fixed|debugged|scaled|optimi[sz]ed|rewrote|refactored)\b/i
+const GENERATION_REQUEST_RE = /\b(generate|make|create|build me|tailor|draft|write me|produce)\b.*\b(cv|resume|pdf|docx)\b/i
+// "when" and "where" are excluded — they commonly open past-tense
+// narratives ("When I was at Atera I owned X", "Where I really shined was…")
+// that we DO want to treat as stories. Question starters here are the
+// strict interrogatives plus instruction-shaped openers.
+const QUESTION_STARTER_RE = /^\s*(how|what|why|who|which|should|can you|could you|would you|do you|are you|is there|please|hey)\b/i
+
+function looksLikeStory(text) {
+  const raw = String(text || '').trim();
+  if (!raw) return false;
+  // Generation request — explicit "generate the CV", "tailor my resume", etc.
+  if (GENERATION_REQUEST_RE.test(raw)) return false;
+  // Question / instruction-shaped opener.
+  if (QUESTION_STARTER_RE.test(raw)) return false;
+  // Word count — stories tend to be longer than 20 words. A user
+  // describing a real moment with action+detail rarely fits in <20 words.
+  const wordCount = raw.split(/\s+/).filter(w => w.length > 0).length;
+  if (wordCount < 20) return false;
+  // Past-tense first-person verb is the load-bearing positive signal.
+  if (!PAST_TENSE_FIRST_PERSON_RE.test(raw)) return false;
+  return true;
+}
+
 // Renders the CV agent's "generate a tailored CV" proposal. Three visual
 // states: ready-to-generate (shows a Generate CV button), generating (loading
 // spinner), and done (download link + fit analysis + tracker confirmation).
@@ -169,6 +206,10 @@ function ApplicationActionsCard({ messageId, actions, applied, onApply }) {
 // persisted to the DB.
 function CVGenerationCard({ proposal, state, onGenerate, appLabel }) {
   const { status, cv_url, fit_analysis, application_id, tailoring, error } = state || {};
+  // Template style — local to the card. Default ATS-Optimized matches the
+  // tracker default and the safer-for-portals research call. User can flip
+  // to Polished before clicking Generate.
+  const [templateStyle, setTemplateStyle] = useState("ats-optimized");
 
   if (status === "done" && cv_url) {
     const alignment = fit_analysis?.alignment;
@@ -240,12 +281,45 @@ function CVGenerationCard({ proposal, state, onGenerate, appLabel }) {
           <li><span className="text-rose-600">Application:</span> <span className="text-rose-500">linked to tracked role</span></li>
         )}
       </ul>
+      <div className="mb-3">
+        <p className="text-[10px] uppercase tracking-wider text-rose-600 font-medium mb-1.5">Style</p>
+        <div className="flex gap-1.5">
+          <button
+            type="button"
+            onClick={() => setTemplateStyle("ats-optimized")}
+            disabled={status === "generating"}
+            className={`flex-1 text-left rounded border px-2.5 py-1.5 transition-colors disabled:opacity-60 ${
+              templateStyle === "ats-optimized"
+                ? "border-rose-700 bg-rose-100"
+                : "border-rose-200 bg-white hover:border-rose-400"
+            }`}
+            title="Best for applying through job portals where your CV is parsed by software first"
+          >
+            <span className="text-[11px] font-semibold text-rose-900 block">ATS-Optimized</span>
+            <span className="text-[10px] text-rose-700 leading-tight block">For job portals · parsed first</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setTemplateStyle("polished")}
+            disabled={status === "generating"}
+            className={`flex-1 text-left rounded border px-2.5 py-1.5 transition-colors disabled:opacity-60 ${
+              templateStyle === "polished"
+                ? "border-rose-700 bg-rose-100"
+                : "border-rose-200 bg-white hover:border-rose-400"
+            }`}
+            title="Best for sending directly to a recruiter or networking contact"
+          >
+            <span className="text-[11px] font-semibold text-rose-900 block">Polished</span>
+            <span className="text-[10px] text-rose-700 leading-tight block">For direct/email · human reads</span>
+          </button>
+        </div>
+      </div>
       {error && (
         <p className="text-[11px] text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1 mb-2">{error}</p>
       )}
       <Button
         size="sm"
-        onClick={() => onGenerate()}
+        onClick={() => onGenerate(templateStyle)}
         disabled={status === "generating"}
         className="h-7 text-xs bg-rose-700 hover:bg-rose-800 gap-1.5"
       >
@@ -909,7 +983,7 @@ export default function ChatInterface({ agentName, title, description, applicati
     toast.success("Applications updated");
   };
 
-  const handleGenerateCV = async (messageId, proposal) => {
+  const handleGenerateCV = async (messageId, proposal, templateStyle = "ats-optimized") => {
     if (!user?.id || !proposal?.target_role) return;
     if (cvGenStates[messageId]?.status === "generating" || cvGenStates[messageId]?.status === "done") return;
 
@@ -920,6 +994,7 @@ export default function ChatInterface({ agentName, title, description, applicati
           target_role: proposal.target_role,
           application_id: proposal.application_id || null,
           job_description: proposal.job_description || null,
+          template_style: templateStyle,
         },
       });
       if (error) throw error;
@@ -966,12 +1041,31 @@ export default function ChatInterface({ agentName, title, description, applicati
       // (1/3 hit rate on mixed messages + false-positive CV emissions on
       // pure-story messages). The follow-up turn drops competing markers
       // entirely so the agent can focus on one job.
+      //
+      // Frontend gate (added 2026-05-05): even with the narrowed prompt the
+      // follow-up was emitting story-capture proposals after generation
+      // requests like "Generate a CV for Junior PM" — the model was finding
+      // SOMETHING to extract because it had been primed to look hard. Gate
+      // here on a deterministic story-shape check of the last user message
+      // before paying for the LLM call. False-positives are far worse for
+      // trust than missing the occasional legit story (user can still
+      // capture manually).
+      //
       // Non-blocking — if the follow-up errors we still keep the CV-gen
       // success state. The synthetic user message ("[CV ready]") is sent in
       // the API call only; it's NOT added to local messages state so it
       // never renders in chat. Future turns also won't see it in history.
       try {
         const conversationId = activeConversationId;
+        // Find the last REAL user message (the one before the user clicked
+        // Generate on the CV card). We don't look at "[CV ready]" — that's
+        // the synthetic marker we're about to send.
+        const lastUserMessage = [...messages].reverse().find((m) => m.role === "user");
+        if (!lastUserMessage || !looksLikeStory(lastUserMessage.content)) {
+          // Skip follow-up entirely when the last user message wasn't
+          // story-shaped. Saves an LLM call and prevents false-positives.
+          return;
+        }
         if (conversationId) {
           const historyForFollowUp = messages
             .filter((m) => m.role !== "system")
@@ -1208,7 +1302,7 @@ export default function ChatInterface({ agentName, title, description, applicati
                 <CVGenerationCard
                   proposal={msg.suggestedCVGeneration}
                   state={cvGenStates[msg.id]}
-                  onGenerate={() => handleGenerateCV(msg.id, msg.suggestedCVGeneration)}
+                  onGenerate={(templateStyle) => handleGenerateCV(msg.id, msg.suggestedCVGeneration, templateStyle)}
                   appLabel={applicationsById[msg.suggestedCVGeneration.application_id] || null}
                 />
               )}
