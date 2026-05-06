@@ -971,6 +971,77 @@ Return ONLY valid JSON. No markdown, no prose outside the JSON object.`;
     reconcile(cvData.volunteering_experiences, volunteeringExperiences, "title", "organization", "volunteering");
     reconcile(cvData.leadership_experiences, leadershipExperiences, "title", "organization", "leadership");
 
+    // ─── Normalize all date strings to "Mon YYYY" ───
+    // The LLM was emitting mixed formats inside the same CV ("October 2025"
+    // vs "Aug 2025") because the prompt doesn't enforce one shape. Normalize
+    // server-side so every date renders as "Oct 2025" or "Oct 2025 – Present".
+    // Idempotent: a string already in target shape passes through unchanged.
+    const MONTHS_FULL: Record<string, string> = {
+      january: "Jan", february: "Feb", march: "Mar", april: "Apr", may: "May",
+      june: "Jun", july: "Jul", august: "Aug", september: "Sep", sept: "Sep",
+      october: "Oct", november: "Nov", december: "Dec",
+    };
+    const MONTHS_SHORT_OK = new Set([
+      "Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec",
+    ]);
+    const PASSTHROUGH = new Set(["present", "current", "now", "ongoing"]);
+    // Splitter handles en-dash (–), em-dash (—), hyphen (-), and word "to".
+    const RANGE_RE = /\s*(?:[–—-]|\bto\b)\s*/i;
+    const normaliseDatePart = (raw: string): string => {
+      const t = String(raw || "").trim();
+      if (!t) return "";
+      if (PASSTHROUGH.has(t.toLowerCase())) {
+        return t.charAt(0).toUpperCase() + t.slice(1).toLowerCase();
+      }
+      // "Oct 2025" — already correct shape.
+      const short = t.match(/^([A-Za-z]{3,4})\.?\s+(\d{4})$/);
+      if (short && MONTHS_SHORT_OK.has(short[1].slice(0, 3).charAt(0).toUpperCase() + short[1].slice(1, 3).toLowerCase())) {
+        const m = short[1].slice(0, 3).charAt(0).toUpperCase() + short[1].slice(1, 3).toLowerCase();
+        return MONTHS_SHORT_OK.has(m) ? `${m} ${short[2]}` : t;
+      }
+      // "October 2025" / "Sept 2024"
+      const long = t.match(/^([A-Za-z]+)\s+(\d{4})$/);
+      if (long) {
+        const monKey = long[1].toLowerCase();
+        const abbrev = MONTHS_FULL[monKey];
+        if (abbrev) return `${abbrev} ${long[2]}`;
+      }
+      // Year-only "2025" — leave as-is.
+      if (/^\d{4}$/.test(t)) return t;
+      // "10/2025" or "10-2025"
+      const numeric = t.match(/^(\d{1,2})[\/\-](\d{4})$/);
+      if (numeric) {
+        const idx = parseInt(numeric[1], 10);
+        if (idx >= 1 && idx <= 12) {
+          const abbrev = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][idx - 1];
+          return `${abbrev} ${numeric[2]}`;
+        }
+      }
+      // Anything else — leave unchanged so we don't corrupt edge cases.
+      return t;
+    };
+    const normaliseDateString = (raw: unknown): string => {
+      const s = String(raw || "").trim();
+      if (!s) return s;
+      const parts = s.split(RANGE_RE);
+      if (parts.length === 1) return normaliseDatePart(parts[0]);
+      // Range — rejoin with en-dash for visual consistency.
+      return parts.map(normaliseDatePart).filter(Boolean).join(" – ");
+    };
+    const normaliseDatesIn = (entries: any[] | undefined) => {
+      if (!Array.isArray(entries)) return;
+      for (const e of entries) {
+        if (!e) continue;
+        if (e.dates) e.dates = normaliseDateString(e.dates);
+      }
+    };
+    normaliseDatesIn(cvData.professional_experiences);
+    normaliseDatesIn(cvData.military_experiences);
+    normaliseDatesIn(cvData.volunteering_experiences);
+    normaliseDatesIn(cvData.leadership_experiences);
+    normaliseDatesIn(cvData.education);
+    normaliseDatesIn(cvData.certifications as any[]);
+
     // ─── Title-case pass on education degree + institution strings ───
     // The LLM is told to title-case these, but a server-side safety net makes
     // this deterministic for every user. Small connector words stay lowercase
