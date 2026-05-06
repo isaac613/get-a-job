@@ -54,7 +54,11 @@ const RIGHT_TAB = PAGE_WIDTH - 2 * MARGIN_TWIPS - 16
 // Font sizes (half-points). Tuned to research-backed ranges:
 // name 18-22pt, headers 14-16pt, body 10-12pt, dates 9-10pt.
 const SIZE_NAME_ATS = 44       // 22pt
-const SIZE_NAME_POLISHED = 52  // 26pt
+// Polished name was 52 (26pt) — dropped to 48 (24pt) PR #28 to recover
+// vertical budget for one-page fit. Still 2pt larger than ATS so the
+// "more designed" visual differentiation is preserved; the trim came
+// from headroom that wasn't carrying its weight.
+const SIZE_NAME_POLISHED = 48  // 24pt
 const SIZE_SECTION_ATS = 24    // 12pt
 const SIZE_SECTION_POLISHED = 28  // 14pt
 const SIZE_BODY = 22           // 11pt
@@ -69,7 +73,13 @@ const COLOR_MUTED = "555555"
 
 // Spacing (twips, 1pt = 20 twips, 1.0 line = 240).
 const SP_SECTION_BEFORE_ATS = 100
-const SP_SECTION_BEFORE_POLISHED = 200
+// Polished section spacing was 200 — dropped to 130 PR #28 to recover
+// ~560 twips (8 sections × 70) of vertical budget. With 8 rendered
+// sections in Eli's profile, the original 200 cost ~1.1" total which
+// pushed Polished onto a 2nd page despite same content as ATS. 130 is
+// still 30% more breathing room than ATS, preserving the "polished"
+// feel without the page-2 overflow.
+const SP_SECTION_BEFORE_POLISHED = 130
 const SP_SECTION_AFTER = 60
 const SP_ENTRY_BEFORE = 80
 const SP_BULLET_AFTER = 20
