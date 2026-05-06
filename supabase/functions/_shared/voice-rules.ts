@@ -218,3 +218,69 @@ ANTI-FABRICATION:
 
 ISRAELI MARKET NOTE:
 Cross-cultural courtesy applies here too — Israeli LinkedIn users tend to comment more directly and conversationally than US norms. Don't soften the comment with excessive American hedging ("just my two cents", "happy to be wrong"). Direct + specific is the safer register for our pilot's audience.`
+
+// OUTREACH_VOICE_RULES — for LinkedIn DM outreach (PR #35). Fundamentally
+// different from posts and comments: 1:1 communication where the
+// recipient EXPECTS a personal message, not content. Different rules:
+// brevity is mandatory, cold-outreach reply rates depend on signal-of-
+// effort (research: 12.1% reply rate for HR/talent, 16.9% for first-
+// degree connections), and most DMs that fail do so because they ask
+// too much too fast.
+//
+// Grounded in docs/research/linkedin-post-performance.md section 6
+// (networking for job seekers). When pilot data contradicts a rule
+// here, update the research doc first then revise this constant.
+export const OUTREACH_VOICE_RULES = `WRITING QUALITY — LINKEDIN OUTREACH MESSAGES:
+
+THE OUTREACH CONTRACT:
+This is a 1:1 message to a real person with their own time, attention, and reasons-to-respond. Every message must EARN a reply. The recipient is asking three questions in their head as they read: (1) Why are you in my inbox? (2) What do you actually want? (3) Why should I care? Answer all three within the first 2 sentences or you've lost them.
+
+LENGTH:
+- Opening message: 50-150 words. Under 30 reads as low-effort; over 200 reads as a wall to deflect.
+- Connection-request notes: ≤200 characters. LinkedIn's hard cap is ~300; staying under 200 leaves room for personalization.
+- Follow-ups + reply messages: 30-100 words. Shorter than openers — the relationship is established.
+
+THE FIRST 2 SENTENCES MUST DO ALL OF:
+1. Why you're reaching out (specific reason — referenced their work, their company, your shared connection, the role they posted).
+2. What you actually want (1-line of substantive ask — even "I'd love to connect" is acceptable when it's accurate; "looking to connect with industry leaders" is fluff).
+3. Earn the reader's continued attention by being specific (no generic openers).
+
+ANTI-PATTERNS — these kill outreach reply rates:
+- "I hope this message finds you well." / "I hope you're doing well!" / "Hope you're well!" / "Trust this email finds you well." — 0% information density, all template signals. NONE of these phrasings are acceptable, in any sentence position.
+- "I'd love to pick your brain." — generic, common, ignored
+- "I came across your profile and was impressed by..." — hollow flattery
+- "I'm reaching out because..." — burns a sentence on what should be obvious
+- Asking for the big thing in turn 1 (referral, intro, recommendation) — almost always premature
+- Long resume-recap of the sender's background ("As you can see from my background...")
+- "Looking to connect with industry leaders / thought leaders" — generic + reads as sycophantic
+- Any sentence that could be in a template — assume the recipient has seen 50 versions of it
+
+WARMTH > FORMALITY:
+Israeli LinkedIn users (our pilot's primary audience) skew direct and conversational. American formality reads as cold or robotic. Match the recipient's likely register: an alumni with a casual headline gets a casual opener; a VP at a multinational gets a slightly warmer-but-still-professional tone. Never go full-corporate ("Dear Mr. Smith, I am writing to inquire...").
+
+SPECIFICITY:
+- Reference something specific the recipient has done, said, posted, or worked on. Not their job title.
+- If you have shared context (school, mutual connection, attended their talk), name it specifically with the detail (year, course, event name) — not "I see we have shared connections."
+- If you have NO genuine shared context, say so honestly: "We don't know each other but..." > inventing fake intimacy.
+
+THE ASK PRINCIPLE:
+A message can have an implicit ask (introduce yourself, build relationship) or an explicit ask (15-min call, referral, recommendation). Match the ask to the relationship temperature:
+- Cold + first message: implicit ask only (introduce, build context)
+- Warm + first message: small explicit ask OK (15-min informational call)
+- Established relationship: bigger asks OK (referral, recommendation), still framed as a request not a demand
+
+ANTI-FABRICATION (load-bearing — outreach with fabricated specifics is more damaging than no message at all, because the recipient remembers what was actually said and discussed):
+- Numbers, projects, employers, schools you reference about YOURSELF must come from the user's real profile/experiences. Never invent.
+- Statements about the RECIPIENT must come from what the user provided in target_person.mutual_context or be safely-generic ("I see you're at [Company]"). Never fabricate that you've met them, attended their talk, or have inside info you don't have.
+- CRITICAL — when target_person.mutual_context is sparse (e.g. "met once at X meetup"), DO NOT INVENT what you discussed there. Reference only what was provided. If you don't know what was discussed, write "We met briefly at [the event]" — not "I remember our chat about [made-up topic]." The recipient remembers what they actually talked about with you; inventing topics is detected immediately and burns trust permanently.
+- Same rule for shared courses / shared events: if you only know "took the same course," do NOT fabricate which lecture, which professor's anecdote, or which assignment you both worked on. Only the fact of the shared course is grounded.
+
+REPLY-WORTHY CLOSE:
+End with a clear next-step offer that's small enough they'd say yes:
+- "Open to a quick 15-min call any time next week — happy to work around your schedule" (specific time scope + flexibility)
+- "Even a 1-line response would mean a lot" (lowers the bar)
+- "No worries if not — totally understand" (when asking something with non-zero cost to the recipient)
+SKIP: "Thoughts?" / "Looking forward to hearing from you!" / "Excited to chat!" / "Hope to hear back soon!"
+
+PROOF-OF-EFFORT SIGNALS:
+Recipients evaluate effort within 3 seconds. The signals they look for: (1) message references something specific to them, (2) length is reasonable (not 2-line and not 500-word), (3) clear ask matched to relationship temperature, (4) typo-free, (5) ends with a low-friction reply path.`
