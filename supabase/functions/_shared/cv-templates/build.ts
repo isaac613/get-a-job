@@ -62,7 +62,7 @@ const SIZE_BULLET = 20         // 10pt
 const SIZE_ENTRY_TITLE = 22    // 11pt
 const SIZE_DATE = 20           // 10pt
 const SIZE_CONTACT = 20        // 10pt
-const SIZE_SUBTITLE = 24       // 12pt
+// SIZE_SUBTITLE was 24 (12pt) — removed PR #24 along with the subtitle.
 
 const COLOR_BLACK = "000000"
 const COLOR_MUTED = "555555"
@@ -238,7 +238,12 @@ export async function buildCV(
 
   const header = cvData.header || {}
   const nameText = String(header.name || userContext.full_name || "").toUpperCase()
-  const subtitleText = String(header.subtitle || "").trim()
+  // Subtitle removed per Eli's design call (PR #24, 2026-05-06): a 1-line
+  // "current identity" subtitle anchored recruiters on the wrong role when
+  // the user was applying for a different target. The About Me block does
+  // the positioning work; subtitle was duplicative noise. CDO research on
+  // "objective deprecated" applies here too. Do not re-add — the data field
+  // is preserved on cvData.header for backward-compat but no longer rendered.
 
   const contactBits: string[] = []
   const pushBit = (v: string | null | undefined) => {
@@ -250,14 +255,13 @@ export async function buildCV(
   pushBit(header.location || userContext.location)
   pushBit(header.linkedin || userContext.linkedin_url)
 
-  // Polished + photo: 2-cell table at the top. Cell 1 = name + subtitle +
-  // contact. Cell 2 = image. Even when ATS scrambles columns into linear
-  // text, the worst case is photo bytes appearing AFTER text — name and
-  // contact still parse correctly. Without a photo, fall through to the
-  // single-column header.
+  // Polished + photo: 2-cell table at the top. Cell 1 = name + contact.
+  // Cell 2 = image. Even when ATS scrambles columns into linear text, the
+  // worst case is photo bytes appearing AFTER text — name and contact still
+  // parse correctly. Without a photo, fall through to the single-column header.
   if (polished && config.photo) {
     paragraphs.push(buildPhotoHeaderTable(
-      nameText, subtitleText, contactBits, config.photo, font, accent, sizeName,
+      nameText, contactBits, config.photo, font, accent, sizeName,
     ))
   } else {
     // Single-column header: name centered for both styles. Earlier Polished
@@ -282,13 +286,6 @@ export async function buildCV(
         spacing: { before: 20, after: 80 },
         border: { bottom: { color: accent, style: BorderStyle.SINGLE, size: 12, space: 1 } },
         children: [new TextRun({ text: "", size: 1 })],
-      }))
-    }
-    if (subtitleText) {
-      paragraphs.push(new Paragraph({
-        alignment: headerAlign,
-        spacing: { before: 0, after: 40 },
-        children: [new TextRun({ text: subtitleText, size: SIZE_SUBTITLE, color: COLOR_MUTED, font })],
       }))
     }
     if (contactBits.length > 0) {
@@ -378,30 +375,43 @@ function renderExperience(
     : (Array.isArray(cvData.volunteering) ? cvData.volunteering : [])
   const leadership = Array.isArray(cvData.leadership_experiences) ? cvData.leadership_experiences : []
 
-  if (professional.length + military.length + volunteering.length + leadership.length === 0) return
+  // Conditional umbrella per Eli's design call (PR #24, 2026-05-06):
+  // single bucket → that bucket's name as top-level section header.
+  // 2+ buckets → "Experience" umbrella + sub-section heading per bucket.
+  // Removes the redundant "Experience → Professional Experience" double
+  // header in the common case (most pilot students have only Professional)
+  // while preserving Military/Volunteering grouping when multiple buckets
+  // exist. Matches Harvard FAS template pattern.
+  const buckets: Array<{ label: string; orgKey: string; entries: any[] }> = []
+  if (professional.length > 0) buckets.push({ label: "Professional Experience", orgKey: "company", entries: professional })
+  if (military.length > 0) buckets.push({ label: "Military Service", orgKey: "unit", entries: military })
+  if (volunteering.length > 0) buckets.push({ label: "Volunteering", orgKey: "organization", entries: volunteering })
+  if (leadership.length > 0) buckets.push({ label: "Leadership", orgKey: "organization", entries: leadership })
 
-  paragraphs.push(sectionHeading("Experience"))
+  if (buckets.length === 0) return
+
   const renderBlock = (entries: any[], orgKey: string) => {
     entries.forEach((exp, idx) => {
       paragraphs.push(experienceEntryLine(exp.title || "", exp[orgKey], exp.dates, idx > 0))
       ;(exp.bullets || []).forEach((b: string) => paragraphs.push(bulletParagraph(b)))
     })
   }
-  if (professional.length > 0) {
-    paragraphs.push(subsectionHeading("Professional Experience"))
-    renderBlock(professional, "company")
-  }
-  if (military.length > 0) {
-    paragraphs.push(subsectionHeading("Military Service"))
-    renderBlock(military, "unit")
-  }
-  if (volunteering.length > 0) {
-    paragraphs.push(subsectionHeading("Volunteering"))
-    renderBlock(volunteering, "organization")
-  }
-  if (leadership.length > 0) {
-    paragraphs.push(subsectionHeading("Leadership"))
-    renderBlock(leadership, "organization")
+
+  if (buckets.length === 1) {
+    // Single bucket — bucket name becomes the top-level section header.
+    // No umbrella, no sub-section heading. Saves a line and removes
+    // the visual redundancy.
+    paragraphs.push(sectionHeading(buckets[0].label))
+    renderBlock(buckets[0].entries, buckets[0].orgKey)
+  } else {
+    // Multiple buckets — "Experience" umbrella + sub-section heading per
+    // bucket. Sub-headers preserve the at-a-glance grouping recruiters
+    // scan for (Military Service deserves its own visible bucket).
+    paragraphs.push(sectionHeading("Experience"))
+    for (const b of buckets) {
+      paragraphs.push(subsectionHeading(b.label))
+      renderBlock(b.entries, b.orgKey)
+    }
   }
 }
 
@@ -568,12 +578,12 @@ function renderProjects(
 // ---------- Photo header table (Polished + photo only) ----------
 
 // Builds a 2-cell single-row table for the polished+photo header. Cell 1
-// = name + subtitle + contact (left). Cell 2 = photo (right). The table
-// is local to the header — it never wraps experience/education content,
-// so the ATS column-flatten failure mode (worst case: contact + photo
-// bytes parsed in reading order) is acceptable.
+// = name + contact (left). Cell 2 = photo (right). The table is local to
+// the header — it never wraps experience/education content, so the ATS
+// column-flatten failure mode (worst case: contact + photo bytes parsed
+// in reading order) is acceptable.
 function buildPhotoHeaderTable(
-  nameText: string, subtitleText: string, contactBits: string[],
+  nameText: string, contactBits: string[],
   photo: { bytes: Uint8Array; mime: 'image/jpeg' | 'image/png' },
   font: string, accent: string, sizeName: number,
 ): Table {
@@ -602,10 +612,6 @@ function buildPhotoHeaderTable(
         border: { bottom: { color: accent, style: BorderStyle.SINGLE, size: 12, space: 1 } },
         children: [new TextRun({ text: "", size: 1 })],
       }),
-      ...(subtitleText ? [new Paragraph({
-        spacing: { before: 0, after: 40 },
-        children: [new TextRun({ text: subtitleText, size: SIZE_SUBTITLE, color: COLOR_MUTED, font })],
-      })] : []),
       ...(contactBits.length ? [new Paragraph({
         spacing: { before: 0, after: 0 },
         children: [new TextRun({ text: contactBits.join("  \u00B7  "), size: SIZE_CONTACT, font })],
