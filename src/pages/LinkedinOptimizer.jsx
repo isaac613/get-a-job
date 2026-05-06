@@ -1,666 +1,108 @@
-import React, { useState, useMemo, useEffect, useRef } from "react";
-import { supabase } from "@/api/supabaseClient";
-import { useAuth } from "@/lib/AuthContext";
-import { Loader2, Copy, Check, Linkedin, RefreshCw, AlertCircle, Upload, FileArchive, ShieldCheck, Sparkles } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
+import React, { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
+import { Linkedin, User, FileText, Users } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-// LinkedIn Optimizer v1 — Wk 3.
+import ProfileTab from "@/components/linkedin/ProfileTab";
+import PostsTab from "@/components/linkedin/PostsTab";
+import NetworkingTab from "@/components/linkedin/NetworkingTab";
+
+// LinkedinOptimizer — LinkedIn command center hub (PR #31).
 //
-// Generation-first (no PDF upload, no visual mirror — those are v2).
-// Single LLM call returns 6 sections in a structured JSON. Each section
-// renders as a card with the generated text + character count vs LinkedIn's
-// actual limit + Copy button. User pastes section-by-section into LinkedIn
-// manually.
+// Three tabs replacing the original single-purpose Profile-only page:
+//   - Profile: existing 7-section optimizer + archive import + per-section
+//     refinement (PRs #16-19)
+//   - Posts: AI-driven post creator (Phase 2-3 in subsequent PRs)
+//   - Networking: comment generator + outreach + static guidance (Phase 4-5)
 //
-// State lives in component memory only — no DB persistence in v1
-// (encourages iteration; backlog item if pilot signal warrants).
+// URL state via ?tab= query param so deep-linking works (Linkedin Optimizer
+// nav item in Layout.jsx still routes to /LinkedinOptimizer; tab selector
+// re-renders content). Tab state survives navigation between hub tabs and
+// reloads.
+//
+// Eventually each tab gains a "preview as LinkedIn" mirror toggle —
+// component shape is structured so Compose / Preview / Mirror can sit
+// side-by-side without architectural changes.
+//
+// See docs/research/linkedin-post-performance.md for the research grounding
+// the Posts + Networking tabs.
 
-const LIMITS = {
-  headline: 220,
-  about: 2600,
-  experience_desc: 2000,
-  volunteering_desc: 2000,
-  military_desc: 2000,
-  honor_desc: 200,
-};
+const TABS = [
+  { id: "profile", label: "Profile", Icon: User, Component: ProfileTab },
+  { id: "posts", label: "Posts", Icon: FileText, Component: PostsTab },
+  { id: "networking", label: "Networking", Icon: Users, Component: NetworkingTab },
+];
 
-function CharCount({ value, max }) {
-  const len = value?.length || 0;
-  const pct = (len / max) * 100;
-  const color = pct > 100 ? "text-red-600" : pct > 90 ? "text-amber-600" : "text-[#A3A3A3]";
-  return <span className={`text-[11px] ${color}`}>{len} / {max}</span>;
-}
-
-function CopyButton({ text }) {
-  const [copied, setCopied] = useState(false);
-  const handle = async () => {
-    try {
-      await navigator.clipboard.writeText(text || "");
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      toast.error("Couldn't copy. Select the text manually.");
-    }
-  };
-  return (
-    <button
-      onClick={handle}
-      className="text-[11px] font-medium text-[#525252] hover:text-[#0A0A0A] inline-flex items-center gap-1"
-    >
-      {copied ? (
-        <><Check className="w-3 h-3 text-emerald-600" /> Copied</>
-      ) : (
-        <><Copy className="w-3 h-3" /> Copy</>
-      )}
-    </button>
-  );
-}
-
-function SectionCard({ title, text, max, footer, children }) {
-  return (
-    <div className="bg-white rounded-xl border border-[#E5E5E5] p-5 mb-4">
-      <div className="flex items-center justify-between mb-2 gap-3">
-        <h3 className="text-sm font-semibold text-[#0A0A0A]">{title}</h3>
-        <div className="flex items-center gap-3 flex-shrink-0">
-          {max != null && <CharCount value={text} max={max} />}
-          {text && <CopyButton text={text} />}
-        </div>
-      </div>
-      {children}
-      {footer && <p className="text-[11px] text-[#A3A3A3] mt-2">{footer}</p>}
-    </div>
-  );
-}
-
-function TextBlock({ text, placeholder }) {
-  if (!text) return <p className="text-xs text-[#A3A3A3] italic">{placeholder}</p>;
-  return <pre className="text-sm text-[#0A0A0A] whitespace-pre-wrap font-sans leading-relaxed">{text}</pre>;
-}
-
-// Compare-card variant: when baseline is present, show Baseline | Generated
-// tabs so the user can flip between their CURRENT LinkedIn text and the
-// improved version. Char count and Copy button always reflect the visible tab.
-// Per-section refinement form. Inline textarea + Refine/Cancel buttons. The
-// LLM gets the prior text + user's instruction (or "different angle" if
-// empty) and returns just this section. Empty instruction is allowed —
-// "regen with a different angle" is a valid use case per the design.
-function RefineForm({ onSubmit, onCancel, refining }) {
-  const [text, setText] = useState("");
-  const taRef = useRef(null);
-  useEffect(() => { taRef.current?.focus(); }, []);
-  return (
-    <div className="mt-3 p-3 bg-[#F9FAFB] border border-[#E5E5E5] rounded-lg">
-      <textarea
-        ref={taRef}
-        value={text}
-        onChange={(e) => setText(e.target.value.slice(0, 600))}
-        disabled={refining}
-        placeholder="Optional: how to improve this section. e.g. 'focus more on product management', 'mention my military leadership', 'make it shorter'. Leave blank to regenerate with a different angle."
-        className="w-full text-sm border border-[#E5E5E5] rounded-md px-3 py-2 bg-white resize-none focus:outline-none focus:ring-1 focus:ring-[#0A0A0A] focus:border-[#0A0A0A] disabled:opacity-60"
-        rows={3}
-      />
-      <div className="flex items-center justify-between mt-2 gap-3">
-        <span className="text-[11px] text-[#A3A3A3]">{text.length}/600</span>
-        <div className="flex gap-2">
-          <button
-            onClick={onCancel}
-            disabled={refining}
-            className="text-xs px-3 py-1.5 text-[#525252] hover:text-[#0A0A0A] disabled:opacity-60"
-          >Cancel</button>
-          <Button
-            onClick={() => onSubmit(text.trim())}
-            disabled={refining}
-            className="bg-[#0A0A0A] hover:bg-[#262626] text-xs h-8 px-3"
-          >
-            {refining ? (
-              <><Loader2 className="w-3 h-3 mr-1.5 animate-spin" />Refining…</>
-            ) : (
-              <><Sparkles className="w-3 h-3 mr-1.5" />Refine</>
-            )}
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function CompareCard({ title, baseline, generated, max, footer, sectionKey, onRefine }) {
-  const hasBoth = baseline && generated;
-  const [tab, setTab] = useState(generated ? "generated" : "baseline");
-  const [refineOpen, setRefineOpen] = useState(false);
-  const [refining, setRefining] = useState(false);
-  const [refineError, setRefineError] = useState(null);
-  // If a regen lands while the user has Baseline open, default them back to
-  // Generated (they're here to see the improved version, not their old one).
-  useEffect(() => { if (generated) setTab("generated"); }, [generated]);
-  // Auto-close the refine form when a refinement lands (generated changes).
-  useEffect(() => {
-    if (refining) {
-      setRefineOpen(false);
-      setRefining(false);
-      setRefineError(null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [generated]);
-  const visible = tab === "baseline" ? baseline : generated;
-
-  const canRefine = sectionKey && onRefine && generated;
-  const handleSubmit = async (instruction) => {
-    setRefining(true);
-    setRefineError(null);
-    try {
-      await onRefine(sectionKey, instruction);
-      // Success: parent will update `generated`, and the effect above will
-      // close the form. Don't toggle refining=false here — let the effect
-      // do it on the next render after generated changes.
-    } catch (e) {
-      setRefining(false);
-      setRefineError(e?.message || "Refinement failed. Please try again.");
-    }
-  };
-
-  return (
-    <div className="bg-white rounded-xl border border-[#E5E5E5] p-5 mb-4">
-      <div className="flex items-center justify-between mb-2 gap-3 flex-wrap">
-        <h3 className="text-sm font-semibold text-[#0A0A0A]">{title}</h3>
-        <div className="flex items-center gap-3 flex-shrink-0">
-          {hasBoth && (
-            <div className="flex bg-[#F5F5F5] rounded-md p-0.5 text-[11px]">
-              <button
-                onClick={() => setTab("baseline")}
-                className={`px-2 py-0.5 rounded ${tab === "baseline" ? "bg-white text-[#0A0A0A] shadow-sm font-medium" : "text-[#A3A3A3]"}`}
-              >Baseline</button>
-              <button
-                onClick={() => setTab("generated")}
-                className={`px-2 py-0.5 rounded ${tab === "generated" ? "bg-white text-[#0A0A0A] shadow-sm font-medium" : "text-[#A3A3A3]"}`}
-              >Generated</button>
-            </div>
-          )}
-          {max != null && <CharCount value={visible} max={max} />}
-          {visible && <CopyButton text={visible} />}
-          {canRefine && !refineOpen && (
-            <button
-              onClick={() => { setRefineOpen(true); setRefineError(null); }}
-              className="text-[11px] font-medium text-[#525252] hover:text-[#0A0A0A] inline-flex items-center gap-1"
-              title="Regenerate just this section with optional guidance"
-            >
-              <Sparkles className="w-3 h-3" /> Refine
-            </button>
-          )}
-        </div>
-      </div>
-      <TextBlock
-        text={visible}
-        placeholder={tab === "baseline" ? "No baseline available for this section." : "No generation yet."}
-      />
-      {refineOpen && (
-        <RefineForm
-          onSubmit={handleSubmit}
-          onCancel={() => { setRefineOpen(false); setRefineError(null); }}
-          refining={refining}
-        />
-      )}
-      {refineError && (
-        <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-[11px] text-red-800 flex items-start gap-1.5">
-          <AlertCircle className="w-3 h-3 text-red-600 flex-shrink-0 mt-0.5" />
-          <span>{refineError}</span>
-        </div>
-      )}
-      {footer && <p className="text-[11px] text-[#A3A3A3] mt-2">{footer}</p>}
-    </div>
-  );
-}
-
-function ArchiveUploader({ baseline, onImported }) {
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState(null);
-  const inputRef = useRef(null);
-
-  const handleFile = async (file) => {
-    if (!file) return;
-    if (!/\.zip$/i.test(file.name)) {
-      setError("Please upload a .zip file (your LinkedIn data archive).");
-      return;
-    }
-    if (file.size > 50 * 1024 * 1024) {
-      setError("File too large. Max 50MB.");
-      return;
-    }
-    setError(null);
-    setUploading(true);
-    try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const { data, error: invokeErr } = await supabase.functions.invoke("import-linkedin-archive", {
-        body: fd,
-      });
-      if (invokeErr) {
-        const status = invokeErr?.context?.status;
-        if (status === 429) setError("Rate limit reached. Try again in an hour.");
-        else if (status === 413) setError("File too large. Max 50MB.");
-        else if (status === 400) setError("Couldn't parse the archive. Make sure it's a LinkedIn data export ZIP.");
-        else setError(invokeErr.message || "Import failed. Please try again.");
-        return;
-      }
-      onImported(data);
-      toast.success("LinkedIn baseline imported.");
-    } catch (e) {
-      console.error("Archive import error:", e);
-      setError("Couldn't reach the import service. Please try again.");
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const counts = baseline?._meta?.counts;
-  const importedAt = baseline?._meta?.imported_at;
-
-  return (
-    <div className="bg-white rounded-xl border border-[#E5E5E5] p-5 mb-6">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <FileArchive className="w-4 h-4 text-[#525252]" />
-            <h3 className="text-sm font-semibold text-[#0A0A0A]">LinkedIn baseline</h3>
-            {baseline && (
-              <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 bg-emerald-50 text-emerald-700 rounded">
-                Imported
-              </span>
-            )}
-          </div>
-          {baseline ? (
-            <p className="text-xs text-[#525252]">
-              {counts && (
-                <>{counts.positions || 0} positions · {counts.skills || 0} skills · {counts.education || 0} education · {counts.honors || 0} honors · {counts.volunteering || 0} volunteering</>
-              )}
-              {importedAt && (
-                <span className="text-[#A3A3A3]"> · imported {new Date(importedAt).toLocaleDateString()}</span>
-              )}
-            </p>
-          ) : (
-            <p className="text-xs text-[#525252]">
-              Optional. Upload your LinkedIn data archive (ZIP) and the AI will compare-and-improve your current profile rather than writing from scratch.
-            </p>
-          )}
-          <p className="text-[11px] text-[#A3A3A3] mt-1.5 inline-flex items-center gap-1">
-            <ShieldCheck className="w-3 h-3" />
-            Your zip is parsed in-memory and never stored. Connections, messages, and ad data are skipped.
-          </p>
-        </div>
-        <div className="flex-shrink-0">
-          <input
-            ref={inputRef}
-            type="file"
-            accept=".zip,application/zip"
-            className="hidden"
-            onChange={(e) => handleFile(e.target.files?.[0])}
-          />
-          <Button
-            onClick={() => inputRef.current?.click()}
-            disabled={uploading}
-            variant={baseline ? "outline" : "default"}
-            className={baseline ? "text-sm" : "bg-[#0A66C2] hover:bg-[#004182] text-white text-sm"}
-          >
-            {uploading ? (
-              <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Parsing…</>
-            ) : (
-              <><Upload className="w-4 h-4 mr-2" />{baseline ? "Replace baseline" : "Import LinkedIn archive"}</>
-            )}
-          </Button>
-        </div>
-      </div>
-      {error && (
-        <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
-          <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
-          <p className="text-xs text-red-800">{error}</p>
-        </div>
-      )}
-      {!baseline && (
-        <p className="text-[11px] text-[#A3A3A3] mt-3">
-          To get your archive: LinkedIn → Settings → Data Privacy → Get a copy of your data → "Want something in particular?" → Profile, Positions, Skills, Education (24h wait).
-        </p>
-      )}
-    </div>
-  );
-}
+const VALID_TAB_IDS = new Set(TABS.map((t) => t.id));
 
 export default function LinkedinOptimizer() {
-  const { user } = useAuth();
-  const [content, setContent] = useState(null);
-  const [generating, setGenerating] = useState(false);
-  const [error, setError] = useState(null);
-  const [baseline, setBaseline] = useState(null);
-  const [baselineLoading, setBaselineLoading] = useState(true);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = searchParams.get("tab");
+  const [activeTab, setActiveTab] = useState(
+    initialTab && VALID_TAB_IDS.has(initialTab) ? initialTab : "profile"
+  );
 
-  // Hydrate the baseline + last-generated content from linkedin_optimizations
-  // so the user lands on a populated page after import or after returning to
-  // the tab. Both are best-effort — a failure here just means the user sees
-  // the empty/upload state.
+  // Keep activeTab in sync with the URL: when the user navigates with the
+  // browser back/forward buttons, the active tab follows. When the user
+  // clicks a tab button, we update the URL so links/bookmarks work.
   useEffect(() => {
-    if (!user?.id) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const { data } = await supabase
-          .from("linkedin_optimizations")
-          .select("baseline_data, generated_data")
-          .eq("user_id", user.id)
-          .maybeSingle();
-        if (cancelled) return;
-        if (data?.baseline_data) setBaseline(data.baseline_data);
-        if (data?.generated_data?.headline) setContent(data.generated_data);
-      } catch (e) {
-        console.error("hydrate linkedin_optimizations:", e);
-      } finally {
-        if (!cancelled) setBaselineLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [user?.id]);
+    const fromUrl = searchParams.get("tab");
+    if (fromUrl && VALID_TAB_IDS.has(fromUrl) && fromUrl !== activeTab) {
+      setActiveTab(fromUrl);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
-  // Helpers to look up the baseline counterpart of a generated section.
-  // Match positions/volunteering by company+title since baseline rows have no
-  // experience_id (they're parsed from the archive, not our experiences table).
-  const baselineByExpId = useMemo(() => {
-    const map = new Map();
-    if (!baseline || !content?.experience_labels) return map;
-    const labelToId = new Map(Object.entries(content.experience_labels).map(([id, label]) => [label.toLowerCase(), id]));
-    for (const p of (baseline.positions || [])) {
-      const label = `${p.title || ""}${p.company ? ` at ${p.company}` : ""}`.trim().toLowerCase();
-      const id = labelToId.get(label);
-      if (id) map.set(id, p.description || "");
-    }
-    for (const v of (baseline.volunteering || [])) {
-      const label = `${v.role || ""}${v.organization ? ` at ${v.organization}` : ""}`.trim().toLowerCase();
-      const id = labelToId.get(label);
-      if (id) map.set(id, v.description || "");
-    }
-    return map;
-  }, [baseline, content?.experience_labels]);
-
-  const handleImported = async (importResp) => {
-    // After successful import, re-fetch baseline_data from the row (the
-    // import response only sends summary metadata; the parsed baseline lives
-    // in linkedin_optimizations.baseline_data).
-    setBaselineLoading(true);
-    try {
-      const { data } = await supabase
-        .from("linkedin_optimizations")
-        .select("baseline_data")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      if (data?.baseline_data) setBaseline(data.baseline_data);
-    } finally {
-      setBaselineLoading(false);
-    }
+  const handleTabClick = (id) => {
+    if (id === activeTab) return;
+    setActiveTab(id);
+    // Replace (not push) so the tab toggles don't pollute browser history
+    // — users back-buttoning out of the page should land at the previous
+    // route, not at a previous tab.
+    const next = new URLSearchParams(searchParams);
+    next.set("tab", id);
+    setSearchParams(next, { replace: true });
   };
 
-  const handleGenerate = async () => {
-    if (generating || !user?.id) return;
-    setError(null);
-    setGenerating(true);
-    try {
-      const { data, error: invokeErr } = await supabase.functions.invoke("generate-linkedin-content", {
-        body: {},
-      });
-      if (invokeErr) {
-        const status = invokeErr?.context?.status;
-        if (status === 429) {
-          setError("Rate limit reached (30 generations/hour). Try again in a bit.");
-        } else if (status === 404) {
-          setError("No profile found. Complete onboarding first.");
-        } else {
-          setError(invokeErr.message || "Generation failed. Please try again.");
-        }
-        return;
-      }
-      if (!data?.headline) {
-        setError("AI returned an unexpected response. Please try again.");
-        return;
-      }
-      setContent(data);
-    } catch (err) {
-      console.error("LinkedIn generation error:", err);
-      setError("Couldn't reach the AI service. Please try again.");
-    } finally {
-      setGenerating(false);
-    }
-  };
-
-  // Per-section refinement: invoke generate-linkedin-content with {section,
-  // instruction}, the function returns merged_content with just the target
-  // section updated. Throws on failure so the CompareCard can show inline
-  // error; rate limit / not-found errors get human-readable messages.
-  const handleRefine = async (sectionKey, instruction) => {
-    if (!user?.id) throw new Error("Not signed in.");
-    const { data, error: invokeErr } = await supabase.functions.invoke("generate-linkedin-content", {
-      body: { section: sectionKey, instruction: instruction || "" },
-    });
-    if (invokeErr) {
-      const status = invokeErr?.context?.status;
-      if (status === 429) throw new Error("Rate limit reached (30/hour). Try again in a bit.");
-      if (status === 409) throw new Error("Run a full Generate first before refining individual sections.");
-      if (status === 404) throw new Error("Section not found. Try refreshing the page.");
-      throw new Error(invokeErr.message || "Refinement failed. Please try again.");
-    }
-    if (!data?.merged_content) throw new Error("AI returned an unexpected response.");
-    setContent(data.merged_content);
-    toast.success("Section refined.");
-  };
-
-  const expLabels = content?.experience_labels || {};
-
-  // Compute total chars across all sections for the header summary
-  const totalChars = useMemo(() => {
-    if (!content) return 0;
-    let n = (content.headline?.length || 0) + (content.about?.length || 0);
-    for (const e of (content.experiences || [])) n += e.description?.length || 0;
-    for (const v of (content.volunteering || [])) n += v.description?.length || 0;
-    for (const m of (content.military || [])) n += m.description?.length || 0;
-    for (const h of (content.honors || [])) n += h.description?.length || 0;
-    return n;
-  }, [content]);
+  const ActiveTabComponent = TABS.find((t) => t.id === activeTab)?.Component || ProfileTab;
 
   return (
-    <div className="max-w-4xl mx-auto px-6 py-8">
-      <div className="flex items-start justify-between mb-6 gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-[#0A0A0A] flex items-center gap-2">
-            <Linkedin className="w-5 h-5 text-[#0A66C2]" />
-            LinkedIn Optimizer
+    <div className="min-h-full">
+      <div className="max-w-4xl mx-auto px-6 pt-8 pb-2">
+        <div className="flex items-center gap-2 mb-1">
+          <Linkedin className="w-5 h-5 text-[#0A66C2]" />
+          <h1 className="text-2xl font-bold tracking-tight text-[#0A0A0A]">
+            LinkedIn
           </h1>
-          <p className="text-sm text-[#A3A3A3] mt-1">
-            Generates LinkedIn-formatted content for 6 sections from your profile + Story Bank.
-            Each section becomes copy-paste-ready for LinkedIn.
-          </p>
         </div>
-        <Button
-          onClick={handleGenerate}
-          disabled={generating}
-          className="bg-[#0A0A0A] hover:bg-[#262626] text-sm flex-shrink-0"
-        >
-          {generating ? (
-            <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Generating…</>
-          ) : content ? (
-            <><RefreshCw className="w-4 h-4 mr-2" />Regenerate</>
-          ) : (
-            <>Generate</>
-          )}
-        </Button>
+        <p className="text-sm text-[#A3A3A3] mb-5">
+          Optimize your profile, create posts, and grow your network — all grounded in your real experience.
+        </p>
+
+        {/* Tab selector — segmented control style */}
+        <div className="inline-flex bg-[#F5F5F5] rounded-lg p-1 mb-6">
+          {TABS.map(({ id, label, Icon }) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => handleTabClick(id)}
+              className={cn(
+                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all",
+                activeTab === id
+                  ? "bg-white text-[#0A0A0A] shadow-sm"
+                  : "text-[#525252] hover:text-[#0A0A0A]"
+              )}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {!baselineLoading && (
-        <ArchiveUploader baseline={baseline} onImported={handleImported} />
-      )}
-
-      {error && (
-        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2">
-          <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
-          <p className="text-sm text-red-800">{error}</p>
-        </div>
-      )}
-
-      {!content && !generating && !error && (
-        <div className="bg-white rounded-xl border border-[#E5E5E5] p-8 text-center">
-          <Linkedin className="w-8 h-8 text-[#A3A3A3] mx-auto mb-3" />
-          <p className="text-sm text-[#525252] mb-1">
-            Click <strong>Generate</strong> to create LinkedIn content from your profile + Story Bank
-            {baseline ? <> (and improve on your imported baseline)</> : null}.
-          </p>
-          <p className="text-xs text-[#A3A3A3]">
-            6 sections: Headline, About, Experience descriptions, Volunteering descriptions, Skills priority,
-            and Honors & Awards descriptions.
-          </p>
-          <p className="text-[11px] text-[#A3A3A3] mt-3 italic">
-            Generation takes ~20–30s. Story Bank entries supply real metrics; nothing is fabricated.
-          </p>
-        </div>
-      )}
-
-      {generating && (
-        <div className="bg-white rounded-xl border border-[#E5E5E5] p-8 text-center">
-          <Loader2 className="w-6 h-6 text-[#525252] mx-auto mb-3 animate-spin" />
-          <p className="text-sm text-[#525252]">Generating 6 sections — this takes 20-30 seconds.</p>
-          <p className="text-[11px] text-[#A3A3A3] mt-2">
-            Reading your profile, experiences, and {/* approximate */}stories…
-          </p>
-        </div>
-      )}
-
-      {content && (
-        <>
-          <p className="text-[11px] text-[#A3A3A3] mb-4">
-            Total: ~{totalChars.toLocaleString()} chars across all sections. Copy each section individually
-            and paste into LinkedIn's edit fields.
-          </p>
-
-          <CompareCard
-            title="Headline"
-            baseline={baseline?.profile?.headline}
-            generated={content.headline}
-            max={LIMITS.headline}
-            sectionKey="headline"
-            onRefine={handleRefine}
-          />
-
-          <CompareCard
-            title="About"
-            baseline={baseline?.profile?.about}
-            generated={content.about}
-            max={LIMITS.about}
-            footer="Paste into LinkedIn's About section. First paragraph shows above the fold; structure accordingly."
-            sectionKey="about"
-            onRefine={handleRefine}
-          />
-
-          {content.experiences?.length > 0 && (
-            <div className="mt-6 mb-2">
-              <h2 className="text-xs uppercase tracking-wider text-[#A3A3A3] font-medium">
-                Experience descriptions ({content.experiences.length})
-              </h2>
-            </div>
-          )}
-          {content.experiences?.map((e) => (
-            <CompareCard
-              key={e.experience_id}
-              title={expLabels[e.experience_id] || "Experience"}
-              baseline={baselineByExpId.get(e.experience_id)}
-              generated={e.description}
-              max={LIMITS.experience_desc}
-              sectionKey={`experience:${e.experience_id}`}
-              onRefine={handleRefine}
-            />
-          ))}
-
-          {content.volunteering?.length > 0 && (
-            <div className="mt-6 mb-2">
-              <h2 className="text-xs uppercase tracking-wider text-[#A3A3A3] font-medium">
-                Volunteering descriptions ({content.volunteering.length})
-              </h2>
-            </div>
-          )}
-          {content.volunteering?.map((v) => (
-            <CompareCard
-              key={v.experience_id}
-              title={expLabels[v.experience_id] || "Volunteering"}
-              baseline={baselineByExpId.get(v.experience_id)}
-              generated={v.description}
-              max={LIMITS.volunteering_desc}
-              sectionKey={`volunteering:${v.experience_id}`}
-              onRefine={handleRefine}
-            />
-          ))}
-
-          {content.military?.length > 0 && (
-            <div className="mt-6 mb-2">
-              <h2 className="text-xs uppercase tracking-wider text-[#A3A3A3] font-medium">
-                Military service ({content.military.length})
-                <span className="text-[#A3A3A3] normal-case font-normal ml-1">— civilian-readable framing for recruiters</span>
-              </h2>
-            </div>
-          )}
-          {content.military?.map((mil) => (
-            <CompareCard
-              key={mil.experience_id}
-              title={expLabels[mil.experience_id] || "Military service"}
-              baseline={baselineByExpId.get(mil.experience_id)}
-              generated={mil.description}
-              max={LIMITS.military_desc}
-              sectionKey={`military:${mil.experience_id}`}
-              onRefine={handleRefine}
-            />
-          ))}
-
-          <SectionCard
-            title={`Skills priority (${content.skills_priority?.length || 0} skills, top 3 highlighted)`}
-            text={(content.skills_priority || []).map((s) => s.skill).join("\n")}
-            max={null}
-            footer="LinkedIn's first 3 skills get the 'Top skills' highlight. Reorder your LinkedIn skills section to match this priority."
-          >
-            {!content.skills_priority?.length ? (
-              <p className="text-xs text-[#A3A3A3] italic">No skills generated.</p>
-            ) : (
-              <ol className="space-y-1.5 text-sm">
-                {content.skills_priority.map((s, i) => (
-                  <li key={i} className="flex items-start gap-2">
-                    <span className={`text-[11px] font-mono w-6 flex-shrink-0 ${i < 3 ? 'text-amber-700 font-semibold' : 'text-[#A3A3A3]'}`}>
-                      {i + 1}.
-                    </span>
-                    <div className="min-w-0">
-                      <span className={`${i < 3 ? 'font-semibold text-[#0A0A0A]' : 'text-[#525252]'}`}>{s.skill}</span>
-                      {s.rationale && (
-                        <p className="text-[11px] text-[#A3A3A3] leading-snug">{s.rationale}</p>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            )}
-          </SectionCard>
-
-          {content.honors?.length > 0 && (
-            <div className="mt-6 mb-2">
-              <h2 className="text-xs uppercase tracking-wider text-[#A3A3A3] font-medium">
-                Honors & Awards ({content.honors.length})
-              </h2>
-            </div>
-          )}
-          {content.honors?.map((h, i) => (
-            <SectionCard
-              key={i}
-              title={h.name}
-              text={h.description}
-              max={LIMITS.honor_desc}
-              footer={!h.description ? "No source-grounded description available — paste the award title alone, or add your own context (the AI won't invent the awarding committee's reasoning)." : null}
-            >
-              {h.description
-                ? <TextBlock text={h.description} placeholder="No description generated." />
-                : <p className="text-sm text-[#A3A3A3] italic">(blank — by design)</p>}
-            </SectionCard>
-          ))}
-        </>
-      )}
+      <div className="px-6 pb-12">
+        <ActiveTabComponent />
+      </div>
     </div>
   );
 }

@@ -95,3 +95,72 @@ LinkedIn Headlines and About are indexed by LinkedIn Recruiter search. When the 
 
 RECRUITER SCAN ORDER:
 Recruiters typically scan: most recent Experience title/company → Headline → first 1-2 Experience entries → About (only if the first three hooked them, ~23 seconds of attention if they reach it). Load-bearing facts go in Headline + the most recent Experience entry. Don't bury a key proof point in paragraph 2 of About — it won't be read.`
+
+// POST_VOICE_RULES — for the LinkedIn Post Creator (PRs #31-33+).
+//
+// Grounded in docs/research/linkedin-post-performance.md (research dated
+// 2026-05-06, sources cross-validated where possible). When pilot data
+// contradicts a claim here, update the research doc first then revise this
+// constant. The doc tags each finding as cross-validated / single-sourced /
+// contested — this constant asserts cross-validated rules and surfaces
+// trade-offs on contested ones rather than picking sides.
+//
+// Critical pilot context: every pilot user is under 5K followers. Format
+// + structure prescriptions in this rule set are calibrated for that
+// audience, not for executive thought-leadership accounts.
+export const POST_VOICE_RULES = `WRITING QUALITY — LINKEDIN POSTS:
+
+DESIGN FOR SAVES, NOT JUST LIKES:
+LinkedIn's 2025-2026 ranking weights saves at roughly 5x a like and 2x a meaningful comment. Posts that get SAVED contain frameworks, takeaways, lessons, or specific how-tos the reader returns to. Pure narrative without explicit takeaways gets liked once and forgotten. Numbered lists, before/after pairs, mistake-and-fix sequences — these are saveable. Make takeaways explicit ("What I learned: X, Y, Z" beats hoping the reader infers).
+
+THE HOOK (first 140 characters — mobile truncation point):
+Mobile is 91% of LinkedIn engagement. The first 140 characters either earn the click-to-expand or lose the reader.
+- Specific number > generic claim: "I cut onboarding from 14 days to 3" beats "I improved onboarding."
+- A specific moment > a topic header: "Last Tuesday at 11pm I realized..." beats "Reflections on engineering culture."
+- Skip "Excited to share that..." / "Thrilled to announce..." / "Humbled to..." — these are now algorithmically suppressed in 2025-2026 (research-backed, not opinion).
+- The hook should be readable standalone — if the truncated 140 chars don't make sense without expansion, rewrite.
+
+STRUCTURE FOR DWELL TIME:
+Posts with 15+ second dwell time get 3.2x higher distribution; posts at 0-3 second dwell get ~1.2% engagement vs 15.6% at 61+ seconds. Dwell time correlates with scannable formatting on mobile.
+- 1-2 sentences per line, blank line between thoughts.
+- No dense paragraphs. Mobile readers bounce off walls of text.
+- Visual rhythm matters — short line, longer line, short line creates flow.
+
+LENGTH:
+Sweet spot is 1,200-2,500 characters (research n=372,126 personal posts: 27% higher engagement than posts under 400 chars).
+- Under 400 chars: tells the reader you didn't have anything substantive to say.
+- 1,300-2,500 chars: peak engagement.
+- Over 3,000 chars: truncated below the fold and loses dwell time.
+
+ENGAGEMENT-BAIT BLACKLIST (algorithmically suppressed 30-40%, sometimes ~0% reach):
+NEVER use these in any post:
+- "Agree?" / "Thoughts?" / "Comment YES if..." / "Drop a 🔥 if you..."
+- "Tag someone who..." / "Like if you agree" / "Type X for the link"
+- "Comment to learn more" / "Share if this resonates"
+End with substance, not solicitation. If asking a question, ask a genuine one tied to the specifics of the post (not a formulaic prompt). Asking "What did I miss?" after sharing a specific framework is fine; "Thoughts?" alone is not.
+
+HASHTAGS:
+- 3-5 specific hashtags placed at the end of the post.
+- Specific function/industry tags ("#productmanagement #b2bsaas #customersuccess") outperform generic lifestyle tags ("#career #motivation #grindset").
+- More than 5-6 hashtags triggers spam suppression.
+- Hashtags-in-first-comment was old advice — provides no algorithmic benefit anymore.
+- Skip if you can't think of 3 specific ones; better than padding with generic tags.
+
+EMOJIS:
+- 1-3 functional emojis maximum, used as visual punctuation (e.g. a single ✅ before a takeaway, or a ⚡ before a key insight).
+- Not as filler. Not as decoration. Not at every line break.
+
+VOICE CONSISTENCY WITH PROFILE:
+The post should sound like the same person who wrote the user's About. If baseline_data.profile.about is provided in the prompt context, match its register. A reader who sees both the post in their feed and clicks through to the profile expects the same voice — inconsistency reads as ghost-written.
+
+SPECIFICITY (carries over from LINKEDIN_VOICE_RULES):
+- "I deployed our first integration last Thursday" beats "I have experience deploying integrations."
+- A real opinion grounded in a specific claim beats a safe observation. Conviction is welcome; posturing isn't.
+- Cliché trait-statements ("I'm passionate about user experience", "I thrive in fast-paced environments") tell the reader nothing — replace with sentences that demonstrate the trait through specifics.
+
+NO FABRICATION:
+- Numbers in posts must come from the user's source data (Story Bank metrics, profile experiences, attached story). Round numbers that look invented hurt credibility — recruiters spot them.
+- Tools, companies, projects mentioned must be real. The post becomes part of the user's public record.
+
+FORMAT PRESCRIPTION (under 5K followers — applies to all pilot users):
+LinkedIn's algorithm rewards low-friction formats for accounts under 5K followers. The default visual format for our pilot is TEXT + SINGLE IMAGE, not carousels. Carousels become optimal only above 20K followers; for sub-5K accounts they reach less and convert worse than text + image. The post body itself should be optimized first — visual format is a secondary lever.`
