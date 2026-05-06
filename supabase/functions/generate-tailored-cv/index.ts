@@ -1094,6 +1094,98 @@ Return ONLY valid JSON. No markdown, no prose outside the JSON object.`;
       }
     }
 
+    // ─── Honors & Awards dedup ───
+    // The LLM occasionally emits the same award twice in honors_and_awards
+    // — once as a string (no description) and once as an object with a
+    // description, or two object entries with slightly different
+    // descriptions. The renderer prints both, producing visible duplicates
+    // (e.g. "Presidential Award for Excellence" appears as a bare bullet
+    // AND with the expanded description, observed PR #25 polished smoke).
+    //
+    // Dedup by normalized name (case-insensitive, whitespace-collapsed).
+    // For duplicates: prefer the entry with a description, then the
+    // longest description. String entries with no metadata are kept only
+    // when no object form of the same name exists.
+    if (Array.isArray(cvData.honors_and_awards) && cvData.honors_and_awards.length > 1) {
+      const normHonor = (s: unknown) => String(s || "").replace(/\s+/g, " ").trim().toLowerCase();
+      const byKey = new Map<string, { entry: any; descLen: number }>();
+      let droppedCount = 0;
+      for (const raw of cvData.honors_and_awards) {
+        if (!raw) continue;
+        const name = typeof raw === "string" ? raw : String(raw.name || "");
+        const desc = typeof raw === "string" ? "" : String(raw.description || "");
+        const key = normHonor(name);
+        if (!key) continue;
+        const descLen = desc.trim().length;
+        const existing = byKey.get(key);
+        if (!existing || descLen > existing.descLen) {
+          if (existing) droppedCount++;
+          byKey.set(key, { entry: raw, descLen });
+        } else {
+          droppedCount++;
+        }
+      }
+      if (droppedCount > 0) {
+        console.log(`[CV] honors dedup (in-list): ${cvData.honors_and_awards.length} → ${byKey.size} (${droppedCount} dropped)`);
+        cvData.honors_and_awards = Array.from(byKey.values()).map((v) => v.entry);
+      }
+    }
+
+    // ─── Cross-section honors dedup ───
+    // The LLM occasionally mentions the same award TWICE: once as text
+    // inside an experience bullet ("Awarded Presidential Award for
+    // Excellence (Independence Day 2022)") AND once as a standalone
+    // entry in honors_and_awards. Both render, producing a visible
+    // duplicate (observed PR #25 polished smoke).
+    //
+    // Resolution: if the honor's name appears as a substring of any
+    // experience bullet across all buckets, drop the standalone honor.
+    // The bullet already conveys the award WITH context (what the user
+    // did to earn it), which is more useful than a bare name-drop in
+    // the Honors section. Conservative — only drops when the duplication
+    // is empirically present in the rendered text.
+    if (Array.isArray(cvData.honors_and_awards) && cvData.honors_and_awards.length > 0) {
+      const allBullets: string[] = [];
+      const bulletBuckets = [
+        cvData.professional_experiences,
+        cvData.military_experiences,
+        cvData.volunteering_experiences,
+        cvData.leadership_experiences,
+      ];
+      for (const bucket of bulletBuckets) {
+        if (!Array.isArray(bucket)) continue;
+        for (const exp of bucket) {
+          if (!exp || !Array.isArray(exp.bullets)) continue;
+          for (const b of exp.bullets) {
+            if (typeof b === "string") allBullets.push(b.toLowerCase());
+          }
+        }
+      }
+      if (allBullets.length > 0) {
+        const before = cvData.honors_and_awards.length;
+        const filtered: any[] = [];
+        for (const h of cvData.honors_and_awards) {
+          const name = typeof h === "string" ? h : String(h?.name || "");
+          if (!name.trim()) continue;
+          // Use a lowercased substring check — the bullet may have the
+          // honor name embedded with surrounding text. Case-insensitive
+          // because the LLM occasionally varies capitalization between
+          // the two emissions.
+          const nameLower = name.toLowerCase().trim();
+          const inBullet = allBullets.some((bul) => bul.includes(nameLower));
+          if (!inBullet) {
+            filtered.push(h);
+          } else {
+            console.log(`[CV] honor "${name}" already in a bullet — dropping standalone entry`);
+          }
+        }
+        if (filtered.length < before) {
+          console.log(`[CV] honors dedup (cross-section): ${before} → ${filtered.length}`);
+          cvData.honors_and_awards = filtered;
+        }
+      }
+    }
+
     // ─── Title-case pass on education degree + institution strings ───
     // The LLM is told to title-case these, but a server-side safety net makes
     // this deterministic for every user. Small connector words stay lowercase
@@ -1333,16 +1425,22 @@ Return ONLY valid JSON. No markdown, no prose outside the JSON object.`;
     }
 
     // --- Build DOCX via shared cv-templates engine ---
-    // Section order: experience-first when the user has 2+ professional
-    // experiences, education-first otherwise. Pilot users (students) often
-    // have <2 — they should lead with education. Mid-career users with
-    // multiple roles lead with experience. Conditional, not stylistic.
+    // Section order per Eli's design call PR #26: peer top-level sections,
+    // no umbrella. The four experience buckets (professional / military /
+    // volunteering / leadership) each render only when non-empty; empty
+    // ones short-circuit silently in their renderers.
+    //
+    // Conditional swap on proCount preserved from PR #21:
+    //   2+ pro experiences → experience-first
+    //   < 2 pro experiences → education-first (students lead with education)
     const proCount = Array.isArray(cvData.professional_experiences)
       ? cvData.professional_experiences.length
       : 0
     const sectionOrder: SectionKey[] = proCount >= 2
-      ? ['about', 'experience', 'education', 'skills', 'languages', 'honors', 'certifications', 'projects']
-      : ['about', 'education', 'experience', 'skills', 'languages', 'honors', 'certifications', 'projects']
+      ? ['about', 'professional_experience', 'military_service', 'volunteering', 'leadership',
+         'education', 'skills', 'languages', 'honors', 'certifications', 'projects']
+      : ['about', 'education', 'professional_experience', 'military_service', 'volunteering', 'leadership',
+         'skills', 'languages', 'honors', 'certifications', 'projects']
 
     const sectorResolution = resolveSectorTheme(safeTargetRole, roleLibrary as any, profile as any)
     console.log(`[CV] sector theme: ${sectorResolution.theme.label} (${sectorResolution.source})`)
