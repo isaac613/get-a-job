@@ -13,3 +13,8 @@ Trigger: Supabase MCP tools didn't load this session. I proposed Eli paste SQL i
 What I did wrong: defaulted to "ask the user to do it" the moment my preferred tool was missing, without first checking for the project's established alternative. The token file's existence + filename pattern was a clear signal of a deliberate workflow.
 Rule for next time: when an MCP tool is missing, before asking the user to do anything manually, check for: (1) tokens/creds at predictable paths (/tmp/.gaj_*, .env.local), (2) prior bash patterns in shell snapshots, (3) curl + management API as the universal fallback (https://api.supabase.com/v1/projects/<ref>/database/query for arbitrary SQL). The supabase management API + a personal access token will always work — there is no situation where MCP loss requires Eli to leave the editor.
 ---
+2026-05-06 — vite build passes, CI lint fails (different validation gates)
+Trigger: PR #32 CI failed on `useState` imported but never used in PostComposeForm.jsx. Pre-commit I had only run `npx vite build` which is permissive on unused imports. ESLint with --quiet (CI's lint step) caught it.
+What I did wrong: treated `npx vite build` as sufficient pre-commit signal for frontend changes. Vite's job is bundling; it doesn't enforce ESLint rules. The CI runs `npm run lint && npm run typecheck && npm run build` — three separate gates, not one.
+Rule for next time: before pushing any frontend PR, run `npm run lint` (not just vite build). The full pre-push command is `npm run lint && npm run typecheck && npm run build` — matches CI exactly. The ~10s extra is cheaper than a failed CI + push-fix cycle.
+---
