@@ -59,7 +59,11 @@ const SIZE_NAME_ATS = 44       // 22pt
 // "more designed" visual differentiation is preserved; the trim came
 // from headroom that wasn't carrying its weight.
 const SIZE_NAME_POLISHED = 48  // 24pt
-const SIZE_SECTION_ATS = 24    // 12pt
+// ATS section header was 24 (12pt) — bumped to 26 (13pt) PR #29 to
+// restore visual hierarchy lost in the PR #21 split. 13pt vs 11pt body
+// creates 2pt of clear hierarchy where 12pt only had 1pt; still well
+// under Polished's 14pt so the differentiation between styles holds.
+const SIZE_SECTION_ATS = 26    // 13pt
 const SIZE_SECTION_POLISHED = 28  // 14pt
 const SIZE_BODY = 22           // 11pt
 const SIZE_BULLET = 20         // 10pt
@@ -72,7 +76,11 @@ const COLOR_BLACK = "000000"
 const COLOR_MUTED = "555555"
 
 // Spacing (twips, 1pt = 20 twips, 1.0 line = 240).
-const SP_SECTION_BEFORE_ATS = 100
+// ATS section-before was 100 — bumped to 160 PR #29. Eli's smoke
+// rendered ATS at 8.98" on a 10.29" page (1.31" empty bottom);
+// redistributing 60 extra twips × 8 sections = 0.33" into breathing
+// room balances the page without pushing toward overflow.
+const SP_SECTION_BEFORE_ATS = 160
 // Polished section spacing was 200 — dropped to 130 PR #28 to recover
 // ~560 twips (8 sections × 70) of vertical budget. With 8 rendered
 // sections in Eli's profile, the original 200 cost ~1.1" total which
@@ -134,13 +142,18 @@ export async function buildCV(
 
   const sectionHeading = (label: string): Paragraph => {
     const text = polished ? toTitleCase(label) : label.toUpperCase()
+    // Both styles get a thin paragraph bottom rule — paragraph borders
+    // are ignored by ATS parsers (Workday/Greenhouse/Lever testing,
+    // Jobscan 2024) and cost zero twips of vertical height. ATS uses a
+    // muted grey BFBFBF (~0.75pt); Polished uses the theme accent color
+    // (~1pt). Restored on ATS in PR #29 — the legacy single-style
+    // template had this rule, and dropping it during PR #21 left ATS
+    // reading like raw text without visual section separation.
+    const ruleColor = polished ? accent : "BFBFBF"
+    const ruleSize = polished ? 8 : 6
     return new Paragraph({
       spacing: { before: sectionBefore, after: SP_SECTION_AFTER },
-      // ATS-Optimized: no bottom border (cleanest possible parse signal).
-      // Polished: thin accent rule for visual hierarchy. Both safe for ATS.
-      ...(polished
-        ? { border: { bottom: { color: accent, style: BorderStyle.SINGLE, size: 8, space: 2 } } }
-        : {}),
+      border: { bottom: { color: ruleColor, style: BorderStyle.SINGLE, size: ruleSize, space: 2 } },
       children: [new TextRun({
         text,
         bold: true,
