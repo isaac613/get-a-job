@@ -287,6 +287,7 @@ export default function AddInformation() {
     summary: "",
     // Education
     education_level: "",
+    education_institution: "",
     degree: "",
     field_of_study: "",
     education_dates: "",
@@ -328,6 +329,7 @@ export default function AddInformation() {
       linkedin_url: profile.linkedin_url || "",
       summary: profile.summary || "",
       education_level: profile.education_level || "",
+      education_institution: profile.education_institution || "",
       degree: profile.degree || "",
       field_of_study: profile.field_of_study || "",
       education_dates: profile.education_dates || "",
@@ -401,6 +403,7 @@ export default function AddInformation() {
       summary: profileForm.summary || null,
       // Education
       education_level: profileForm.education_level,
+      education_institution: profileForm.education_institution || null,
       degree: profileForm.degree || null,
       field_of_study: profileForm.field_of_study,
       education_dates: profileForm.education_dates,
@@ -671,6 +674,10 @@ export default function AddInformation() {
                     <SelectItem value="self_taught">Self-Taught</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              <div>
+                <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium">Institution</label>
+                <Input value={profileForm.education_institution} onChange={(e) => setField("education_institution", e.target.value)} className="mt-1" placeholder="e.g. Reichman University" />
               </div>
               <div>
                 <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium">Degree</label>
