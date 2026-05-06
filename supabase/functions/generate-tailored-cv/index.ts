@@ -803,7 +803,6 @@ OUTPUT SCHEMA (JSON):
 {
   "header": {
     "name": "string — exact full name from USER DATA",
-    "subtitle": "string — the user's CURRENT identity, NOT the target role. Rules: (a) if the user is an active student (education.dates contains 'Present' or similar), use '<Field of Study> Student | <Specialization>' e.g. 'Business Administration Student | Digital Innovation'. (b) else if the user has a current professional experience (is_current=true or end_date='Present'), use '<Title> | <Company>' e.g. 'Customer Success Specialist | Guardio'. (c) else use '<Most recent title> | <Most recent company>'. The target role connection belongs in About Me only — the subtitle is about who the candidate IS today.",
     "email": "string",
     "phone": "string — only if USER DATA.phone_number is non-empty",
     "location": "string",
@@ -1083,50 +1082,13 @@ Return ONLY valid JSON. No markdown, no prose outside the JSON object.`;
       }
     }
 
-    // ─── Derive a safe current-identity subtitle ───
-    // The LLM is instructed to emit header.subtitle in the right shape, but
-    // when it falls back to the target role (or leaves it empty) we compute a
-    // deterministic identity from the DB. Priority:
-    //   1. Active student with a current degree → "<Field> Student | <specialization>"
-    //   2. Current professional experience → "<title> | <company>"
-    //   3. Most recent professional experience
-    //   4. Fall back to target role (last resort)
-    const hasActiveStudent =
-      /present/i.test(String(profile.education_dates || "")) ||
-      /\b(student)\b/i.test(String(profile.education_level || ""));
-    const currentProfessional = professionalExperiences.find((e: any) => {
-      if (e?.is_current) return true;
-      const end = String(e?.end_date || "").toLowerCase();
-      return end === "present" || end === "current" || end === "";
-    });
-    const mostRecentProfessional = professionalExperiences[0];
-
-    let derivedSubtitle = "";
-    if (hasActiveStudent && profile.field_of_study) {
-      // Split the field_of_study around a hyphen to split degree + specialization
-      // when the user typed them together ("Business Administration - Specialization in Digital Innovation").
-      const fieldStr = toTitleCase(String(profile.field_of_study).trim());
-      const parts = fieldStr.split(/\s*[-–—]\s*/, 2);
-      const mainField = parts[0] || fieldStr;
-      const spec = parts[1] ? parts[1].replace(/^specialization in\s*/i, "") : "";
-      derivedSubtitle = spec ? `${mainField} Student | ${spec}` : `${mainField} Student`;
-    } else if (currentProfessional?.title && currentProfessional?.company) {
-      derivedSubtitle = `${currentProfessional.title} | ${currentProfessional.company}`;
-    } else if (mostRecentProfessional?.title && mostRecentProfessional?.company) {
-      derivedSubtitle = `${mostRecentProfessional.title} | ${mostRecentProfessional.company}`;
-    } else {
-      derivedSubtitle = safeTargetRole;
-    }
-
-    const llmSubtitle = String((cvData.header as any)?.subtitle || "").trim();
-    // If the LLM returned the target role verbatim (clear sign it mis-applied
-    // the rule), swap in the derived identity. Otherwise trust the LLM.
-    const useDerived =
-      !llmSubtitle ||
-      llmSubtitle.toLowerCase() === safeTargetRole.toLowerCase() ||
-      llmSubtitle.toLowerCase() === `${safeTargetRole.toLowerCase()} candidate`;
-    const finalSubtitle = useDerived ? derivedSubtitle : llmSubtitle;
-    cvData.header = { ...(cvData.header || {}), subtitle: finalSubtitle };
+    // Subtitle derivation removed per Eli's design call (PR #24, 2026-05-06).
+    // The 1-line "current identity" subtitle was anchoring recruiters on the
+    // user's CURRENT role when applying for a different target. The About Me
+    // block does the positioning work; subtitle was duplicative noise. The
+    // header.subtitle data field is left intact in cvData (build.ts ignores
+    // it now); LLM schema no longer requests it; line estimator no longer
+    // counts it.
 
     // ─── Step 2 of tailoring: validate how many JD phrases made it through ───
     // The score is the fraction of must_include_phrases that literally appear
@@ -1187,7 +1149,7 @@ Return ONLY valid JSON. No markdown, no prose outside the JSON object.`;
     // bullets → professional bullets → military bullets → honor descs).
     const estimatePageLines = (cv: any): number => {
       let lines = 0;
-      lines += 3; // name + subtitle + contact
+      lines += 2; // name + contact (subtitle removed PR #24)
       lines += 1; // rule / spacing buffer
 
       // About Me
