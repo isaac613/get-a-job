@@ -141,9 +141,24 @@ export async function buildCV(
     })
   }
 
+  // Sub-section heading under the Experience umbrella ("Professional
+  // Experience" / "Military Service" / "Volunteering"). All three render
+  // identical weight + size + color so they read as visually peer
+  // categories (PR #25 fix). Earlier version used SIZE_BULLET (10pt)
+  // which made them feel light vs the surrounding entry titles; bumped
+  // to SIZE_BODY (11pt) and Polished gets the theme accent color.
+  // SP_ENTRY_BEFORE before each so they breathe consistently — the first
+  // sub-header (Professional) wraps tight to umbrella; subsequent ones
+  // sit after the previous bucket's bullets.
   const subsectionHeading = (label: string): Paragraph => new Paragraph({
     spacing: { before: SP_ENTRY_BEFORE, after: 0 },
-    children: [new TextRun({ text: label, bold: true, size: SIZE_BULLET, font })],
+    children: [new TextRun({
+      text: label,
+      bold: true,
+      size: SIZE_BODY,
+      font,
+      color: polished ? accent : COLOR_BLACK,
+    })],
   })
 
   // Experience-style entry: "Role, Organization" bold left, dates muted right.
@@ -211,8 +226,12 @@ export async function buildCV(
     children: [new TextRun({ text: String(s || ""), size: SIZE_BULLET, font })],
   })
 
+  // About Me prose. Left-aligned (not justified) per Eli's design call PR
+  // #25 — justified produces stretched word spacing on short lines that
+  // reads as dated. Modern CV convention is left-aligned ragged-right,
+  // and CDO templates we surveyed all use left-aligned for prose.
   const bodyParagraph = (s: string): Paragraph => new Paragraph({
-    alignment: AlignmentType.JUSTIFIED,
+    alignment: AlignmentType.LEFT,
     spacing: { before: 0, after: SP_BULLET_AFTER, line: LINE_BODY },
     children: [new TextRun({ text: String(s || ""), size: SIZE_BODY, font })],
   })

@@ -539,6 +539,13 @@ Deno.serve(async (req) => {
         date_earned: trunc(c.date_earned, 20),
       })),
       education: {
+        // Institution is the canonical source — passed to the LLM so it
+        // can echo correctly, and overridden server-side after generation
+        // (see institution-guard block below) so the LLM can never
+        // confabulate a different name. PR #25 added profiles.education_institution
+        // because the column was missing — without it, the LLM was
+        // hallucinating an institution name on every CV gen.
+        institution: trunc(profile.education_institution, 200),
         degree: trunc(profile.degree, 100),
         field_of_study: trunc(profile.field_of_study, 100),
         education_level: trunc(profile.education_level, 50),
@@ -1040,6 +1047,52 @@ Return ONLY valid JSON. No markdown, no prose outside the JSON object.`;
     normaliseDatesIn(cvData.leadership_experiences);
     normaliseDatesIn(cvData.education);
     normaliseDatesIn(cvData.certifications as any[]);
+
+    // ─── Education institution guard ───
+    // Anti-fabrication: the institution name MUST come from profile data,
+    // never from the LLM. Discovered 2026-05-06 that "Polished" was emitting
+    // "Heseg Tzair" as Eli's university (the most-mentioned company in his
+    // profile) because the schema didn't capture institution, so the LLM
+    // confabulated it. PR #25 added profiles.education_institution; this
+    // guard enforces the override even when LLM emits something else.
+    //
+    // Behavior:
+    //   - If profile.education_institution is set → override every
+    //     primary-degree entry's institution with the canonical value.
+    //     Identification of "primary-degree entry" = the first entry whose
+    //     institution doesn't match secondary_education.institution (since
+    //     that one is correctly bound).
+    //   - If profile.education_institution is empty → STRIP the LLM's
+    //     value (set to empty string) on the primary entry. The renderer
+    //     will show the degree without an institution line, surfacing the
+    //     gap. Anti-fabrication > completeness.
+    const canonicalInstitution = String(profile.education_institution || "").trim();
+    const secondaryInstitutionLower = String(
+      (profile.secondary_education as any)?.institution || ""
+    ).trim().toLowerCase();
+    if (Array.isArray(cvData.education)) {
+      let primaryDone = false;
+      for (const edu of cvData.education) {
+        const eduInstLower = String(edu.institution || "").trim().toLowerCase();
+        const isSecondary = secondaryInstitutionLower && eduInstLower === secondaryInstitutionLower;
+        if (isSecondary) continue; // secondary_education entry — leave it alone
+        if (primaryDone) continue; // we only override the first non-secondary entry
+        if (canonicalInstitution) {
+          if (edu.institution !== canonicalInstitution) {
+            console.log(`[CV] education institution overridden: "${edu.institution}" → "${canonicalInstitution}"`);
+            edu.institution = canonicalInstitution;
+          }
+        } else {
+          // No source data — strip whatever the LLM produced. Renderer
+          // handles empty institution gracefully (degree-only entry).
+          if (edu.institution) {
+            console.log(`[CV] education institution stripped (no profile source): was "${edu.institution}"`);
+            edu.institution = "";
+          }
+        }
+        primaryDone = true;
+      }
+    }
 
     // ─── Title-case pass on education degree + institution strings ───
     // The LLM is told to title-case these, but a server-side safety net makes
