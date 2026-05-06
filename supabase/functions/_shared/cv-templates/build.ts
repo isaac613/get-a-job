@@ -141,25 +141,10 @@ export async function buildCV(
     })
   }
 
-  // Sub-section heading under the Experience umbrella ("Professional
-  // Experience" / "Military Service" / "Volunteering"). All three render
-  // identical weight + size + color so they read as visually peer
-  // categories (PR #25 fix). Earlier version used SIZE_BULLET (10pt)
-  // which made them feel light vs the surrounding entry titles; bumped
-  // to SIZE_BODY (11pt) and Polished gets the theme accent color.
-  // SP_ENTRY_BEFORE before each so they breathe consistently — the first
-  // sub-header (Professional) wraps tight to umbrella; subsequent ones
-  // sit after the previous bucket's bullets.
-  const subsectionHeading = (label: string): Paragraph => new Paragraph({
-    spacing: { before: SP_ENTRY_BEFORE, after: 0 },
-    children: [new TextRun({
-      text: label,
-      bold: true,
-      size: SIZE_BODY,
-      font,
-      color: polished ? accent : COLOR_BLACK,
-    })],
-  })
+  // subsectionHeading helper removed PR #26 — the Experience umbrella
+  // was dropped in favor of peer top-level sections, so sub-headers no
+  // longer exist. Each bucket (Professional Experience / Military
+  // Service / Volunteering / Leadership) emits its own sectionHeading.
 
   // Experience-style entry: "Role, Organization" bold left, dates muted right.
   const experienceEntryLine = (
@@ -324,7 +309,10 @@ export async function buildCV(
 
   const renderers: Record<SectionKey, () => void> = {
     about: () => renderAbout(cvData, paragraphs, sectionHeading, bodyParagraph),
-    experience: () => renderExperience(cvData, paragraphs, sectionHeading, subsectionHeading, experienceEntryLine, bulletParagraph),
+    professional_experience: () => renderProfessionalExperience(cvData, paragraphs, sectionHeading, experienceEntryLine, bulletParagraph),
+    military_service: () => renderMilitaryService(cvData, paragraphs, sectionHeading, experienceEntryLine, bulletParagraph),
+    volunteering: () => renderVolunteering(cvData, paragraphs, sectionHeading, experienceEntryLine, bulletParagraph),
+    leadership: () => renderLeadership(cvData, paragraphs, sectionHeading, experienceEntryLine, bulletParagraph),
     education: () => renderEducation(cvData, userContext, paragraphs, sectionHeading, educationEntryLines, bulletParagraph),
     skills: () => renderSkills(cvData, paragraphs, sectionHeading, labelledLine),
     languages: () => renderLanguages(cvData, paragraphs, sectionHeading, plainLine),
@@ -375,63 +363,79 @@ function renderAbout(
   paragraphs.push(bodyParagraph(aboutText))
 }
 
-function renderExperience(
+// Shared block renderer used by the four bucket-specific section
+// renderers below. Each bucket emits as a peer top-level section per
+// Eli's design call PR #26 — the former "Experience" umbrella stuttered
+// visually with the sub-headers below it, so we dropped the umbrella.
+function renderExperienceBlock(
+  paragraphs: Array<Paragraph | Table>,
+  experienceEntryLine: (title: string, org: string | undefined, dates: string | undefined, withGap: boolean) => Paragraph,
+  bulletParagraph: (s: string) => Paragraph,
+  entries: any[],
+  orgKey: string,
+): void {
+  entries.forEach((exp, idx) => {
+    paragraphs.push(experienceEntryLine(exp.title || "", exp[orgKey], exp.dates, idx > 0))
+    ;(exp.bullets || []).forEach((b: string) => paragraphs.push(bulletParagraph(b)))
+  })
+}
+
+function renderProfessionalExperience(
   cvData: CvData,
   paragraphs: Array<Paragraph | Table>,
   sectionHeading: (label: string) => Paragraph,
-  subsectionHeading: (label: string) => Paragraph,
   experienceEntryLine: (title: string, org: string | undefined, dates: string | undefined, withGap: boolean) => Paragraph,
   bulletParagraph: (s: string) => Paragraph,
 ): void {
   const professional = Array.isArray(cvData.professional_experiences)
     ? cvData.professional_experiences
     : (Array.isArray(cvData.experiences) ? cvData.experiences : [])
+  if (professional.length === 0) return
+  paragraphs.push(sectionHeading("Professional Experience"))
+  renderExperienceBlock(paragraphs, experienceEntryLine, bulletParagraph, professional, "company")
+}
+
+function renderMilitaryService(
+  cvData: CvData,
+  paragraphs: Array<Paragraph | Table>,
+  sectionHeading: (label: string) => Paragraph,
+  experienceEntryLine: (title: string, org: string | undefined, dates: string | undefined, withGap: boolean) => Paragraph,
+  bulletParagraph: (s: string) => Paragraph,
+): void {
   const military = Array.isArray(cvData.military_experiences)
     ? cvData.military_experiences
     : (cvData.military_service && (cvData.military_service as any).unit ? [cvData.military_service] : [])
+  if (military.length === 0) return
+  paragraphs.push(sectionHeading("Military Service"))
+  renderExperienceBlock(paragraphs, experienceEntryLine, bulletParagraph, military, "unit")
+}
+
+function renderVolunteering(
+  cvData: CvData,
+  paragraphs: Array<Paragraph | Table>,
+  sectionHeading: (label: string) => Paragraph,
+  experienceEntryLine: (title: string, org: string | undefined, dates: string | undefined, withGap: boolean) => Paragraph,
+  bulletParagraph: (s: string) => Paragraph,
+): void {
   const volunteering = Array.isArray(cvData.volunteering_experiences)
     ? cvData.volunteering_experiences
     : (Array.isArray(cvData.volunteering) ? cvData.volunteering : [])
+  if (volunteering.length === 0) return
+  paragraphs.push(sectionHeading("Volunteering"))
+  renderExperienceBlock(paragraphs, experienceEntryLine, bulletParagraph, volunteering, "organization")
+}
+
+function renderLeadership(
+  cvData: CvData,
+  paragraphs: Array<Paragraph | Table>,
+  sectionHeading: (label: string) => Paragraph,
+  experienceEntryLine: (title: string, org: string | undefined, dates: string | undefined, withGap: boolean) => Paragraph,
+  bulletParagraph: (s: string) => Paragraph,
+): void {
   const leadership = Array.isArray(cvData.leadership_experiences) ? cvData.leadership_experiences : []
-
-  // Conditional umbrella per Eli's design call (PR #24, 2026-05-06):
-  // single bucket → that bucket's name as top-level section header.
-  // 2+ buckets → "Experience" umbrella + sub-section heading per bucket.
-  // Removes the redundant "Experience → Professional Experience" double
-  // header in the common case (most pilot students have only Professional)
-  // while preserving Military/Volunteering grouping when multiple buckets
-  // exist. Matches Harvard FAS template pattern.
-  const buckets: Array<{ label: string; orgKey: string; entries: any[] }> = []
-  if (professional.length > 0) buckets.push({ label: "Professional Experience", orgKey: "company", entries: professional })
-  if (military.length > 0) buckets.push({ label: "Military Service", orgKey: "unit", entries: military })
-  if (volunteering.length > 0) buckets.push({ label: "Volunteering", orgKey: "organization", entries: volunteering })
-  if (leadership.length > 0) buckets.push({ label: "Leadership", orgKey: "organization", entries: leadership })
-
-  if (buckets.length === 0) return
-
-  const renderBlock = (entries: any[], orgKey: string) => {
-    entries.forEach((exp, idx) => {
-      paragraphs.push(experienceEntryLine(exp.title || "", exp[orgKey], exp.dates, idx > 0))
-      ;(exp.bullets || []).forEach((b: string) => paragraphs.push(bulletParagraph(b)))
-    })
-  }
-
-  if (buckets.length === 1) {
-    // Single bucket — bucket name becomes the top-level section header.
-    // No umbrella, no sub-section heading. Saves a line and removes
-    // the visual redundancy.
-    paragraphs.push(sectionHeading(buckets[0].label))
-    renderBlock(buckets[0].entries, buckets[0].orgKey)
-  } else {
-    // Multiple buckets — "Experience" umbrella + sub-section heading per
-    // bucket. Sub-headers preserve the at-a-glance grouping recruiters
-    // scan for (Military Service deserves its own visible bucket).
-    paragraphs.push(sectionHeading("Experience"))
-    for (const b of buckets) {
-      paragraphs.push(subsectionHeading(b.label))
-      renderBlock(b.entries, b.orgKey)
-    }
-  }
+  if (leadership.length === 0) return
+  paragraphs.push(sectionHeading("Leadership"))
+  renderExperienceBlock(paragraphs, experienceEntryLine, bulletParagraph, leadership, "organization")
 }
 
 function renderEducation(

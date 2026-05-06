@@ -45,9 +45,19 @@ export interface TemplateConfig {
 // All sections the builder knows about. Order in the page is determined
 // by config.sectionOrder, not by the order in this type. Header is always
 // first and not in the order array — it's part of the document frame.
+//
+// PR #26: split the former 'experience' umbrella into four peer top-level
+// sections (professional_experience / military_service / volunteering /
+// leadership). Each renders as a full section header with its own visual
+// treatment, no umbrella above. This removes the visual stutter of
+// "Experience" → "Professional Experience" right beneath. Each bucket
+// only renders when it has entries — empty ones short-circuit silently.
 export type SectionKey =
   | 'about'
-  | 'experience'
+  | 'professional_experience'
+  | 'military_service'
+  | 'volunteering'
+  | 'leadership'
   | 'education'
   | 'skills'
   | 'languages'
