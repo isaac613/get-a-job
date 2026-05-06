@@ -260,9 +260,11 @@ export async function buildCV(
       nameText, subtitleText, contactBits, config.photo, font, accent, sizeName,
     ))
   } else {
-    // Single-column header: name flush left for Polished (modernizes the
-    // look), centered for ATS-Optimized (keeps the safe traditional shape).
-    const headerAlign = polished ? AlignmentType.LEFT : AlignmentType.CENTER
+    // Single-column header: name centered for both styles. Earlier Polished
+    // version was left-aligned for a "modernized" look, but Eli's testing
+    // showed it competed with the centered accent rule visually. Centering
+    // both keeps the same posture across styles and matches CDO templates.
+    const headerAlign = AlignmentType.CENTER
     paragraphs.push(new Paragraph({
       alignment: headerAlign,
       spacing: { before: 0, after: 0 },
