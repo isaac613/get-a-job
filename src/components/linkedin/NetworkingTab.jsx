@@ -1,21 +1,20 @@
 import React, { useState } from "react";
-import NetworkingPrinciples from "./networking/NetworkingPrinciples";
+import { Link } from "react-router-dom";
+import { ArrowRight } from "lucide-react";
+import { createPageUrl } from "@/utils";
 import CommentCoach from "./networking/CommentCoach";
 import OutreachConversationsList from "./networking/OutreachConversationsList";
 import OutreachComposer from "./networking/OutreachComposer";
 
-// NetworkingTab — Phase 4 (PRs A + B). Single scrollable page with three
-// subsections:
-//   - Networking principles (research-grounded static content, no LLM)
+// NetworkingTab — Phase 4 (PRs A + B). Two AI tools:
 //   - Comment Coach (AI tool, highest-leverage motion per research)
 //   - Outreach Coach (PR B): conversation-coach for 8 outreach modes —
 //     list of past conversations + new/resume composer with goal-aware
 //     coaching, multi-turn threads, warm-up-vs-ask judgment.
 //
-// Per Eli's PR #34 research-doc-driven framing: commenting on others'
-// posts is arguably MORE valuable than posting for sub-1K-follower
-// accounts (~55% profile-view lift when done substantively, 5-10x daily).
-// That's why Comment Coach lives at the top.
+// The networking strategy/principles content lives in Resources (linked
+// at the top) — it's reference material, not something users want to
+// scroll past on every visit to the tools.
 export default function NetworkingTab() {
   // Outreach section view state. null/list = show list; "new" = composer
   // with no conversation; UUID = composer loaded for that conversation.
@@ -32,17 +31,17 @@ export default function NetworkingTab() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      <div>
-        <p className="text-sm text-[#525252] leading-relaxed">
-          Commenting on others' posts is the highest-leverage networking activity for accounts under 1K followers.
-          Research shows substantive comments delivered 5–10× daily produce a ~55% lift in profile views — more than
-          posting alone for early-career accounts. The Comment Coach below grounds each comment in your real experience.
-        </p>
-      </div>
-
-      <Section title="Networking principles">
-        <NetworkingPrinciples />
-      </Section>
+      <Link
+        to={createPageUrl("Resources")}
+        className="block bg-[#FAFAFA] hover:bg-[#F5F5F5] border border-[#E5E5E5] rounded-lg px-4 py-3 transition-colors"
+      >
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs text-[#525252] leading-snug">
+            New to LinkedIn networking? <span className="font-medium text-[#0A0A0A]">Read the strategy guide</span> — comment + reply windows, connection-request strategy, cold outreach reply rates, Israeli market context.
+          </p>
+          <ArrowRight className="w-4 h-4 text-[#525252] flex-shrink-0" />
+        </div>
+      </Link>
 
       <Section title="Comment Coach">
         <CommentCoach />
