@@ -714,16 +714,40 @@ D. What you MAY do:
 `;
 
     const TAILORING_RULES = `
-TAILORING (apply aggressively — this is the most important part of your job):
-- TAILORING SCORE TARGET: at least 6 of the must_include_phrases (or close variants) MUST appear across your CV — distributed across bullets, Skills section, and About Me where they describe real user experience. If a phrase reflects something the user has actually done, it MUST appear in their bullets. Truthfulness still wins — never invent experience to hit the count, but if a phrase genuinely applies to the user's real work, you MUST use it.
-- REPHRASE every bullet point to use language from the job description. "Managed customer cases" becomes "Owned customer relationships and drove adoption" if the JD uses those terms.
-- REORDER bullets within each experience: put the most JD-relevant responsibility first.
-- About Me must read like it was written FOR this specific role through the USER's relevant experience — not by quoting the company's mission or marketing language. Domain reference is OK ("fintech", "B2B SaaS", "developer tools"); reciting the company's tagline or mission is NOT.
-- Skills section must lead with skills that match the JD, then list others.
-- DO NOT just clean up the existing CV. ACTIVELY REWRITE using JD vocabulary.
-- If you are not sure whether a rephrasing is truthful, keep the original wording but try to use at least one JD keyword per bullet.
-- Reorder the experiences list itself so the role most relevant to the target comes first within its bucket.
+TAILORING (per-bucket policy — different rules for different experience types):
+
+THE CORE PRINCIPLE: tailoring must preserve the AUTHENTIC NATURE of each role. A volunteer educator coordinating youth programs is not a Product Analyst. Repackaging volunteer work in corporate-tech vocabulary ("monitored adoption dashboards", "stakeholder alignment on growth priorities") makes the CV worse, not better — recruiters spot the mismatch and trust the candidate less. Each role keeps its own register.
+
+WHERE TO TAILOR AGGRESSIVELY:
+- professional_experiences[] bullets — full JD-language rewriting, use must_include_phrases / action_verbs / domain_terms wherever they describe real work the user did
+- About Me — describe the user's experience using JD vocabulary where it genuinely applies
+- Skills & Tools — lead with JD-matching skills, then list others
+
+WHERE TO PRESERVE AUTHENTIC REGISTER (do NOT force JD vocabulary):
+- volunteering_experiences[] bullets — keep the language native to the volunteer context (curriculum, mentorship, community, youth, outreach, recruitment of volunteers, fundraising, etc). Use the user's actual responsibilities text and Story Bank metrics. JD keywords appear here ONLY when the activity genuinely maps (a volunteer running a coding bootcamp legitimately "taught Python"; a youth-education volunteer does NOT "monitor adoption dashboards").
+- military_experiences[] bullets — civilian-readable but militarily authentic. Preserve unit names + ranks. Do NOT inject corporate-tech vocabulary; keep the language of operational leadership, training, missions, teams under pressure.
+- leadership_experiences[] bullets — same authentic-register rule. Student-org leadership stays student-org-shaped, not corporate-shaped.
+
+EXAMPLES:
+
+✅ AUTHENTIC volunteering bullet (good): "Designed life-skills curricula for at-risk youth, covering financial literacy, career readiness, and conflict resolution."
+✗ OVER-TAILORED volunteering bullet (bad): "Monitored adoption dashboards and engagement metrics across a youth program portfolio."
+
+✅ AUTHENTIC volunteering bullet (good): "Coordinated weekly programming for a 12-volunteer team serving 80 students across two community centers."
+✗ OVER-TAILORED volunteering bullet (bad): "Coordinated with stakeholders to ensure alignment on growth priorities."
+
+✅ AUTHENTIC military bullet (good): "Led a 12-soldier squad through six-month operational deployment in Sector 4, including reconnaissance and patrol routes."
+✗ OVER-TAILORED military bullet (bad): "Drove cross-functional alignment across operational stakeholders to deliver on mission KPIs."
+
+✅ AUTHENTIC professional bullet (good): "Owned customer relationships and drove 88% adoption in Q1 via 12 user research interviews with security leads."
+- (this is OK because the user actually did customer success work — JD keywords genuinely apply)
+
+UNIVERSAL RULES (apply to every bucket):
+- TAILORING SCORE TARGET: at least 6 of the must_include_phrases (or close variants) appear across the CV — distributed across PROFESSIONAL bullets, Skills, and About Me. The score is NOT measured on volunteering/military/leadership bullets — those should never inflate the count by absorbing keywords that don't fit.
+- REORDER bullets within each experience: put the most-JD-relevant responsibility first WHEN it genuinely applies. Don't reorder volunteering bullets to feature curriculum-design first because the JD says "design" — if the user spent more time on coordination, coordination leads.
+- About Me must read like it was written FOR this specific role through the USER's relevant experience — not by quoting the company's mission. Domain reference is OK ("fintech", "B2B SaaS"); reciting the company's tagline is NOT.
 - NEVER invent experiences, skills, tools, certifications, or metrics. Rephrasing is allowed; fabrication is not. "Managed multiple cases" can become "Prioritised and managed a backlog of concurrent cases" if that's what actually happened, but CANNOT become "Managed a product backlog" if the user didn't work on one.
+- If unsure whether a rephrasing is truthful or natural to the role, keep the original wording. Conservative rephrasing > aggressive over-tailoring.
 `;
 
     // Extracted keywords — the single most effective lever for forcing
@@ -738,30 +762,32 @@ TAILORING (apply aggressively — this is the most important part of your job):
       jdKeywords.soft_skill_keywords.length
     ) > 0
       ? `
-=== MANDATORY — YOUR CV WILL BE REJECTED IF THESE ARE MISSING ===
+=== JOB-DESCRIPTION KEYWORDS TO USE WHERE THEY GENUINELY FIT ===
 
-You MUST use the following keywords from the job description. This is not optional.
+These keywords were extracted from the target job description. Use them in the CV ONLY where they describe real user experience that fits the keyword's meaning. Do NOT mechanically inject them into every bullet — that produces inauthentic over-tailoring (e.g. forcing "adoption dashboards" into a youth-education volunteering bullet). The TAILORING per-bucket policy in your system instructions governs WHERE each keyword can appropriately appear.
 
-${jdKeywords.must_include_phrases.length > 0 ? `USE THESE EXACT PHRASES in the About Me and bullet points (at least 6 of them):
+${jdKeywords.must_include_phrases.length > 0 ? `MUST-INCLUDE PHRASES (use at least 6 across professional bullets / Skills / About Me where they describe real user work):
 ${jdKeywords.must_include_phrases.map((p) => `"${p}"`).join(", ")}
 ` : ""}
-${jdKeywords.action_verbs.length > 0 ? `USE THESE ACTION VERBS instead of generic ones:
+${jdKeywords.action_verbs.length > 0 ? `ACTION VERBS to prefer over generic synonyms when describing similar actions in PROFESSIONAL bullets:
 ${jdKeywords.action_verbs.join(", ")}
 ` : ""}
-${jdKeywords.tools_and_platforms.length > 0 ? `MENTION THESE TOOLS in Skills section (only if the user could reasonably claim familiarity):
+${jdKeywords.tools_and_platforms.length > 0 ? `TOOLS to mention in Skills section (only if the user could reasonably claim familiarity):
 ${jdKeywords.tools_and_platforms.join(", ")}
 ` : ""}
-${jdKeywords.domain_terms.length > 0 ? `USE THESE DOMAIN TERMS in About Me and descriptions:
+${jdKeywords.domain_terms.length > 0 ? `DOMAIN TERMS to use in About Me and PROFESSIONAL descriptions where they apply:
 ${jdKeywords.domain_terms.join(", ")}
 ` : ""}
 
-REWRITE RULES:
-- "Managed customer cases" → "Owned customer relationships and drove adoption metrics" (if JD uses those terms)
-- "Led a team" → "Led cross-functional initiatives" (if JD uses "cross-functional")
-- "Tracked attendance" → "Monitored adoption dashboards and engagement metrics" (if JD uses those terms)
-- Every bullet point must be REWRITTEN to incorporate at least one JD keyword. Do not just copy the user's original bullet text.
-- JD keywords (must_include_phrases, action_verbs, domain_terms, tools_and_platforms) belong primarily in BULLET POINTS and the SKILLS section where they describe real user experience. They MAY ALSO appear in About Me when they describe what the user has actually done. What's BANNED in About Me is RECITING the company's mission / tagline / marketing language — see About Me rule in STRUCTURE_RULES.
-- Truthfulness still applies: never invent experiences or tools the user doesn't have. Rephrasing what they DID do in JD language is mandatory; fabricating new responsibilities is forbidden.
+WHERE THE KEYWORDS LIVE:
+- Primary: professional_experiences[] bullets, Skills & Tools section, About Me
+- Avoid: volunteering_experiences[] / military_experiences[] / leadership_experiences[] bullets — these preserve their authentic register per the per-bucket policy. Forcing JD keywords into volunteer or military bullets produces the over-tailoring failure mode (corporate-tech vocabulary applied to non-corporate roles), which recruiters spot immediately and trust LESS.
+
+REPHRASING DISCIPLINE:
+- Truthfulness > keyword count. Never invent experience to hit the score target.
+- Rephrasing existing real activities in JD language is encouraged WHEN authentic ("Managed customer cases" → "Owned customer relationships" is fine if the role was customer success).
+- Mapping fundamentally different activities to JD vocabulary is forbidden ("Tracked youth attendance" must NOT become "Monitored adoption dashboards" — those describe different work).
+- If unsure whether a rephrasing fits naturally, KEEP THE ORIGINAL.
 `
       : "";
 
