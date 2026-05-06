@@ -193,6 +193,16 @@ export default function PostPreview({
             {post.format_recommendation.replace("_", " + ")}
           </p>
           <p className="text-[11px] text-[#525252] leading-snug">{post.format_reason}</p>
+          {post.format_recommendation === "carousel" && (
+            // Per Eli's call PR #33 (option B): inform, don't block. Carousels
+            // underperform under 5K followers per AuthoredUp 2026 (the
+            // strongest empirical finding in our LinkedIn research doc). The
+            // user makes the final call but is told why image+text is
+            // typically better at their follower count.
+            <div className="mt-2 px-2 py-1.5 bg-amber-50 border border-amber-200 rounded text-[11px] text-amber-900 leading-snug">
+              <strong>Better at 20K+ followers.</strong> For accounts under 5K (most early-career profiles), image + text typically outperforms carousels — the algorithm rewards lower-friction formats that drive quick reactions. Consider switching to image + text unless this carousel really fits the content.
+            </div>
+          )}
         </MetaCard>
 
         {/* Saveable score */}
