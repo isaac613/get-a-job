@@ -6,12 +6,20 @@ import {
   PROJECT_FRAMEWORK,
   LESSONS_FRAMEWORK,
   MILESTONE_FRAMEWORK,
+  RECAP_FRAMEWORK,
+  OBSERVATION_FRAMEWORK,
+  QUESTION_FRAMEWORK,
+  FREE_FORM_FRAMEWORK,
 } from '../_shared/post-frameworks/frameworks.ts'
 import type {
   PostType,
   ProjectInputs,
   LessonsInputs,
   MilestoneInputs,
+  RecapInputs,
+  ObservationInputs,
+  QuestionInputs,
+  FreeFormInputs,
   GeneratedPost,
 } from '../_shared/post-frameworks/types.ts'
 
@@ -56,23 +64,21 @@ const MODEL = 'gpt-4o'
 const RATE_LIMIT_CALLS = 60
 const RATE_LIMIT_WINDOW = 3600
 
-// Phase 2 ships these 3 types. The other 4 are reserved in the DB CHECK
-// constraint but not yet wired up to a framework — return a 400 if requested.
-const PHASE_2_TYPES = new Set<PostType>(['project', 'lessons', 'milestone'])
+// Phase 3 (PR #33): all 7 types now wired up to frameworks.
 const ALL_TYPES = new Set<PostType>([
   'project', 'lessons', 'milestone',
   'recap', 'observation', 'question', 'free_form',
 ])
 
 // Map post_type → framework constant.
-const FRAMEWORKS: Record<PostType, string | null> = {
+const FRAMEWORKS: Record<PostType, string> = {
   project: PROJECT_FRAMEWORK,
   lessons: LESSONS_FRAMEWORK,
   milestone: MILESTONE_FRAMEWORK,
-  recap: null,        // Phase 3
-  observation: null,  // Phase 3
-  question: null,     // Phase 3
-  free_form: null,    // Phase 3
+  recap: RECAP_FRAMEWORK,
+  observation: OBSERVATION_FRAMEWORK,
+  question: QUESTION_FRAMEWORK,
+  free_form: FREE_FORM_FRAMEWORK,
 }
 
 // Cap on free-text refinement instructions. Long enough for legitimate
@@ -143,6 +149,72 @@ function validateMilestoneInputs(raw: any): { ok: true; inputs: MilestoneInputs 
   return { ok: true, inputs: { milestone_type, the_thing, people_to_thank, whats_next } }
 }
 
+function validateRecapInputs(raw: any): { ok: true; inputs: RecapInputs } | { ok: false; error: string } {
+  if (!raw || typeof raw !== 'object') return { ok: false, error: 'inputs must be an object' }
+  const event_name = String(raw.event_name || '').trim()
+  if (!event_name || event_name.length > 200) return { ok: false, error: 'event_name required (≤200 chars)' }
+  const role_played = String(raw.role_played || '').trim()
+  if (!role_played || role_played.length > 200) return { ok: false, error: 'role_played required (≤200 chars)' }
+  if (!Array.isArray(raw.team_members)) return { ok: false, error: 'team_members must be an array' }
+  const team_members = raw.team_members
+    .filter((p: any) => p && typeof p === 'object' && typeof p.name === 'string')
+    .map((p: any) => {
+      const out: { name: string; linkedin_handle?: string } = { name: String(p.name).trim().slice(0, 100) }
+      if (p.linkedin_handle && typeof p.linkedin_handle === 'string') {
+        out.linkedin_handle = String(p.linkedin_handle).trim().slice(0, 100)
+      }
+      return out
+    })
+    .filter((p: { name: string }) => p.name.length > 0)
+    .slice(0, 10)
+  const outcome = String(raw.outcome || '').trim()
+  if (!outcome || outcome.length > 400) return { ok: false, error: 'outcome required (≤400 chars)' }
+  const key_lesson = raw.key_lesson ? String(raw.key_lesson).trim().slice(0, 200) : undefined
+  return { ok: true, inputs: { event_name, role_played, team_members, outcome, key_lesson } }
+}
+
+function validateObservationInputs(raw: any): { ok: true; inputs: ObservationInputs } | { ok: false; error: string } {
+  if (!raw || typeof raw !== 'object') return { ok: false, error: 'inputs must be an object' }
+  const trend = String(raw.trend || '').trim()
+  if (!trend || trend.length > 400) return { ok: false, error: 'trend required (≤400 chars)' }
+  const specific_example = String(raw.specific_example || '').trim()
+  if (!specific_example || specific_example.length > 800) {
+    return { ok: false, error: 'specific_example required (≤800 chars) — observation posts read as overreach without a concrete example' }
+  }
+  const your_take = String(raw.your_take || '').trim()
+  if (!your_take || your_take.length > 600) return { ok: false, error: 'your_take required (≤600 chars)' }
+  return { ok: true, inputs: { trend, specific_example, your_take } }
+}
+
+function validateQuestionInputs(raw: any): { ok: true; inputs: QuestionInputs } | { ok: false; error: string } {
+  if (!raw || typeof raw !== 'object') return { ok: false, error: 'inputs must be an object' }
+  const decision_or_topic = String(raw.decision_or_topic || '').trim()
+  if (!decision_or_topic || decision_or_topic.length > 400) return { ok: false, error: 'decision_or_topic required (≤400 chars)' }
+  // what_youve_considered is mandatory per Eli's call PR #33: posts that
+  // skip this read as lazy and underperform. The validator enforces it
+  // even when the user might prefer to skip.
+  const what_youve_considered = String(raw.what_youve_considered || '').trim()
+  if (!what_youve_considered || what_youve_considered.length > 800) {
+    return { ok: false, error: 'what_youve_considered required (≤800 chars) — questions without prior thinking read as lazy' }
+  }
+  const what_youre_stuck_on = String(raw.what_youre_stuck_on || '').trim()
+  if (!what_youre_stuck_on || what_youre_stuck_on.length > 400) {
+    return { ok: false, error: 'what_youre_stuck_on required (≤400 chars)' }
+  }
+  return { ok: true, inputs: { decision_or_topic, what_youve_considered, what_youre_stuck_on } }
+}
+
+function validateFreeFormInputs(raw: any): { ok: true; inputs: FreeFormInputs } | { ok: false; error: string } {
+  if (!raw || typeof raw !== 'object') return { ok: false, error: 'inputs must be an object' }
+  const topic = String(raw.topic || '').trim()
+  if (!topic || topic.length > 600) return { ok: false, error: 'topic required (≤600 chars)' }
+  const intent = raw.intent
+  if (!['share_experience', 'ask_question', 'make_announcement', 'spark_discussion', 'showcase_work'].includes(intent)) {
+    return { ok: false, error: 'intent must be one of: share_experience, ask_question, make_announcement, spark_discussion, showcase_work' }
+  }
+  return { ok: true, inputs: { topic, intent } }
+}
+
 // ---------- Output sanitization ----------
 
 function sanitiseGeneratedPost(raw: unknown): GeneratedPost | null {
@@ -157,10 +229,15 @@ function sanitiseGeneratedPost(raw: unknown): GeneratedPost | null {
     ? r.hook_preview.trim().slice(0, 200)
     : post_text_capped.slice(0, 140)
 
+  // Defensive normalize — LLM occasionally returns hashtags without the
+  // leading "#" (observed PR #33 question-type smoke). Prepend "#" when
+  // missing so the UI's tag chips render consistently regardless of how
+  // the LLM formatted them.
   const hashtag_suggestions = Array.isArray(r.hashtag_suggestions)
     ? (r.hashtag_suggestions as unknown[])
         .map((h) => typeof h === 'string' ? h.trim() : '')
         .filter((h) => h.length > 0 && h.length <= 50)
+        .map((h) => h.startsWith('#') ? h : `#${h}`)
         .slice(0, 5)
     : []
 
@@ -224,9 +301,6 @@ REFINEMENT MODE — when the user prompt contains a PRIOR POST + REFINEMENT INST
 
 function buildSystemPrompt(post_type: PostType, hasBaseline: boolean): string {
   const framework = FRAMEWORKS[post_type]
-  if (!framework) {
-    throw new Error(`No framework for post_type: ${post_type}`)
-  }
   let p = BASE_SYSTEM_PROMPT
   p += '\n\n' + POST_VOICE_RULES
   p += '\n\n' + framework
@@ -276,7 +350,9 @@ ${instructionText}
 Return ONLY valid JSON containing the refined post.`
 }
 
-type PostInputsAny = ProjectInputs | LessonsInputs | MilestoneInputs
+type PostInputsAny =
+  | ProjectInputs | LessonsInputs | MilestoneInputs
+  | RecapInputs | ObservationInputs | QuestionInputs | FreeFormInputs
 
 // ---------- Handler ----------
 
@@ -357,19 +433,23 @@ Deno.serve(async (req) => {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
-    if (!PHASE_2_TYPES.has(post_type)) {
-      _http = 400; _err = 'phase_3_type'
-      return new Response(JSON.stringify({
-        error: `Post type '${post_type}' is not yet available — coming in Phase 3.`,
-      }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-    }
 
-    // Per-type input validation
+    // Per-type input validation. All 7 types wired up in Phase 3.
     let validated: { ok: true; inputs: PostInputsAny } | { ok: false; error: string }
-    if (post_type === 'project') validated = validateProjectInputs(body.inputs)
-    else if (post_type === 'lessons') validated = validateLessonsInputs(body.inputs)
-    else if (post_type === 'milestone') validated = validateMilestoneInputs(body.inputs)
-    else { _http = 400; _err = 'bad_post_type'; return new Response(JSON.stringify({ error: 'Invalid post_type' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }) }
+    switch (post_type) {
+      case 'project': validated = validateProjectInputs(body.inputs); break
+      case 'lessons': validated = validateLessonsInputs(body.inputs); break
+      case 'milestone': validated = validateMilestoneInputs(body.inputs); break
+      case 'recap': validated = validateRecapInputs(body.inputs); break
+      case 'observation': validated = validateObservationInputs(body.inputs); break
+      case 'question': validated = validateQuestionInputs(body.inputs); break
+      case 'free_form': validated = validateFreeFormInputs(body.inputs); break
+      default:
+        _http = 400; _err = 'bad_post_type'
+        return new Response(JSON.stringify({ error: 'Invalid post_type' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+    }
     if (!validated.ok) {
       _http = 400; _err = 'bad_inputs'
       return new Response(JSON.stringify({ error: validated.error }), {

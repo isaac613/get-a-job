@@ -1,10 +1,11 @@
 import React from "react";
-import { Briefcase, Lightbulb, Award } from "lucide-react";
+import { Briefcase, Lightbulb, Award, Trophy, MessageCircleQuestion, Eye, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Card grid showing the 3 active post types (Phase 2). Phase 3 will add
-// recap / observation / question / free_form — those don't appear yet
-// per Eli's call PR #32: "no reason to advertise what's not ready yet."
+// All 7 post types live now (Phase 3). Ordered by likely-frequency for
+// students per Eli's call PR #33: project / lessons / milestone (top row),
+// recap / question / observation (middle row), free_form (bottom row, on
+// its own to signal escape-hatch status).
 const POST_TYPES = [
   {
     id: "project",
@@ -27,7 +28,36 @@ const POST_TYPES = [
     description: "Share a career update — internship offer, role start, certification, graduation. Specific gratitude with named people works far better than generic excitement.",
     saveableHint: "Skip 'Excited to share' / 'Thrilled to announce' — these are algorithmically suppressed.",
   },
+  {
+    id: "recap",
+    label: "Event / hackathon recap",
+    Icon: Trophy,
+    description: "Recap of a hackathon, conference, competition, workshop, or panel. Tag teammates with their specific contributions.",
+    saveableHint: "Tagging teammates materially lifts reach. Image (group photo, demo, prize) strongly recommended.",
+  },
+  {
+    id: "question",
+    label: "Question for community",
+    Icon: MessageCircleQuestion,
+    description: "Genuinely ask for input on a decision. You'll be asked what you've already considered — questions that skip this read as lazy.",
+    saveableHint: "Questions are conversational, not saved. End with a specific invitation, not 'Thoughts?'",
+  },
+  {
+    id: "observation",
+    label: "Industry observation",
+    Icon: Eye,
+    description: "Your perspective on a trend in your target industry. Highest-risk format — easy to come off as overreach without a concrete example anchoring authority.",
+    saveableHint: "Hardest format to do well. Anchor on a specific example you directly saw or did, then share the take.",
+  },
 ];
+
+const ESCAPE_HATCH_TYPE = {
+  id: "free_form",
+  label: "Free-form",
+  Icon: Pencil,
+  description: "Anything not covered by the structured types above. You provide a topic + intent; the AI applies all the same voice rules.",
+  saveableHint: "Use the structured types when they fit — they produce sharper output. This is the escape hatch.",
+};
 
 export default function PostTypeGrid({ onSelect }) {
   return (
@@ -35,7 +65,9 @@ export default function PostTypeGrid({ onSelect }) {
       <p className="text-sm text-[#525252] mb-4">
         Pick a post type to start. The AI grounds each post in your profile, Story Bank, and career goals.
       </p>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      {/* Top 6 types in 3-column grid (3-3 layout). Free-form below as a
+          single full-width card to visually signal "escape hatch" status. */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
         {POST_TYPES.map(({ id, label, Icon, description, saveableHint }) => (
           <button
             key={id}
@@ -55,6 +87,22 @@ export default function PostTypeGrid({ onSelect }) {
           </button>
         ))}
       </div>
+      <button
+        type="button"
+        onClick={() => onSelect(ESCAPE_HATCH_TYPE.id)}
+        className={cn(
+          "w-full text-left bg-[#FAFAFA] border border-dashed border-[#E5E5E5] rounded-xl p-4",
+          "hover:border-[#0A0A0A] hover:bg-white transition-all"
+        )}
+      >
+        <div className="flex items-center gap-2 mb-1">
+          <ESCAPE_HATCH_TYPE.Icon className="w-4 h-4 text-[#525252]" />
+          <h3 className="text-sm font-semibold text-[#0A0A0A]">{ESCAPE_HATCH_TYPE.label}</h3>
+          <span className="text-[10px] uppercase tracking-wider text-[#A3A3A3] ml-1">escape hatch</span>
+        </div>
+        <p className="text-xs text-[#525252] leading-snug mb-1">{ESCAPE_HATCH_TYPE.description}</p>
+        <p className="text-[11px] text-[#A3A3A3] italic leading-snug">{ESCAPE_HATCH_TYPE.saveableHint}</p>
+      </button>
     </div>
   );
 }

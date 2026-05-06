@@ -38,13 +38,29 @@ const MILESTONE_TYPES = [
 const PROJECT_DEFAULTS = { project_name: "", context: "company", what_you_built: "", outcome: "", portfolio_link: "" };
 const LESSONS_DEFAULTS = { source_type: "role", source_name: "", lessons: ["", "", ""] };
 const MILESTONE_DEFAULTS = { milestone_type: "role_start", the_thing: "", people_to_thank: [{ name: "", reason: "" }], whats_next: "" };
+const RECAP_DEFAULTS = { event_name: "", role_played: "", team_members: [{ name: "", linkedin_handle: "" }], outcome: "", key_lesson: "" };
+const OBSERVATION_DEFAULTS = { trend: "", specific_example: "", your_take: "" };
+const QUESTION_DEFAULTS = { decision_or_topic: "", what_youve_considered: "", what_youre_stuck_on: "" };
+const FREE_FORM_DEFAULTS = { topic: "", intent: "share_experience" };
 
 export function getDefaultsForType(postType) {
   if (postType === "project") return { ...PROJECT_DEFAULTS };
   if (postType === "lessons") return { ...LESSONS_DEFAULTS, lessons: ["", "", ""] };
   if (postType === "milestone") return { ...MILESTONE_DEFAULTS, people_to_thank: [{ name: "", reason: "" }] };
+  if (postType === "recap") return { ...RECAP_DEFAULTS, team_members: [{ name: "", linkedin_handle: "" }] };
+  if (postType === "observation") return { ...OBSERVATION_DEFAULTS };
+  if (postType === "question") return { ...QUESTION_DEFAULTS };
+  if (postType === "free_form") return { ...FREE_FORM_DEFAULTS };
   return {};
 }
+
+const FREE_FORM_INTENTS = [
+  { value: "share_experience", label: "Share an experience", hint: "Narrative + explicit takeaways" },
+  { value: "ask_question", label: "Ask a question", hint: "What you've considered + where you're stuck" },
+  { value: "make_announcement", label: "Make an announcement", hint: "News with named gratitude + concrete forward-look" },
+  { value: "spark_discussion", label: "Spark a discussion", hint: "Anchor on a specific example before sharing the take" },
+  { value: "showcase_work", label: "Showcase work", hint: "Lead with the outcome, name what was built and the tools" },
+];
 
 export default function PostComposeForm({ postType, inputs, onChange, onBack, onGenerate, generating }) {
   const set = (key, value) => onChange({ ...inputs, [key]: value });
@@ -206,6 +222,142 @@ export default function PostComposeForm({ postType, inputs, onChange, onBack, on
     );
   }
 
+  if (postType === "recap") {
+    const team = Array.isArray(inputs.team_members) ? inputs.team_members : [];
+    const setTeamAt = (i, key, val) => set("team_members", team.map((p, idx) => idx === i ? { ...p, [key]: val } : p));
+    const addTeam = () => set("team_members", [...team, { name: "", linkedin_handle: "" }]);
+    const removeTeamAt = (i) => set("team_members", team.filter((_, idx) => idx !== i));
+    const canSubmit = !!(inputs.event_name?.trim() && inputs.role_played?.trim() && inputs.outcome?.trim());
+
+    return (
+      <FormShell postType={postType} onBack={onBack} onGenerate={onGenerate} generating={generating} canSubmit={canSubmit}>
+        <Field label="Event name" required>
+          <Input value={inputs.event_name || ""} onChange={(e) => set("event_name", e.target.value)} placeholder="e.g. Reichman AI Hackathon 2026" />
+        </Field>
+        <Field label="What you did at the event" required hint="e.g. 'Team lead', 'Backend dev', 'Pitch presenter', 'Volunteer organizer'">
+          <Input value={inputs.role_played || ""} onChange={(e) => set("role_played", e.target.value)} placeholder="Your role" />
+        </Field>
+        <Field label="Specific outcome" required hint="Won prize? Built X? Presented to whom? Concrete result, not 'great experience'.">
+          <textarea value={inputs.outcome || ""} onChange={(e) => set("outcome", e.target.value)}
+                    placeholder="e.g. Won 1st place — built a Hebrew-English code-switching translator with two friends in 26 hours."
+                    rows={2} className="w-full text-sm border border-[#E5E5E5] rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#0A0A0A]" />
+        </Field>
+        <div>
+          <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium mb-1 block">
+            Team members to tag
+          </label>
+          <p className="text-[11px] text-[#525252] mb-2">
+            Tagging materially lifts reach for recap posts. Add LinkedIn handles where you have them.
+          </p>
+          <div className="space-y-2">
+            {team.map((p, i) => (
+              <div key={i} className="flex gap-2 items-start">
+                <Input value={p.name} onChange={(e) => setTeamAt(i, "name", e.target.value)} placeholder="Name" className="w-[40%]" />
+                <Input value={p.linkedin_handle || ""} onChange={(e) => setTeamAt(i, "linkedin_handle", e.target.value)} placeholder="LinkedIn handle (optional)" className="flex-1" />
+                {team.length > 1 && (
+                  <button type="button" onClick={() => removeTeamAt(i)} className="text-[#A3A3A3] hover:text-red-600 mt-2.5">
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+            ))}
+            {team.length < 10 && (
+              <button type="button" onClick={addTeam} className="inline-flex items-center gap-1 text-xs text-[#525252] hover:text-[#0A0A0A]">
+                <Plus className="w-3 h-3" />
+                Add another teammate
+              </button>
+            )}
+          </div>
+        </div>
+        <Field label="Key lesson" hint="Optional ≤200 chars. One takeaway worth carrying forward — lifts the post's saveability if the lesson is concrete.">
+          <textarea value={inputs.key_lesson || ""} onChange={(e) => set("key_lesson", e.target.value.slice(0, 200))}
+                    placeholder="e.g. The team that pre-discussed scope cuts before the demo always finishes; the team that doesn't, ships half-broken features."
+                    rows={2} className="w-full text-sm border border-[#E5E5E5] rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#0A0A0A]" />
+          <p className="text-[10px] text-[#A3A3A3] mt-1 text-right">{(inputs.key_lesson || "").length}/200</p>
+        </Field>
+      </FormShell>
+    );
+  }
+
+  if (postType === "observation") {
+    const canSubmit = !!(inputs.trend?.trim() && inputs.specific_example?.trim() && inputs.your_take?.trim());
+    return (
+      <FormShell postType={postType} onBack={onBack} onGenerate={onGenerate} generating={generating} canSubmit={canSubmit}>
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-[11px] text-amber-900 leading-snug">
+          <strong>Heads-up:</strong> Observation posts are the highest-risk format for early-career accounts. Without a concrete <em>specific example</em> anchoring your authority, this post will read as overreach. The framework requires you to provide one.
+        </div>
+        <Field label="The trend" required hint="What's happening in your target industry/space. Concrete, not vague.">
+          <textarea value={inputs.trend || ""} onChange={(e) => set("trend", e.target.value)}
+                    placeholder="e.g. CS leaders in B2B SaaS are quietly de-emphasizing CSAT in favor of feature-adoption rate."
+                    rows={2} className="w-full text-sm border border-[#E5E5E5] rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#0A0A0A]" />
+        </Field>
+        <Field label="Specific example you directly saw or did" required hint="The load-bearing field. Without it, the post reads as posturing. Names, numbers, places where appropriate.">
+          <textarea value={inputs.specific_example || ""} onChange={(e) => set("specific_example", e.target.value)}
+                    placeholder="e.g. At my Guardio internship, my CS lead pushed me to track adoption-rate-per-VIP-cohort rather than CSAT. Within Q1 we caught two retention risks earlier than CSAT would have surfaced."
+                    rows={3} className="w-full text-sm border border-[#E5E5E5] rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#0A0A0A]" />
+        </Field>
+        <Field label="Your take" required hint="The actual opinion, grounded in the example. Conviction is welcome; a hot take untethered from the example is not.">
+          <textarea value={inputs.your_take || ""} onChange={(e) => set("your_take", e.target.value)}
+                    placeholder="e.g. CSAT measures how customers feel about a single interaction; adoption-rate measures whether they'll renew. The latter is leading; the former is lagging."
+                    rows={3} className="w-full text-sm border border-[#E5E5E5] rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#0A0A0A]" />
+        </Field>
+      </FormShell>
+    );
+  }
+
+  if (postType === "question") {
+    const canSubmit = !!(inputs.decision_or_topic?.trim() && inputs.what_youve_considered?.trim() && inputs.what_youre_stuck_on?.trim());
+    return (
+      <FormShell postType={postType} onBack={onBack} onGenerate={onGenerate} generating={generating} canSubmit={canSubmit}>
+        <Field label="Decision or topic" required hint="What you're asking about. Specific framing beats broad questions.">
+          <textarea value={inputs.decision_or_topic || ""} onChange={(e) => set("decision_or_topic", e.target.value)}
+                    placeholder="e.g. Picking between a Customer Success offer at Guardio and a Product Analyst offer at a Series-B fintech."
+                    rows={2} className="w-full text-sm border border-[#E5E5E5] rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#0A0A0A]" />
+        </Field>
+        <Field label="What you've already considered" required hint="The factors you've weighed, the people you've talked to, the constraints. This shows you've thought about it — questions that skip this read as lazy and underperform.">
+          <textarea value={inputs.what_youve_considered || ""} onChange={(e) => set("what_youve_considered", e.target.value)}
+                    placeholder="e.g. CS gives me 1-2 years of customer-facing depth + a clearer path to PM later. Product Analyst gives me data fluency now but I'd be the most junior on the team. Talked to 3 PMs who started in CS — all said it was the right call but slow."
+                    rows={4} className="w-full text-sm border border-[#E5E5E5] rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#0A0A0A]" />
+        </Field>
+        <Field label="Where you're stuck" required hint="The narrow place where outside input would change your decision.">
+          <textarea value={inputs.what_youre_stuck_on || ""} onChange={(e) => set("what_youre_stuck_on", e.target.value)}
+                    placeholder="e.g. Whether the 'CS → PM' path actually compresses 6 months of learning into early-PM, or whether it's a comfortable narrative people tell themselves."
+                    rows={2} className="w-full text-sm border border-[#E5E5E5] rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#0A0A0A]" />
+        </Field>
+      </FormShell>
+    );
+  }
+
+  if (postType === "free_form") {
+    const canSubmit = !!(inputs.topic?.trim() && inputs.intent);
+    return (
+      <FormShell postType={postType} onBack={onBack} onGenerate={onGenerate} generating={generating} canSubmit={canSubmit}>
+        <div className="bg-[#F5F5F5] border border-[#E5E5E5] rounded-lg p-3 text-[11px] text-[#525252] leading-snug">
+          The escape hatch. The structured types above produce sharper output — try one if your topic fits. Free-form still applies all voice rules (no engagement-bait, no banned openers, anti-fab discipline) and grounds the post in your real profile + experiences.
+        </div>
+        <Field label="Topic" required hint="1-2 sentences on what the post is about.">
+          <textarea value={inputs.topic || ""} onChange={(e) => set("topic", e.target.value.slice(0, 600))}
+                    placeholder="What you want to post about"
+                    rows={3} className="w-full text-sm border border-[#E5E5E5] rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#0A0A0A]" />
+          <p className="text-[10px] text-[#A3A3A3] mt-1 text-right">{(inputs.topic || "").length}/600</p>
+        </Field>
+        <Field label="Why posting" required hint="The structural intent — drives how the AI shapes the post.">
+          <Select value={inputs.intent || "share_experience"} onValueChange={(v) => set("intent", v)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {FREE_FORM_INTENTS.map((i) => (
+                <SelectItem key={i.value} value={i.value}>{i.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-[11px] text-[#A3A3A3] mt-1.5 italic">
+            {(FREE_FORM_INTENTS.find((i) => i.value === inputs.intent) || FREE_FORM_INTENTS[0]).hint}
+          </p>
+        </Field>
+      </FormShell>
+    );
+  }
+
   return null;
 }
 
@@ -236,7 +388,7 @@ function FormShell({ children, onBack, onGenerate, generating, canSubmit }) {
   );
 }
 
-function Field({ label, required, hint, children }) {
+function Field({ label, required = false, hint = "", children }) {
   return (
     <div>
       <label className="text-[11px] uppercase tracking-wider text-[#A3A3A3] font-medium mb-1 block">
