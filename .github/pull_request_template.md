@@ -16,6 +16,7 @@
 - [ ] Read `tasks/lessons.md` for relevant prior gotchas before writing this code
 - [ ] If this fix took multiple attempts or involved a bug pattern future-us should remember, appended an entry to `tasks/lessons.md`
 - [ ] Updated `ROADMAP.md` (moved item from In Progress → Done, added note if scope changed)
+- [ ] Updated `PROJECT_INSTRUCTIONS.md` if this PR changed anything in its scope — new edge function, new voice-rules constant, new schema, new key file path, sprint progress, new convention. The file is the living source of truth; if it's stale after this PR merges, that's on the PR author
 - [ ] If this touches a domain library (`_shared/libraries/*.ts`), the other dev has reviewed the library diff specifically
 - [ ] No secrets committed (no API keys, no `.env*` files, no PATs in URLs)
 - [ ] Conventional commit message (`fix(area):`, `feat(area):`, etc.)

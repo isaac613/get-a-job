@@ -10,6 +10,14 @@ This roadmap's source of truth for **scheduling** is the [June 15 launch sprint]
 
 ## Done (recent)
 
+- **2026-05-06 → 2026-05-08 — Wk 3 LinkedIn command center: Networking tab Phase 4 PR B (PR #35).** Outreach Conversation Coach. 8 outreach goals (recruiter / hiring manager / alumni / informational interview / thank-you / reconnect-dormant / referral / recommendation), multi-turn coaching, warm-up-vs-ask judgment for multi-step goals (dormant-relationship referrals correctly emit `warm_up_advice` "send reconnection first, ask in turn 2-3"). Schema: 1 row per (user, goal, target_person), JSONB `message_thread`, 4-policy RLS. Edge function with two modes (new / continue). Programmatic anti-pattern detection in post-process — model still slips "I hope you're doing well" despite hard-rule injection, so warning chips surface to user. NetworkingPrinciples relocated to Resources page (Resources accordion now supports optional `component` field on guide entries). _Open — Eli testing UI before merge._
+- **2026-05-06 — Wk 3 LinkedIn command center: Networking tab Phase 4 PR A (PR #34).** Networking tab — 6-card networking principles + Comment Coach. Comment Coach = highest-leverage AI tool per the research doc (substantive comments → ~55% profile-view lift for sub-1K-follower accounts). Anti-fab: empty options + `no_fit_reason` when nothing genuine to contribute.
+- **2026-05-06 — Wk 3 LinkedIn command center: Posts Phase 3 (PR #33).** 4 more post types (recap / observation / question / free_form). Carousel warning when LLM picks `format_recommendation: 'carousel'` (under-5K-follower accounts get warned per the research doc).
+- **2026-05-06 — Wk 3 LinkedIn command center: Posts Phase 2 MVP (PR #32).** 3 post types (project / lessons / milestone), edge function, Compose flow with separate `edited_text` column for prompt-quality analysis.
+- **2026-05-05 — Wk 3 LinkedIn command center: Phase 1 hub tabs (PR #31).** `LinkedinOptimizer.jsx` becomes a 3-tab hub (Profile / Posts / Networking) routed via `useSearchParams`. POST_VOICE_RULES added to `_shared/voice-rules.ts`.
+- **2026-05-05 — LinkedIn post performance research doc (PR #30).** `docs/research/linkedin-post-performance.md`, ~430 lines, cross-validated / single-sourced / contested tagging. Source-of-truth referenced by all LinkedIn-related prompts.
+- **2026-04-28 → 2026-05-04 — CV polish series (PRs #21–#29).** Template engine + sector-aware fonts + matcher hardening (#21), chat story-capture follow-up gating + CV style picker (#22), date normalization (#23), conditional Experience umbrella + remove anchoring subtitle (#24), institution guard + About left-align + sub-header weight (#25), drop Experience umbrella + cross-section honors dedup (#26), per-bucket tailoring policy (preserve authentic register — don't push corporate-tech voice into volunteer roles) (#27), Polished one-page chrome (#28), restored visual hierarchy on ATS template (#29).
+- **2026-04-27 — Replace banned-vocab lists with positive voice rules (PR #20).** Old approach (banning words) didn't work; the model pattern-matched around banned words but kept the underlying voice. Voice-rules approach gives the model what TO write, not just what NOT to. Set the architectural precedent for `CV_VOICE_RULES` / `LINKEDIN_VOICE_RULES` / `POST_VOICE_RULES` / `COMMENT_VOICE_RULES` / `OUTREACH_VOICE_RULES`.
 - **2026-05-04 — Wk 2 Story Bank backend (PR #8).** Schema (`stories` table + RLS + 4 indexes + trigger), `extract-story-from-text` edge function (gpt-4o-mini, 3-layer anti-fabrication), CV Agent `SUGGESTED_STORY_CAPTURE_JSON` integration with sequential follow-up after CV gen completes (Path B — Path A same-turn cross-emission failed reliability), `StorySaveCard` frontend component (5-phase state machine), Story Bank consumption in `generate-tailored-cv` with STORY BANK PRECEDENCE + BINDING rules. Headline metric "88% adoption in first quarter" verbatim binding 3/3 in DOCX verification.
 - **2026-05-04 — Wk 1 Day 4: function_metrics observability across 9 edge functions (PR #6).** Per-call latency / ok-fail / model / tokens / locked-in cost_usd, fire-and-forget writes, smoke-tested in prod. Powers Wk 2 admin view + Wk 5 scout sizing.
 - **2026-05-04 — Wk 1 Day 1: Application Outcome Loop schema (PR #5).** `status_changes` audit table + trigger, `applications.source` / `found_via_*` / `outcome_notes` columns, all 3 add-paths populate `source` correctly.
@@ -22,7 +30,10 @@ This roadmap's source of truth for **scheduling** is the [June 15 launch sprint]
 
 ## In Progress
 
-- Wk 2 Day 5 / Isaac's queue — Admin view (`cohort_scout_metrics` + `student_engagement_summary` SQL views + `/admin` page, RLS-gated)
+- **PR #35** (Outreach Conversation Coach) — Eli testing UI before merge
+- **Wk 2 Day 5 / Isaac's queue** — Admin view (`cohort_scout_metrics` + `student_engagement_summary` SQL views + `/admin` page, RLS-gated). Eli picking up.
+- **Wk 3 remaining (Eli):** Daily Action Card schema + edge function · Admin chat log viewer · Admin story browser
+- **Wk 3 remaining (Isaac):** Story Bank Phase 2 AddInformation surface · Daily Action Card UI · Daily Action calibration loop
 
 ---
 
@@ -136,11 +147,11 @@ Activate when needed, not before. Total monthly recurring cost at launch: **~$13
 
 **Eli (5 days)**
 
-| Day | Task |
-|---|---|
-| Mon–Wed | **LinkedIn Optimizer (generation-first)** — page, prompt, generate-from-profile flow. v1 = no PDF upload mode, just generation from existing profile data + Story Bank stories |
-| Thu | Daily Action Card schema + `generate-daily-action` edge function (priority logic + LLM picker) |
-| Fri | **Admin chat log viewer + admin story browser** (new cards on `/admin`). How Eli will tune prompts during the pilot based on real student data. Same RLS gating pattern as existing admin cards (`is_admin()`-gated SELECT policies + admin RPC functions with explicit gate). v1: read-only browse; filter by student dropdown. Buffer absorbed if these run long; integration testing slips to Wk 4 buffer. |
+| Day | Task | Status |
+|---|---|---|
+| Mon–Wed | **LinkedIn Optimizer (generation-first)** — page, prompt, generate-from-profile flow. v1 = no PDF upload mode, just generation from existing profile data + Story Bank stories | ✓ shipped + expanded into a 3-tab command center (Profile / Posts / Networking) — PRs #30 (research), #31 (Phase 1 hub), #32 (Phase 2 Posts MVP), #33 (Phase 3 4 more types), #34 (Phase 4 PR A: Comment Coach), #35 (Phase 4 PR B: Outreach Conversation Coach — open) |
+| Thu | Daily Action Card schema + `generate-daily-action` edge function (priority logic + LLM picker) | — |
+| Fri | **Admin chat log viewer + admin story browser** (new cards on `/admin`). How Eli will tune prompts during the pilot based on real student data. Same RLS gating pattern as existing admin cards (`is_admin()`-gated SELECT policies + admin RPC functions with explicit gate). v1: read-only browse; filter by student dropdown. Buffer absorbed if these run long; integration testing slips to Wk 4 buffer. | — |
 
 **Eli Friday — admin pilot tooling detail**
 
@@ -149,11 +160,13 @@ Activate when needed, not before. Total monthly recurring cost at launch: **~$13
 
 **Isaac (2.5 days)**
 
-| Day | Task |
-|---|---|
-| Mon | Story Bank Phase 2: AddInformation Experience tab inline stories + quick-add modal |
-| Wed | Daily Action Card UI on Home dashboard (display + Done/Snooze/Dismiss actions) |
-| Fri | Daily Action calibration loop (dismissed-type backoff in priority weighting) |
+| Day | Task | Status |
+|---|---|---|
+| Mon | Story Bank Phase 2: AddInformation Experience tab inline stories + quick-add modal | — |
+| Wed | Daily Action Card UI on Home dashboard (display + Done/Snooze/Dismiss actions) | — (depends on Eli landing schema + edge function first) |
+| Fri | Daily Action calibration loop (dismissed-type backoff in priority weighting) | — |
+
+**Wk 3 scope expansion note.** What was originally scoped as "LinkedIn Optimizer (generation-first)" expanded into a full 3-tab command center across PRs #30–35 — driven by Eli's research finding that commenting on others' posts is the highest-leverage motion for sub-1K-follower accounts (~55% profile-view lift). The original scope (Profile generation from Story Bank) shipped as Phase 1 (#31). Posts (Phase 2 #32 + Phase 3 #33) and Networking with Comment Coach + Outreach Conversation Coach (Phase 4 #34 + #35) are scope additions justified by the research. Wk 3's other tracks (Daily Action, admin tooling, Story Bank Phase 2) slipped into Wk 4 buffer as a result.
 
 ### Week 4 (May 26 – June 1): LinkedIn import + Internship Finder Phase 1
 
