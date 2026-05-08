@@ -12,6 +12,7 @@ Cross-references:
 - `tasks/lessons.md` — append-only log of "took multiple attempts" gotchas; read before non-trivial work in tier scoring, LLM prompts, edge-function deploys, role/skill libraries, onboarding
 - `README.md` — local setup + env vars
 - `docs/research/linkedin-post-performance.md` — research findings that ground every LinkedIn-related prompt
+- `docs/strategy/installation-checklist.md` + `docs/strategy/design-strategy.md` — prioritized tool/MCP/skill/API installation roadmap and the UX/sidebar/display-philosophy reference for the Wk 6 visual redesign
 
 ---
 
@@ -165,6 +166,8 @@ Single index — when something feels load-bearing, it's probably in here.
 | Path | What |
 |---|---|
 | `docs/research/linkedin-post-performance.md` | LinkedIn research source of truth (~430 lines) — cross-validated / single-sourced / contested findings tagged. Update when pilot data contradicts |
+| `docs/strategy/installation-checklist.md` | Prioritized tool/MCP/skill/API installation roadmap (this week / pre-launch / post-launch) |
+| `docs/strategy/design-strategy.md` | UX principles, sidebar architecture, display philosophy, pre-launch checklist |
 | `tasks/lessons.md` | Append-only log of "took multiple attempts" gotchas |
 | `CLAUDE.md` | Coding conventions, branch + PR rules, commit format |
 | `ROADMAP.md` | Week-by-week sprint plan, v1/v2 cuts, risk register |
