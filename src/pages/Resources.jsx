@@ -1,7 +1,12 @@
 import React, { useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
+import NetworkingPrinciples from "@/components/linkedin/networking/NetworkingPrinciples";
 
 const GUIDES = [
+  {
+    title: "LinkedIn Networking — Strategy & Principles",
+    component: NetworkingPrinciples,
+  },
   {
     title: "How to Read a Job Description",
     content: `Most students read job descriptions and feel immediately disqualified. That's because they're reading them wrong.
@@ -230,6 +235,9 @@ export default function Resources() {
             </button>
             {openIndex === i && (
               <div className="px-6 pb-6 border-t border-[#F0F0F0] pt-4">
+                {guide.component ? (
+                  <guide.component />
+                ) : (
                 <div className="prose-career">
                   {guide.content.split("\n").map((line, j) => {
                     if (line.startsWith("**") && line.endsWith("**")) {
@@ -273,6 +281,7 @@ export default function Resources() {
                     );
                   })}
                 </div>
+                )}
               </div>
             )}
           </div>
