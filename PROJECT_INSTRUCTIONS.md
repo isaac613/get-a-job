@@ -1,6 +1,6 @@
 # PROJECT_INSTRUCTIONS — Get A Job
 
-**Last updated: 2026-05-08 (after PR #35 — Outreach Conversation Coach)**
+**Last updated: 2026-05-08 (after PR #36 — PROJECT_INSTRUCTIONS.md established as living source of truth)**
 
 This file is the **living source of truth** for the project. Read this first, then follow cross-references for depth.
 
@@ -42,10 +42,10 @@ Pilot is **CONFIRMED** — Reichman professor + Dr. Miller personally vouching. 
 | #32 | May 6 | feat(linkedin) — Phase 2: Posts MVP (3 types: project / lessons / milestone) + edge function + Compose flow |
 | #33 | May 6 | feat(linkedin) — Phase 3: 4 more post types (recap / observation / question / free_form) + carousel warning when LLM picks `format_recommendation: 'carousel'` (under-5K-follower accounts get warned) |
 | #34 | May 6 | feat(linkedin) — Phase 4 PR A: Networking tab — principles + Comment Coach (highest-leverage AI tool per the research doc — substantive comments → ~55% profile-view lift for sub-1K-follower accounts) |
-| **#35** | **May 6–8** | **feat(linkedin) — Phase 4 PR B: Outreach Conversation Coach. 8 outreach goals, multi-turn coaching, warm-up-vs-ask judgment for multi-step goals (e.g. dormant-relationship referrals). Networking principles relocated to Resources page in same PR.** **Open — Eli testing UI before merge.** |
+| #35 | May 6–8 | feat(linkedin) — Phase 4 PR B: Outreach Conversation Coach. 8 outreach goals, multi-turn coaching, warm-up-vs-ask judgment for multi-step goals (e.g. dormant-relationship referrals). Networking principles relocated to Resources page in same PR. Merged 2026-05-08 |
+| #36 | May 8 | docs — PROJECT_INSTRUCTIONS.md as living source of truth + ROADMAP catch-up through PR #35 + PR template checkbox enforcing the update rule. Merged 2026-05-08 |
 
 **Currently in flight:**
-- PR #35 awaiting Eli's UI test → merge
 - Wk 3 Daily Action Card + admin tooling pair (chat log viewer + story browser) **not started**
 - Wk 2 Admin SQL views still **in progress** (Isaac's queue per ROADMAP)
 
@@ -176,7 +176,7 @@ Single index — when something feels load-bearing, it's probably in here.
 
 The full week-by-week is in `ROADMAP.md`. This is the working slice.
 
-### Wk 3 remaining (after PR #35 merges)
+### Wk 3 remaining
 
 **Eli (Thu–Fri slots):**
 - **Daily Action Card** — schema + `generate-daily-action` edge function (priority logic + LLM picker)
@@ -371,6 +371,6 @@ Eli has saved feedback: "Surface decisions for confirmation; don't lock in unila
 
 **Every PR updates this file.** Adding a new edge function? Add a row to the table. Shipping a feature? Update Sprint Status. Refactor changes a key file path? Update Key Files. New convention? Add a section or update CLAUDE.md and add the cross-reference here.
 
-The PR template will get a checkbox for this. Until then: any PR that adds/changes anything in this file's scope must include the update. If you read this file and something feels stale, that's the signal — fix it in your next PR.
+The PR template (`.github/pull_request_template.md`) has a checkbox for this — added in PR #36. If you read this file and something feels stale, that's the signal — fix it in your next PR.
 
 When the file gets too long (current target: <800 lines), split. The split rule: anything that has its own evolution rhythm (lessons, research, sprint plan) lives in its own file and is cross-referenced from here.
