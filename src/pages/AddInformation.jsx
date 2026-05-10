@@ -3,7 +3,7 @@ import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Plus, Trash2, Upload, X } from "lucide-react";
+import { Loader2, Plus, Trash2, Upload, X, BookMarked, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,6 +15,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import ExperienceStories from "@/components/stories/ExperienceStories";
+import StoryCaptureModal from "@/components/stories/StoryCaptureModal";
 
 // ─── Enum sources ──────────────────────────────────────────────────────────
 // Mirror the values onboarding writes so AddInformation can edit them with
@@ -272,6 +274,18 @@ export default function AddInformation() {
     initialData: [],
   });
 
+  const { data: stories, isLoading: loadingStories } = useQuery({
+    queryKey: ["stories", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const { data, error } = await supabase.from("stories").select("*").eq("user_id", user.id).order("created_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id,
+    initialData: [],
+  });
+
   const profile = profiles?.[0] || null;
 
   // profileForm shape mirrors the columns onboarding writes to so every
@@ -380,6 +394,12 @@ export default function AddInformation() {
     is_current: false,
     responsibilities: "",
     skills_used: [],
+  });
+  
+  const [storyCapture, setStoryCapture] = useState({
+    isOpen: false,
+    source: null,
+    experienceId: null,
   });
 
   const saveProfile = async () => {
@@ -549,7 +569,7 @@ export default function AddInformation() {
     toast.success(wasEdit ? "Experience updated." : "Experience added.");
   };
 
-  const isLoading = loadingProfile || loadingCerts || loadingProjects || loadingExp;
+  const isLoading = loadingProfile || loadingCerts || loadingProjects || loadingExp || loadingStories;
 
   if (isLoading) {
     return (
@@ -1217,36 +1237,71 @@ export default function AddInformation() {
               <div className="space-y-2">
                 <h3 className="text-xs uppercase tracking-wider text-[#A3A3A3] font-medium">Your Experience</h3>
                 {experiences.map((e) => (
-                  <div key={e.id} className="bg-white rounded-lg border border-[#E5E5E5] px-4 py-3 flex items-center justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-[#0A0A0A] truncate">{e.title} <span className="text-[#A3A3A3]">at</span> {e.company}</p>
-                      <p className="text-xs text-[#A3A3A3]">
-                        {e.type?.replace("_", " ")}
-                        {e.start_date ? ` · ${e.start_date}${e.end_date ? ` – ${e.end_date}` : ""}` : ""}
-                      </p>
+                  <div key={e.id} className="bg-white rounded-lg border border-[#E5E5E5] px-4 py-3 flex flex-col gap-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1 mt-1">
+                        <p className="text-sm font-medium text-[#0A0A0A] truncate">{e.title} <span className="text-[#A3A3A3]">at</span> {e.company}</p>
+                        <p className="text-xs text-[#A3A3A3]">
+                          {e.type?.replace("_", " ")}
+                          {e.start_date ? ` · ${e.start_date}${e.end_date ? ` – ${e.end_date}` : ""}` : ""}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setStoryCapture({ isOpen: true, source: "manual_form", experienceId: e.id })}
+                          className="h-7 text-xs border-[#E5E5E5] text-[#525252] hover:text-[#0A0A0A] hidden md:flex"
+                        >
+                          <BookMarked className="w-3.5 h-3.5 mr-1.5" /> Add Story
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setExpForm({
+                            id: e.id,
+                            title: e.title || "",
+                            company: e.company || "",
+                            type: e.type || "internship",
+                            start_date: e.start_date || "",
+                            end_date: e.end_date || "",
+                            is_current: !!e.is_current,
+                            responsibilities: e.responsibilities || "",
+                            skills_used: e.skills_used || [],
+                          })}
+                          className="text-xs h-7"
+                        >
+                          Edit
+                        </Button>
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={async () => { const { error } = await supabase.from("experiences").delete().eq("id", e.id).eq("user_id", user.id); if (error) { toast.error("Failed to delete experience."); return; } queryClient.invalidateQueries({ queryKey: ["experiences"] }); if (expForm.id === e.id) resetExpForm(); toast.success("Experience removed."); }}>
+                          <Trash2 className="w-4 h-4 text-[#A3A3A3] hover:text-red-500" />
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setExpForm({
-                          id: e.id,
-                          title: e.title || "",
-                          company: e.company || "",
-                          type: e.type || "internship",
-                          start_date: e.start_date || "",
-                          end_date: e.end_date || "",
-                          is_current: !!e.is_current,
-                          responsibilities: e.responsibilities || "",
-                          skills_used: e.skills_used || [],
-                        })}
-                        className="text-xs"
-                      >
-                        Edit
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={async () => { const { error } = await supabase.from("experiences").delete().eq("id", e.id).eq("user_id", user.id); if (error) { toast.error("Failed to delete experience."); return; } queryClient.invalidateQueries({ queryKey: ["experiences"] }); if (expForm.id === e.id) resetExpForm(); toast.success("Experience removed."); }}>
-                        <Trash2 className="w-4 h-4 text-[#A3A3A3] hover:text-red-500" />
-                      </Button>
+                    {/* Inline stories */}
+                    <div className="pl-0 md:pl-2">
+                      <div className="md:hidden mb-3">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setStoryCapture({ isOpen: true, source: "manual_form", experienceId: e.id })}
+                          className="h-7 w-full text-xs border-[#E5E5E5] text-[#525252] hover:text-[#0A0A0A]"
+                        >
+                          <BookMarked className="w-3.5 h-3.5 mr-1.5" /> Add Story
+                        </Button>
+                      </div>
+                      <ExperienceStories 
+                        stories={stories.filter(s => s.experience_id === e.id)} 
+                        onDelete={async (story) => {
+                          const { error } = await supabase.from("stories").delete().eq("id", story.id);
+                          if (!error) {
+                            queryClient.invalidateQueries({ queryKey: ["stories"] });
+                            toast.success("Story removed.");
+                          } else {
+                            toast.error("Failed to delete story.");
+                          }
+                        }}
+                      />
                     </div>
                   </div>
                 ))}
@@ -1255,6 +1310,24 @@ export default function AddInformation() {
           </div>
         </TabsContent>
       </Tabs>
+      
+      {/* Quick Add Story floating button */}
+      <div className="fixed bottom-6 right-6 z-40">
+        <Button 
+          onClick={() => setStoryCapture({ isOpen: true, source: "manual_quick_add", experienceId: null })}
+          className="rounded-full shadow-lg h-12 px-5 bg-[#0A0A0A] hover:bg-[#262626] text-white flex items-center gap-2 transition-transform hover:scale-105"
+        >
+          <Sparkles className="w-4 h-4" />
+          <span className="text-sm font-medium">Quick Add Story</span>
+        </Button>
+      </div>
+
+      <StoryCaptureModal 
+        isOpen={storyCapture.isOpen}
+        source={storyCapture.source}
+        initialExperienceId={storyCapture.experienceId}
+        onClose={() => setStoryCapture({ isOpen: false, source: null, experienceId: null })}
+      />
     </div>
   );
 }
