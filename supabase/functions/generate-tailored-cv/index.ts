@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { startMetric, finishMetric, type Metric } from '../_shared/metrics.ts'
+import { openaiChatCompletion } from '../_shared/openai-chat.ts'
 import { CV_VOICE_RULES } from '../_shared/voice-rules.ts'
 import { buildCV } from '../_shared/cv-templates/build.ts'
 import { matchRoleToLibrary, resolveSectorTheme } from '../_shared/cv-templates/sector-mapping.ts'
@@ -48,20 +49,19 @@ type JDKeywords = {
   domain_terms: string[];
   soft_skill_keywords: string[];
 };
-async function extractJDKeywords(jd: string, openaiKey: string, m?: Metric): Promise<JDKeywords> {
+async function extractJDKeywords(
+  jd: string,
+  openaiKey: string,
+  m: Metric | undefined,
+  traceCtx: { userId: string; sessionId: string },
+): Promise<JDKeywords> {
   const empty: JDKeywords = {
     must_include_phrases: [], action_verbs: [], tools_and_platforms: [],
     domain_terms: [], soft_skill_keywords: [],
   };
   try {
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      signal: AbortSignal.timeout(20000),
-      headers: {
-        "Authorization": `Bearer ${openaiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+    const response = await openaiChatCompletion(
+      {
         model: MODEL,
         temperature: 0,
         max_tokens: 600,
@@ -86,8 +86,17 @@ JOB DESCRIPTION:
 ${jd.slice(0, 6000)}`,
           },
         ],
-      }),
-    });
+      },
+      openaiKey,
+      {
+        // Pass-1 trace — shares sessionId with pass-2 so both calls group as
+        // one CV generation in the Langfuse UI.
+        traceName: 'generate-tailored-cv:pass-1-keywords',
+        userId: traceCtx.userId,
+        sessionId: traceCtx.sessionId,
+      },
+      { signal: AbortSignal.timeout(20000) },
+    );
     if (!response.ok) return empty;
     const data = await response.json();
     if (m) {
@@ -166,6 +175,11 @@ Deno.serve(async (req) => {
       return json({ error: "Unauthorized" }, 401);
     }
     m.userId = user.id
+
+    // Per-request id used to group both LLM calls (JD keyword extraction +
+    // CV generation) into one Langfuse session, so the two passes appear
+    // together in the UI for a single CV generation request.
+    const cvSessionId = `cv-gen-${crypto.randomUUID()}`
 
     const serviceClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -281,7 +295,10 @@ Deno.serve(async (req) => {
     // helper. We read the secret once here so both calls share it.
     const _openaiKeyForExtraction = Deno.env.get("OPENAI_API_KEY");
     const jdKeywords: JDKeywords | null = (safeJobDescription && _openaiKeyForExtraction)
-      ? await extractJDKeywords(safeJobDescription, _openaiKeyForExtraction, m)
+      ? await extractJDKeywords(safeJobDescription, _openaiKeyForExtraction, m, {
+          userId: user.id,
+          sessionId: cvSessionId,
+        })
       : null;
     if (jdKeywords) {
       console.log("[CV] JD keywords extracted", JSON.stringify({
@@ -909,14 +926,8 @@ Return ONLY valid JSON. No markdown, no prose outside the JSON object.`;
     console.log("[CV] Keywords extracted:", JSON.stringify(jdKeywords?.must_include_phrases?.slice(0, 5) || []));
     console.log("[CV] Injection block length:", KEYWORD_INJECTION_BLOCK.length);
 
-    const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      signal: AbortSignal.timeout(45000),
-      headers: {
-        "Authorization": `Bearer ${openaiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+    const openaiRes = await openaiChatCompletion(
+      {
         model: MODEL,
         messages: [
           { role: "system", content: systemPrompt },
@@ -925,8 +936,23 @@ Return ONLY valid JSON. No markdown, no prose outside the JSON object.`;
         response_format: { type: "json_object" },
         temperature: 0.2, // lower = less likely to invent metrics
         max_tokens: 4096,
-      }),
-    });
+      },
+      openaiKey,
+      {
+        // Pass-2 trace — shares sessionId with pass-1 so both passes group
+        // as one CV generation in the Langfuse UI.
+        traceName: 'generate-tailored-cv:pass-2-cv',
+        userId: user.id,
+        sessionId: cvSessionId,
+        metadata: {
+          template_style: safeTemplateStyle,
+          has_jd: !!safeJobDescription,
+          has_target_role: !!safeTargetRole,
+          has_application_link: !!application_id,
+        },
+      },
+      { signal: AbortSignal.timeout(45000) },
+    );
 
     if (!openaiRes.ok) {
       const err = await openaiRes.text();

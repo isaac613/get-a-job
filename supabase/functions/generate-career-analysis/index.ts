@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { startMetric, finishMetric } from '../_shared/metrics.ts'
+import { openaiChatCompletion } from '../_shared/openai-chat.ts'
 
 // --- Load JSON Libraries ---
 import { roleLibrary } from "./shared/libraries/00_role_library.ts";
@@ -987,10 +988,8 @@ CRITICAL: Do not change any title, tier, readiness_score, goal_alignment_score, 
 
 Return ONLY valid JSON.`;
 
-    const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${openaiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    const openaiResponse = await openaiChatCompletion(
+      {
         model: MODEL,
         messages: [
           { role: 'system', content: systemPrompt },
@@ -999,12 +998,17 @@ Return ONLY valid JSON.`;
         temperature: 0.4,
         max_tokens: 4500,
         response_format: { type: 'json_object' },
-      }),
+      },
+      openaiKey,
+      {
+        traceName: 'generate-career-analysis',
+        userId: user.id,
+      },
       // Was 45s — observed cold-cache requests landing right at 38–42s with
       // max_tokens=4500 + 15-role payload, so 45s timed out intermittently
       // and bubbled "Signal timed out" up to onboarding's tier reveal step.
-      signal: AbortSignal.timeout(90000),
-    })
+      { signal: AbortSignal.timeout(90000) },
+    )
 
     if (!openaiResponse.ok) {
       const errText = await openaiResponse.text()

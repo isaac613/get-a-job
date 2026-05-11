@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { startMetric, finishMetric } from '../_shared/metrics.ts'
+import { openaiChatCompletion, type TraceContext } from '../_shared/openai-chat.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -390,8 +391,9 @@ URL discipline: Do NOT include URLs to specific courses. You don't have a real-t
 const RETRYABLE_STATUSES = new Set([408, 429, 500, 502, 503, 504])
 
 async function fetchOpenAIWithRetry(
-  url: string,
-  init: RequestInit,
+  payload: Record<string, unknown>,
+  apiKey: string,
+  traceCtx: TraceContext,
   options: { timeoutMs?: number; retries?: number; backoffMs?: number } = {},
 ): Promise<Response> {
   const { timeoutMs = 45000, retries = 1, backoffMs = 1200 } = options
@@ -401,7 +403,9 @@ async function fetchOpenAIWithRetry(
     const ctrl = new AbortController()
     const timer = setTimeout(() => ctrl.abort(), timeoutMs)
     try {
-      const res = await fetch(url, { ...init, signal: ctrl.signal })
+      // openaiChatCompletion replaces the raw fetch — adds Langfuse tracing.
+      // Each retry attempt emits its own trace (visibility into retry behaviour).
+      const res = await openaiChatCompletion(payload, apiKey, traceCtx, { signal: ctrl.signal })
       clearTimeout(timer)
       // Success or permanent failure — return immediately, no retry.
       if (res.ok || !RETRYABLE_STATUSES.has(res.status)) return res
@@ -663,11 +667,20 @@ Deno.serve(async (req) => {
     const RETRY_MAX_TOKENS = 4096
 
     async function callOpenAI(maxTokens: number) {
-      return await fetchOpenAIWithRetry('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${openaiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: MODEL, messages, temperature: 0.4, max_tokens: maxTokens }),
-      })
+      return await fetchOpenAIWithRetry(
+        { model: MODEL, messages, temperature: 0.4, max_tokens: maxTokens },
+        openaiKey,
+        {
+          traceName: 'ai-chat',
+          userId: user.id,
+          metadata: {
+            agent,
+            has_application_link: !!application_id,
+            follow_up_after: follow_up_after || null,
+            max_tokens: maxTokens,
+          },
+        },
+      )
     }
 
     let openaiResponse = await callOpenAI(BASE_MAX_TOKENS)
