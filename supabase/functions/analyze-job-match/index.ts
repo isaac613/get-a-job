@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { startMetric, finishMetric } from '../_shared/metrics.ts'
+import { openaiChatCompletion } from '../_shared/openai-chat.ts'
 
 // Source-controlled in commit fixing H1-H4. The deployed function previously
 // existed only in the dashboard — this file imports it back into the repo
@@ -199,18 +200,26 @@ Return ONLY valid JSON.`
     const RETRY_MAX_TOKENS = 4096
 
     async function callOpenAI(maxTokens: number) {
-      return await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        signal: AbortSignal.timeout(45000),
-        headers: { 'Authorization': `Bearer ${openaiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      return await openaiChatCompletion(
+        {
           model: MODEL,
           messages: [{ role: 'user', content: prompt }],
           temperature: 0.3,
           max_tokens: maxTokens,
           response_format: { type: 'json_object' },
-        }),
-      })
+        },
+        openaiKey,
+        {
+          traceName: 'analyze-job-match',
+          userId: user.id,
+          metadata: {
+            mode: mode || 'paste',
+            has_url: !!job_url,
+            max_tokens: maxTokens,
+          },
+        },
+        { signal: AbortSignal.timeout(45000) },
+      )
     }
 
     let openaiResponse = await callOpenAI(BASE_MAX_TOKENS)

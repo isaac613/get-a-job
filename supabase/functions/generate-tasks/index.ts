@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { startMetric, finishMetric } from '../_shared/metrics.ts'
+import { openaiChatCompletion } from '../_shared/openai-chat.ts'
 
 // --- Load JSON Libraries ---
 import { roleLibrary } from "./shared/libraries/00_role_library.ts";
@@ -334,11 +335,8 @@ Return ONLY valid JSON. Generate 5-8 tasks unless overwhelm signals are present,
     const RETRY_MAX_TOKENS = 4096
 
     async function callOpenAI(maxTokens: number) {
-      return await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        signal: AbortSignal.timeout(45000),
-        headers: { 'Authorization': `Bearer ${openaiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      return await openaiChatCompletion(
+        {
           model: MODEL,
           messages: [
             { role: 'system', content: systemPrompt },
@@ -347,8 +345,18 @@ Return ONLY valid JSON. Generate 5-8 tasks unless overwhelm signals are present,
           temperature: 0.4,
           max_tokens: maxTokens,
           response_format: { type: 'json_object' },
-        }),
-      })
+        },
+        openaiKey,
+        {
+          traceName: 'generate-tasks',
+          userId: user.id,
+          metadata: {
+            has_context: !!context,
+            max_tokens: maxTokens,
+          },
+        },
+        { signal: AbortSignal.timeout(45000) },
+      )
     }
 
     let openaiResponse = await callOpenAI(BASE_MAX_TOKENS)

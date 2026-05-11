@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { startMetric, finishMetric } from '../_shared/metrics.ts'
+import { openaiChatCompletion } from '../_shared/openai-chat.ts'
 import { proofSignalExtractionLogic } from './shared/libraries/08_proof_signal_extraction_logic.ts'
 import { proofSignalLibrary } from './shared/libraries/02_proof_signal_library.ts'
 import { skillLibrary } from './shared/libraries/01_skill_library.ts'
@@ -153,10 +154,8 @@ Deno.serve(async (req) => {
       })
     }
 
-    const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${openaiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    const openaiResponse = await openaiChatCompletion(
+      {
         model: MODEL,
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
@@ -165,9 +164,15 @@ Deno.serve(async (req) => {
         temperature: 0.2,
         max_tokens: 4000,
         response_format: { type: 'json_object' },
-      }),
-      signal: AbortSignal.timeout(45000),
-    })
+      },
+      openaiKey,
+      {
+        traceName: 'extract-proof-signals',
+        userId: user.id,
+        metadata: { cv_text_length: cvText.length },
+      },
+      { signal: AbortSignal.timeout(45000) },
+    )
 
     if (!openaiResponse.ok) {
       const errText = await openaiResponse.text()
