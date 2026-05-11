@@ -18,3 +18,8 @@ Trigger: PR #32 CI failed on `useState` imported but never used in PostComposeFo
 What I did wrong: treated `npx vite build` as sufficient pre-commit signal for frontend changes. Vite's job is bundling; it doesn't enforce ESLint rules. The CI runs `npm run lint && npm run typecheck && npm run build` — three separate gates, not one.
 Rule for next time: before pushing any frontend PR, run `npm run lint` (not just vite build). The full pre-push command is `npm run lint && npm run typecheck && npm run build` — matches CI exactly. The ~10s extra is cheaper than a failed CI + push-fix cycle.
 ---
+2026-05-11 — hyphenated env var names don't work in Deno even when Supabase accepts them
+Trigger: PR #41 Langfuse helper read `Deno.env.get('Langfuse-public')` etc. because Eli's Supabase secrets used hyphenated names. Functions appeared to work (pure pass-through saved us) but no traces ever landed in Langfuse — `Deno.env.get()` returned undefined for hyphenated names, so `LANGFUSE_ENABLED` was always false. I flagged the hyphen suspicion in the initial plan but accepted the user's confirmation rather than testing it first.
+What I did wrong: trusted that "Supabase accepts hyphens in secret-name field" meant "Deno can read those env vars." Those are independent constraints. POSIX env var identifiers are `[a-zA-Z_][a-zA-Z0-9_]*` — hyphens are forbidden regardless of what the dashboard accepts.
+Rule for next time: any env var name with a non-`[a-zA-Z0-9_]` character is unreadable from Deno/Node/most runtimes. When the user mentions a hyphenated secret name, push back IMMEDIATELY ("Deno can't read that — secrets need underscore-only names like FOO_BAR_BAZ"). Don't just code it up and hope. The fix is renaming the secret, not working around the read.
+---
