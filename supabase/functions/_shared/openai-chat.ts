@@ -228,6 +228,10 @@ async function sendLangfuseTrace(args: SendTraceArgs): Promise<void> {
     headers: {
       'Authorization': LANGFUSE_AUTH_HEADER!,
       'Content-Type': 'application/json',
+      // Without this header, Langfuse routes ingestion through a delayed
+      // batch processor (~10 min lag). v4 routing makes traces appear in
+      // real time, which is what we want for prompt-tuning during pilot.
+      'x-langfuse-ingestion-version': '4',
     },
     body: JSON.stringify({ batch }),
     // 5s cap — Langfuse should respond fast; if it's stuck we'd rather

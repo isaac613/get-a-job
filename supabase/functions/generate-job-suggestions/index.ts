@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { startMetric, finishMetric } from '../_shared/metrics.ts'
+import { openaiChatCompletion } from '../_shared/openai-chat.ts'
 
 import { roleLibrary } from './shared/libraries/00_role_library.ts'
 import { roleSkillMapping } from './shared/libraries/04_role_skill_mapping.ts'
@@ -642,10 +643,8 @@ Return ONLY valid JSON:
   "message": "string (brief summary)"
 }`
 
-    const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${openaiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    const openaiResponse = await openaiChatCompletion(
+      {
         model: MODEL,
         messages: [
           { role: 'system', content: systemPrompt },
@@ -654,9 +653,18 @@ Return ONLY valid JSON:
         temperature: 0.3,
         max_tokens: 2048,
         response_format: { type: 'json_object' },
-      }),
-      signal: AbortSignal.timeout(55000),
-    })
+      },
+      openaiKey,
+      {
+        traceName: 'generate-job-suggestions',
+        userId: user.id,
+        metadata: {
+          country_code: countryCode,
+          target_title_count: targetTitles.length,
+        },
+      },
+      { signal: AbortSignal.timeout(55000) },
+    )
 
     if (!openaiResponse.ok) {
       const errText = await openaiResponse.text()
