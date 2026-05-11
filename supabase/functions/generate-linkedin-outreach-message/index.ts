@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { startMetric, finishMetric } from '../_shared/metrics.ts'
+import { openaiChatCompletion } from '../_shared/openai-chat.ts'
 import { OUTREACH_VOICE_RULES } from '../_shared/voice-rules.ts'
 import { FRAMEWORK_BY_GOAL } from '../_shared/outreach-frameworks/frameworks.ts'
 
@@ -378,11 +379,8 @@ TURN HINT: ${turnHint}
 
 Now produce the next AI-coached suggestion as JSON per the output spec. Apply the goal-specific framework above + OUTREACH_VOICE_RULES strictly. If the user is pushing for the goal's ask in a turn that's premature given thread state, set warm_up_advice with explicit coaching for the warm-up turn instead.`
 
-    const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      signal: AbortSignal.timeout(60000),
-      headers: { 'Authorization': `Bearer ${openaiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    const openaiResponse = await openaiChatCompletion(
+      {
         model: MODEL,
         messages: [
           { role: 'system', content: systemPrompt },
@@ -391,8 +389,22 @@ Now produce the next AI-coached suggestion as JSON per the output spec. Apply th
         temperature: 0.5,
         max_tokens: 1500,
         response_format: { type: 'json_object' },
-      }),
-    })
+      },
+      openaiKey,
+      {
+        traceName: 'generate-linkedin-outreach-message',
+        userId: user.id,
+        // The conversation row id groups multi-turn outreach into one
+        // Langfuse session — every turn of the same DM thread appears
+        // together in the UI.
+        sessionId: `outreach-${convoRow.id}`,
+        metadata: {
+          goal: activeGoal,
+          thread_turn: thread.length,
+        },
+      },
+      { signal: AbortSignal.timeout(60000) },
+    )
 
     if (!openaiResponse.ok) {
       const errText = await openaiResponse.text()
