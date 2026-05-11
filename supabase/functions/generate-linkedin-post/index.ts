@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { startMetric, finishMetric } from '../_shared/metrics.ts'
+import { openaiChatCompletion } from '../_shared/openai-chat.ts'
 import { POST_VOICE_RULES } from '../_shared/voice-rules.ts'
 import {
   PROJECT_FRAMEWORK,
@@ -537,11 +538,8 @@ Deno.serve(async (req) => {
       : buildUserPromptFull(userData, inputs)
 
     // OpenAI call
-    const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      signal: AbortSignal.timeout(60000),
-      headers: { 'Authorization': `Bearer ${openaiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    const openaiResponse = await openaiChatCompletion(
+      {
         model: MODEL,
         messages: [
           { role: 'system', content: systemPrompt },
@@ -550,8 +548,19 @@ Deno.serve(async (req) => {
         temperature: 0.5,
         max_tokens: 1500,
         response_format: { type: 'json_object' },
-      }),
-    })
+      },
+      openaiKey,
+      {
+        traceName: 'generate-linkedin-post',
+        userId: user.id,
+        metadata: {
+          post_type,
+          is_refinement: isRefinement,
+          has_baseline: hasBaseline,
+        },
+      },
+      { signal: AbortSignal.timeout(60000) },
+    )
 
     if (!openaiResponse.ok) {
       const errText = await openaiResponse.text()

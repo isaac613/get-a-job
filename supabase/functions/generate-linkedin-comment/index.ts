@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { startMetric, finishMetric } from '../_shared/metrics.ts'
+import { openaiChatCompletion } from '../_shared/openai-chat.ts'
 import { COMMENT_VOICE_RULES } from '../_shared/voice-rules.ts'
 
 // generate-linkedin-comment — Phase 4 PR A of the LinkedIn command center.
@@ -229,11 +230,8 @@ If the user has nothing genuinely relevant to add, return options: [] and set no
 
 Return ONLY valid JSON.`
 
-    const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      signal: AbortSignal.timeout(60000),
-      headers: { 'Authorization': `Bearer ${openaiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    const openaiResponse = await openaiChatCompletion(
+      {
         model: MODEL,
         messages: [
           { role: 'system', content: systemPrompt },
@@ -242,8 +240,18 @@ Return ONLY valid JSON.`
         temperature: 0.6,
         max_tokens: 1500,
         response_format: { type: 'json_object' },
-      }),
-    })
+      },
+      openaiKey,
+      {
+        traceName: 'generate-linkedin-comment',
+        userId: user.id,
+        metadata: {
+          post_text_length: post_text.length,
+          has_author_headline: !!author_headline,
+        },
+      },
+      { signal: AbortSignal.timeout(60000) },
+    )
 
     if (!openaiResponse.ok) {
       const errText = await openaiResponse.text()

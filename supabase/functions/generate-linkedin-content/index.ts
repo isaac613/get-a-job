@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { startMetric, finishMetric } from '../_shared/metrics.ts'
+import { openaiChatCompletion } from '../_shared/openai-chat.ts'
 import { LINKEDIN_VOICE_RULES } from '../_shared/voice-rules.ts'
 
 // generate-linkedin-content — Wk 3 LinkedIn Optimizer v1.
@@ -620,11 +621,8 @@ ${JSON.stringify(userData, null, 2)}
 
 Generate LinkedIn content for all 6 sections per the schema in your instructions. Return ONLY valid JSON.`
 
-    const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      signal: AbortSignal.timeout(60000),
-      headers: { 'Authorization': `Bearer ${openaiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    const openaiResponse = await openaiChatCompletion(
+      {
         model: MODEL,
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
@@ -636,8 +634,18 @@ Generate LinkedIn content for all 6 sections per the schema in your instructions
         // money. Full mode keeps the 4096 cap for all-six output.
         max_tokens: refinementTarget ? 1500 : 4096,
         response_format: { type: 'json_object' },
-      }),
-    })
+      },
+      openaiKey,
+      {
+        traceName: 'generate-linkedin-content',
+        userId: user.id,
+        metadata: {
+          is_refinement: !!refinementTarget,
+          refinement_target: refinementTarget || null,
+        },
+      },
+      { signal: AbortSignal.timeout(60000) },
+    )
 
     if (!openaiResponse.ok) {
       const errText = await openaiResponse.text()
