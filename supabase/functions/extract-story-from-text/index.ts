@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { startMetric, finishMetric } from '../_shared/metrics.ts'
+import { openaiChatCompletion } from '../_shared/openai-chat.ts'
 
 // extract-story-from-text — Wk 2 Day 2 of the June 15 launch sprint.
 //
@@ -313,11 +314,8 @@ ${text}${experienceContext}
 
 Extract a story from the user text above.`
 
-    const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      signal: AbortSignal.timeout(20000),
-      headers: { 'Authorization': `Bearer ${openaiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    const openaiResponse = await openaiChatCompletion(
+      {
         model: MODEL,
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
@@ -329,8 +327,19 @@ Extract a story from the user text above.`
         temperature: 0.2,
         max_tokens: 1024,
         response_format: { type: 'json_object' },
-      }),
-    })
+      },
+      openaiKey,
+      {
+        traceName: 'extract-story-from-text',
+        userId: user.id,
+        metadata: {
+          source,
+          has_experience_link: !!experience_id,
+          has_conversation_link: !!conversation_id,
+        },
+      },
+      { signal: AbortSignal.timeout(20000) },
+    )
 
     if (!openaiResponse.ok) {
       const errText = await openaiResponse.text()

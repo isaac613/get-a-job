@@ -145,7 +145,8 @@ Single index — when something feels load-bearing, it's probably in here.
 | Path | What |
 |---|---|
 | `supabase/functions/_shared/voice-rules.ts` | The 5 voice-rule constants |
-| `supabase/functions/_shared/metrics.ts` | `startMetric` / `finishMetric` — per-call observability |
+| `supabase/functions/_shared/metrics.ts` | `startMetric` / `finishMetric` — per-call observability writing to `function_metrics` |
+| `supabase/functions/_shared/openai-chat.ts` | `openaiChatCompletion()` — drop-in fetch wrapper that adds Langfuse tracing as a pure pass-through (fire-and-forget via `EdgeRuntime.waitUntil`, swallows all Langfuse errors so the OpenAI call always works). Reads env vars `LANGFUSE_SECRET_KEY` / `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_BASE_URL`. Migration in progress across 13 edge functions |
 | `supabase/functions/_shared/post-frameworks/{types,frameworks}.ts` | 7 post-type frameworks + typed input shapes (PR #32–33) |
 | `supabase/functions/_shared/outreach-frameworks/{types,frameworks}.ts` | 8 outreach-goal frameworks + typed shapes (PR #35) |
 | `supabase/functions/_shared/cv-templates/` | CV template engine (PR #21) |
