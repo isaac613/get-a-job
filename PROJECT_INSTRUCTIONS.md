@@ -74,9 +74,9 @@ Pilot is **CONFIRMED** — Reichman professor + Dr. Miller personally vouching. 
 
 ---
 
-## Edge functions (15)
+## Edge functions (16)
 
-All under `supabase/functions/<slug>/index.ts`. Each writes per-call metrics via `_shared/metrics.ts` (PR #6).
+All under `supabase/functions/<slug>/index.ts`. Each writes per-call metrics via `_shared/metrics.ts` (PR #6) and emits Langfuse traces via `_shared/openai-chat.ts` (PR #41-#44).
 
 | Slug | Model | Purpose |
 |---|---|---|
@@ -85,6 +85,7 @@ All under `supabase/functions/<slug>/index.ts`. Each writes per-call metrics via
 | `extract-proof-signals` | gpt-4o-mini | Pull proof signals (metrics, named tools, named outcomes) from free-text inputs |
 | `extract-story-from-text` | gpt-4o-mini | STAR extraction from user-pasted experience text. 3-layer anti-fabrication. Powers Story Bank |
 | `generate-career-analysis` | gpt-4o | Tiered role recommendations (`career_roles` table) — Tier 1/2/3 with rationale |
+| `generate-daily-action` | gpt-4o-mini | **Daily Action Card** backend. Rule-based ranking (leverage × urgency × low_friction × calibration backoff) over tasks + applications + career_roles + stories, picks top-1, LLM frames only the title/rationale/estimated_minutes. Lazy generation on Home dashboard load; UNIQUE (user_id, for_date) enforces max one card per day. `pick_score` persisted for debugging |
 | `generate-job-suggestions` | gpt-4o | JSearch / Active Jobs DB → scored job suggestions for the user's roles |
 | `generate-learning-paths` | gpt-4o | Course recommendations to close skill gaps (Coursera + LinkedIn Learning affiliate links) |
 | `generate-linkedin-comment` | gpt-4o | **PR #34.** Paste a post → 3 substantive comment options grounded in user's real experience. Anti-fab: empty options + `no_fit_reason` when nothing genuine to say |
@@ -162,6 +163,7 @@ Single index — when something feels load-bearing, it's probably in here.
 | `20260506_linkedin_posts.sql` | 7-type posts table — separate `edited_text` column (per Eli's call PR #32) |
 | `20260506_linkedin_outreach_conversations.sql` | 8-goal multi-turn conversations table (PR #35) |
 | `20260506_profiles_education_institution.sql` | Education institution column |
+| `20260511_daily_actions.sql` | Daily Action Card table — one row per (user_id, for_date), 8 action types, calibration-loop partial index on dismissed-by-type, RLS 4-policy |
 
 ### Docs / process
 | Path | What |
@@ -183,14 +185,14 @@ The full week-by-week is in `ROADMAP.md`. This is the working slice.
 ### Wk 3 remaining
 
 **Eli (Thu–Fri slots):**
-- **Daily Action Card** — schema + `generate-daily-action` edge function (priority logic + LLM picker)
+- ✅ **Daily Action Card** — schema + `generate-daily-action` edge function (rule-based ranking + LLM framing; lazy generation on Home load). Migration `20260511_daily_actions.sql`. _Backend complete; Isaac builds UI._
 - **Admin chat log viewer** — `chat_messages` + `conversations` join; new `admin_chat_logs(p_user_id uuid, p_limit int)` RPC; card on `/admin` with student dropdown rendering threaded message list with pretty-printed `suggested_*_json` blocks
 - **Admin story browser** — `stories` table; new `admin_stories_browse(p_user_id uuid NULL, p_limit int)` RPC; card on `/admin` with student dropdown + story list (title, source surface, STAR fields, metrics, skills_demonstrated, tools_used, italicised `extraction_notes`); raw-text vs STAR side-by-side where data permits, for prompt-tuning signal
 
 **Isaac (Wk 3, 2.5 days):**
 - **Mon — Story Bank Phase 2:** AddInformation Experience tab inline stories + quick-add modal
-- **Wed — Daily Action Card UI** on Home dashboard (Done / Snooze / Dismiss actions)
-- **Fri — Daily Action calibration loop:** dismissed-type backoff in priority weighting
+- **Wed — Daily Action Card UI** on Home dashboard (Done / Snooze / Dismiss actions). Backend ready: POST to `generate-daily-action`, render `{ daily_action: { title, rationale, estimated_minutes, action_type, source_table, source_id, status } }`. For `reflect`, clicking Done opens Story Bank quick-add modal (the reflection IS the capture). On Dismiss: PATCH `daily_actions` row to `status='dismissed'` — calibration loop is already wired in the edge function (`generate-daily-action` queries last-7-day dismissals on each call).
+- **Fri — Daily Action calibration loop:** already wired in backend (see above). Isaac validates by triggering 3+ dismissals of a type and confirming the next pick deweights that type.
 
 ### Wk 4 queue (May 26 – June 1)
 
