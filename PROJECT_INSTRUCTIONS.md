@@ -164,6 +164,7 @@ Single index — when something feels load-bearing, it's probably in here.
 | `20260506_linkedin_outreach_conversations.sql` | 8-goal multi-turn conversations table (PR #35) |
 | `20260506_profiles_education_institution.sql` | Education institution column |
 | `20260511_daily_actions.sql` | Daily Action Card table — one row per (user_id, for_date), 8 action types, calibration-loop partial index on dismissed-by-type, RLS 4-policy |
+| `20260512_admin_chat_and_story_browsers.sql` | Admin pilot tooling — `admin_list_students()` / `admin_chat_messages()` / `admin_stories_browse()` RPCs + admin SELECT policies on conversations + chat_messages. Powers the two new admin cards |
 
 ### Docs / process
 | Path | What |
@@ -186,8 +187,8 @@ The full week-by-week is in `ROADMAP.md`. This is the working slice.
 
 **Eli (Thu–Fri slots):**
 - ✅ **Daily Action Card** — schema + `generate-daily-action` edge function (rule-based ranking + LLM framing; lazy generation on Home load). Migration `20260511_daily_actions.sql`. _Backend complete; Isaac builds UI._
-- **Admin chat log viewer** — `chat_messages` + `conversations` join; new `admin_chat_logs(p_user_id uuid, p_limit int)` RPC; card on `/admin` with student dropdown rendering threaded message list with pretty-printed `suggested_*_json` blocks
-- **Admin story browser** — `stories` table; new `admin_stories_browse(p_user_id uuid NULL, p_limit int)` RPC; card on `/admin` with student dropdown + story list (title, source surface, STAR fields, metrics, skills_demonstrated, tools_used, italicised `extraction_notes`); raw-text vs STAR side-by-side where data permits, for prompt-tuning signal
+- ✅ **Admin chat log viewer** — `admin_chat_messages(p_user_id, p_limit)` RPC + `<ChatLogsCard />` on `/admin`. Student dropdown → grouped conversations (collapsed by default) → expandable threads with pretty-printed `suggested_*_json` blocks. Error rows show original prompt + failure response side-by-side.
+- ✅ **Admin story browser** — `admin_stories_browse(p_user_id NULL, p_limit)` RPC + `<StoryBrowserCard />` on `/admin`. Student dropdown (with "All students") → story cards with STAR fields stacked, chips for metrics/skills/tools/tags, and `raw_source_text` side-by-side when `source='conversation'` (best-effort: latest user message before story.created_at). `extraction_notes` display deferred — column isn't persisted yet by extract-story-from-text.
 
 **Isaac (Wk 3, 2.5 days):**
 - **Mon — Story Bank Phase 2:** AddInformation Experience tab inline stories + quick-add modal
