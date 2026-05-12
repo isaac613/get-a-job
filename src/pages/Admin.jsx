@@ -14,8 +14,11 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
-import { Loader2, AlertTriangle, Activity, DollarSign, Users, AlertCircle } from "lucide-react";
-import { format } from "date-fns";
+import {
+  Loader2, AlertTriangle, Activity, DollarSign, Users, AlertCircle,
+  MessageSquare, BookOpen, ChevronDown, ChevronRight,
+} from "lucide-react";
+import { format, formatDistanceToNow } from "date-fns";
 
 // Admin dashboard — Wk 2 Day 5. Five cards over real-time observability:
 //   1. Cost & call-volume trend (toggleable 7/14/30 day window)
@@ -408,6 +411,347 @@ function EngagementCard() {
   );
 }
 
+// ─── Student picker shared by ChatLogsCard + StoryBrowserCard ────────
+function useStudentList() {
+  return useQuery({
+    queryKey: ["admin_list_students"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("admin_list_students");
+      if (error) throw error;
+      return data || [];
+    },
+    refetchInterval: 60_000,
+  });
+}
+
+// ─── ChatLogsCard ─────────────────────────────────────────────────────
+// Internal tool — student dropdown → grouped conversations → expandable
+// message threads with pretty-printed suggested_*_json blocks. Per Eli's
+// design call: no auto-select, force admin to choose what to look at.
+const SUGGESTED_BLOCK_FIELDS = [
+  ["suggested_tasks", "TASKS"],
+  ["suggested_roadmap_changes", "ROADMAP_CHANGES"],
+  ["suggested_application_actions", "APPLICATION_ACTIONS"],
+  ["suggested_agent", "AGENT"],
+  ["suggested_cv_generation", "CV_GENERATION"],
+];
+
+function ChatLogsCard() {
+  const [selectedUserId, setSelectedUserId] = useState("");
+  const [expandedConvos, setExpandedConvos] = useState(() => new Set());
+  const { data: students } = useStudentList();
+
+  const { data: messages, isLoading, error } = useQuery({
+    queryKey: ["admin_chat_messages", selectedUserId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("admin_chat_messages", {
+        p_user_id: selectedUserId,
+        p_limit: 200,
+      });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!selectedUserId,
+    refetchInterval: 60_000,
+  });
+
+  // Group flat message list by conversation_id (RPC already returns
+  // sorted by conversation_id, then created_at ASC within).
+  const conversations = useMemo(() => {
+    const byConvo = new Map();
+    for (const m of messages || []) {
+      if (!byConvo.has(m.conversation_id)) {
+        byConvo.set(m.conversation_id, {
+          conversation_id: m.conversation_id,
+          title: m.conversation_title,
+          agent: m.agent,
+          application_id: m.application_id,
+          messages: [],
+        });
+      }
+      byConvo.get(m.conversation_id).messages.push(m);
+    }
+    // Sort conversations by most recent message DESC for the display order.
+    return Array.from(byConvo.values()).sort((a, b) => {
+      const aLast = a.messages[a.messages.length - 1]?.created_at || "";
+      const bLast = b.messages[b.messages.length - 1]?.created_at || "";
+      return bLast.localeCompare(aLast);
+    });
+  }, [messages]);
+
+  const toggleConvo = (id) => {
+    setExpandedConvos((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  return (
+    <Card
+      title="Chat logs"
+      icon={MessageSquare}
+      footer={
+        selectedUserId
+          ? `${conversations.length} conversation(s) · ${(messages || []).length} message(s) · cap 200`
+          : "Select a student to view their chat history"
+      }
+    >
+      <div className="mb-3">
+        <select
+          value={selectedUserId}
+          onChange={(e) => {
+            setSelectedUserId(e.target.value);
+            setExpandedConvos(new Set());
+          }}
+          className="w-full text-xs border border-[#E5E5E5] rounded-md px-2 py-1.5 bg-white"
+        >
+          <option value="">— Select a student —</option>
+          {(students || []).map((s) => (
+            <option key={s.user_id} value={s.user_id}>
+              {s.full_name || "(no name)"} · {s.user_id.slice(0, 8)}…
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {!selectedUserId ? (
+        <EmptyState message="Pick a student from the dropdown above." />
+      ) : isLoading ? (
+        <div className="flex items-center justify-center h-40"><Loader2 className="w-4 h-4 animate-spin text-[#A3A3A3]" /></div>
+      ) : error ? (
+        <EmptyState message={`Error loading messages: ${error.message}`} />
+      ) : conversations.length === 0 ? (
+        <EmptyState message="No chat history for this student." />
+      ) : (
+        <div className="space-y-2 max-h-[600px] overflow-y-auto">
+          {conversations.map((c) => (
+            <ConversationBlock
+              key={c.conversation_id}
+              convo={c}
+              expanded={expandedConvos.has(c.conversation_id)}
+              onToggle={() => toggleConvo(c.conversation_id)}
+            />
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function ConversationBlock({ convo, expanded, onToggle }) {
+  const lastMsg = convo.messages[convo.messages.length - 1];
+  const lastTime = lastMsg?.created_at ? formatDistanceToNow(new Date(lastMsg.created_at), { addSuffix: true }) : "—";
+  return (
+    <div className="border border-[#E5E5E5] rounded-md bg-[#FAFAFA]">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full px-3 py-2 flex items-center justify-between gap-2 text-left hover:bg-[#F5F5F5]"
+      >
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          {expanded ? <ChevronDown className="w-3.5 h-3.5 flex-shrink-0 text-[#525252]" /> : <ChevronRight className="w-3.5 h-3.5 flex-shrink-0 text-[#525252]" />}
+          <span className="text-[10px] uppercase tracking-wider font-medium text-[#525252] px-1.5 py-0.5 bg-white border border-[#E5E5E5] rounded">
+            {convo.agent || "?"}
+          </span>
+          <span className="text-xs font-medium text-[#0A0A0A] truncate">
+            {convo.title || "(untitled)"}
+          </span>
+          {convo.application_id && (
+            <span className="text-[10px] text-[#A3A3A3] flex-shrink-0">
+              · app {convo.application_id.slice(0, 8)}…
+            </span>
+          )}
+        </div>
+        <div className="text-[10px] text-[#A3A3A3] flex-shrink-0">
+          {convo.messages.length} msg · {lastTime}
+        </div>
+      </button>
+      {expanded && (
+        <div className="px-3 pb-3 pt-1 space-y-2 border-t border-[#E5E5E5] bg-white">
+          {convo.messages.map((m) => <MessageBubble key={m.message_id} msg={m} />)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MessageBubble({ msg }) {
+  const isUser = msg.role === "user";
+  const isError = msg.is_error;
+  const bubbleClass = isError
+    ? "bg-red-50 border-red-200"
+    : isUser
+      ? "bg-blue-50 border-blue-200"
+      : "bg-white border-[#E5E5E5]";
+  const hasSuggested = SUGGESTED_BLOCK_FIELDS.some(([k]) => msg[k] != null);
+  return (
+    <div className={`border rounded-md px-3 py-2 ${bubbleClass}`}>
+      <div className="flex items-center justify-between gap-2 mb-1">
+        <span className="text-[10px] uppercase tracking-wider font-semibold text-[#525252]">
+          {isUser ? "User" : "Assistant"}
+          {isError && <span className="ml-2 text-red-700">· ERROR</span>}
+        </span>
+        <span className="text-[10px] text-[#A3A3A3]">
+          {format(new Date(msg.created_at), "MMM d HH:mm:ss")}
+        </span>
+      </div>
+      {isError && msg.original_user_message && (
+        <div className="mb-2 text-[11px]">
+          <div className="text-[10px] uppercase tracking-wider text-red-800 font-medium mb-0.5">Failed prompt</div>
+          <div className="bg-white border border-red-200 rounded px-2 py-1 text-red-900 whitespace-pre-wrap">
+            {msg.original_user_message}
+          </div>
+        </div>
+      )}
+      <p className="text-[11px] text-[#0A0A0A] whitespace-pre-wrap leading-snug">{msg.content}</p>
+      {hasSuggested && (
+        <div className="mt-2 space-y-1.5">
+          {SUGGESTED_BLOCK_FIELDS.map(([key, label]) =>
+            msg[key] == null ? null : (
+              <div key={key}>
+                <div className="text-[9px] uppercase tracking-wider text-[#A3A3A3] font-medium mb-0.5">{label}</div>
+                <pre className="text-[10px] bg-[#FAFAFA] border border-[#E5E5E5] rounded px-2 py-1 overflow-x-auto whitespace-pre-wrap">
+                  {JSON.stringify(msg[key], null, 2)}
+                </pre>
+              </div>
+            )
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── StoryBrowserCard ────────────────────────────────────────────────
+// Internal tool — story-by-story prompt-tuning signal. "All students" is
+// the default; switching to a single student filters server-side. When
+// source='conversation', raw_source_text shows the latest user message
+// before the story was captured (best-effort, per Eli's design call).
+function StoryBrowserCard() {
+  const [selectedUserId, setSelectedUserId] = useState(""); // "" = all students
+  const { data: students } = useStudentList();
+
+  const { data: stories, isLoading, error } = useQuery({
+    queryKey: ["admin_stories_browse", selectedUserId || "all"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("admin_stories_browse", {
+        p_user_id: selectedUserId || null,
+        p_limit: 50,
+      });
+      if (error) throw error;
+      return data || [];
+    },
+    refetchInterval: 60_000,
+  });
+
+  return (
+    <Card
+      title="Story browser"
+      icon={BookOpen}
+      footer={`${(stories || []).length} story(ies) · cap 50 · ${selectedUserId ? "filtered" : "all students"}`}
+    >
+      <div className="mb-3">
+        <select
+          value={selectedUserId}
+          onChange={(e) => setSelectedUserId(e.target.value)}
+          className="w-full text-xs border border-[#E5E5E5] rounded-md px-2 py-1.5 bg-white"
+        >
+          <option value="">All students</option>
+          {(students || []).map((s) => (
+            <option key={s.user_id} value={s.user_id}>
+              {s.full_name || "(no name)"} · {s.user_id.slice(0, 8)}…
+            </option>
+          ))}
+        </select>
+      </div>
+      {isLoading ? (
+        <div className="flex items-center justify-center h-40"><Loader2 className="w-4 h-4 animate-spin text-[#A3A3A3]" /></div>
+      ) : error ? (
+        <EmptyState message={`Error loading stories: ${error.message}`} />
+      ) : (stories || []).length === 0 ? (
+        <EmptyState message={selectedUserId ? "No stories captured for this student yet." : "No stories captured yet."} />
+      ) : (
+        <div className="space-y-3 max-h-[700px] overflow-y-auto">
+          {stories.map((s) => <StoryCard key={s.story_id} story={s} showStudentName={!selectedUserId} />)}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function StoryCard({ story, showStudentName }) {
+  const hasRawText = !!story.raw_source_text;
+  return (
+    <div className="border border-[#E5E5E5] rounded-md p-3 bg-white">
+      <div className="flex items-start justify-between gap-3 mb-2">
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-semibold text-[#0A0A0A] truncate">{story.title || "(untitled)"}</p>
+          {showStudentName && (
+            <p className="text-[10px] text-[#525252] mt-0.5">{story.full_name || "(no name)"}</p>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <span className="text-[9px] uppercase tracking-wider font-medium text-[#525252] px-1.5 py-0.5 bg-[#FAFAFA] border border-[#E5E5E5] rounded">
+            {story.source}
+          </span>
+          <span className="text-[10px] text-[#A3A3A3]">
+            {format(new Date(story.created_at), "MMM d")}
+          </span>
+        </div>
+      </div>
+      <div className={`grid gap-3 ${hasRawText ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-1"}`}>
+        <div className="space-y-1.5">
+          <StarField label="Situation" value={story.situation} />
+          <StarField label="Task" value={story.task} />
+          <StarField label="Action" value={story.action} />
+          <StarField label="Result" value={story.result} />
+        </div>
+        {hasRawText && (
+          <div>
+            <div className="text-[9px] uppercase tracking-wider text-[#A3A3A3] font-medium mb-0.5">Source text</div>
+            <pre className="text-[11px] bg-[#FAFAFA] border border-[#E5E5E5] rounded px-2 py-1.5 whitespace-pre-wrap overflow-x-auto leading-snug">
+              {story.raw_source_text}
+            </pre>
+          </div>
+        )}
+      </div>
+      {(story.metrics?.length > 0 ||
+        story.skills_demonstrated?.length > 0 ||
+        story.tools_used?.length > 0 ||
+        story.relevance_tags?.length > 0) && (
+        <div className="mt-3 pt-2 border-t border-[#F5F5F5] flex flex-wrap gap-1">
+          {(story.metrics || []).map((m, i) => (
+            <span key={`m-${i}`} className="text-[10px] px-1.5 py-0.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded">{m}</span>
+          ))}
+          {(story.skills_demonstrated || []).map((m, i) => (
+            <span key={`s-${i}`} className="text-[10px] px-1.5 py-0.5 bg-blue-50 border border-blue-200 text-blue-800 rounded">{m}</span>
+          ))}
+          {(story.tools_used || []).map((m, i) => (
+            <span key={`t-${i}`} className="text-[10px] px-1.5 py-0.5 bg-purple-50 border border-purple-200 text-purple-800 rounded">{m}</span>
+          ))}
+          {(story.relevance_tags || []).map((m, i) => (
+            <span key={`rt-${i}`} className="text-[10px] px-1.5 py-0.5 bg-[#FAFAFA] border border-[#E5E5E5] text-[#525252] rounded">#{m}</span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StarField({ label, value }) {
+  return (
+    <div>
+      <div className="text-[9px] uppercase tracking-wider text-[#A3A3A3] font-medium">{label}</div>
+      {value ? (
+        <p className="text-[11px] text-[#0A0A0A] leading-snug whitespace-pre-wrap">{value}</p>
+      ) : (
+        <p className="text-[11px] text-[#A3A3A3] italic">— (extractor left null)</p>
+      )}
+    </div>
+  );
+}
+
 export default function Admin() {
   const { user } = useAuth();
 
@@ -463,6 +807,14 @@ export default function Admin() {
 
       <div className="grid grid-cols-1 gap-4">
         <EngagementCard />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 mt-4">
+        <ChatLogsCard />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 mt-4">
+        <StoryBrowserCard />
       </div>
     </div>
   );
