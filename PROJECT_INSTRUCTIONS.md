@@ -1,6 +1,6 @@
 # PROJECT_INSTRUCTIONS — Get A Job
 
-**Last updated: 2026-05-08 (after PR #36 — PROJECT_INSTRUCTIONS.md established as living source of truth)**
+**Last updated: 2026-05-12 (after PRs #38–#47 — Langfuse migration complete, Daily Action Card backend, admin pilot tooling, deployed live at getajob.careers)**
 
 This file is the **living source of truth** for the project. Read this first, then follow cross-references for depth.
 
@@ -28,7 +28,7 @@ Pilot is **CONFIRMED** — Reichman professor + Dr. Miller personally vouching. 
 
 ## Where we are right now
 
-**Sprint week:** Wk 3 of the June 15 launch sprint (May 19–25 per ROADMAP, but we're running ahead — see below). Today is **2026-05-08**.
+**Sprint week:** Wk 3 of the June 15 launch sprint (May 19–25 per ROADMAP, but we're running ahead — Eli's slice is complete). Today is **2026-05-12**.
 
 **Most recent PRs (chronological):**
 
@@ -40,15 +40,21 @@ Pilot is **CONFIRMED** — Reichman professor + Dr. Miller personally vouching. 
 | #23–#29 | Apr 28 → May 4 | CV polish series (date normalization, About align, sub-header weight, conditional Experience umbrella, institution guard, dedup, per-bucket tailoring policy, ATS template, Polished one-page chrome, restored visual hierarchy) |
 | #30 | May 5 | docs(research) — `docs/research/linkedin-post-performance.md`, ~430 lines, source-of-truth referenced by all LinkedIn-related prompts |
 | #31 | May 5 | feat(linkedin) — Phase 1: hub tabs + POST_VOICE_RULES. `LinkedinOptimizer.jsx` becomes a 3-tab hub (Profile / Posts / Networking) routed via `useSearchParams` |
-| #32 | May 6 | feat(linkedin) — Phase 2: Posts MVP (3 types: project / lessons / milestone) + edge function + Compose flow |
-| #33 | May 6 | feat(linkedin) — Phase 3: 4 more post types (recap / observation / question / free_form) + carousel warning when LLM picks `format_recommendation: 'carousel'` (under-5K-follower accounts get warned) |
-| #34 | May 6 | feat(linkedin) — Phase 4 PR A: Networking tab — principles + Comment Coach (highest-leverage AI tool per the research doc — substantive comments → ~55% profile-view lift for sub-1K-follower accounts) |
-| #35 | May 6–8 | feat(linkedin) — Phase 4 PR B: Outreach Conversation Coach. 8 outreach goals, multi-turn coaching, warm-up-vs-ask judgment for multi-step goals (e.g. dormant-relationship referrals). Networking principles relocated to Resources page in same PR. Merged 2026-05-08 |
-| #36 | May 8 | docs — PROJECT_INSTRUCTIONS.md as living source of truth + ROADMAP catch-up through PR #35 + PR template checkbox enforcing the update rule. Merged 2026-05-08 |
+| #32–#33 | May 6 | feat(linkedin) — Posts Phases 2+3: 7 post types (project / lessons / milestone / recap / observation / question / free_form) + carousel warning |
+| #34 | May 6 | feat(linkedin) — Phase 4 PR A: Networking tab — principles + Comment Coach |
+| #35 | May 6–8 | feat(linkedin) — Phase 4 PR B: Outreach Conversation Coach. 8 goals, multi-turn coaching, warm-up-vs-ask judgment |
+| #36–#37 | May 8 | docs — PROJECT_INSTRUCTIONS.md established as living source of truth + ROADMAP catch-up + PR template checkbox + post-merge cleanup |
+| #38–#39 | May 8–12 | docs(strategy) — `docs/strategy/installation-checklist.md` + `docs/strategy/design-strategy.md` + tick off completed installs (Context7 MCP, obra/superpowers, Anthropic skills, ui-ux-pro-max, Corey Haines marketing) |
+| #40 | May 12 | chore(claude) — Production hooks at `.claude/settings.json`: PostToolUse auto-format (Prettier + ESLint), PreToolUse file protection (migrations / voice-rules / libraries / .env / package-lock), PreToolUse dangerous-command blocker (rm -rf, destructive SQL, force-push, --no-verify) |
+| #41 | May 10–11 | feat(observability) — Langfuse tracing helper (`_shared/openai-chat.ts`) + extract-story-from-text canary. Pure pass-through safety; reads `LANGFUSE_*` env vars; `x-langfuse-ingestion-version: 4` header for real-time traces |
+| #42–#44 | May 11 | feat(observability) — Langfuse migration batches 2a (5 low-risk), 2b (4 LinkedIn family), 2c (3 complex: career-analysis + tailored-cv with `cv-gen-<uuid>` sessionId + ai-chat with refactored retry wrapper). **All 13 OpenAI-calling functions traced** |
+| #45 | May 12 | feat(daily-action) — Daily Action Card backend. Migration `20260511_daily_actions.sql` + `generate-daily-action` edge function. Rule-based ranking (leverage × urgency × low_friction × calibration backoff) + LLM framing only. Lazy generation on Home load; UNIQUE per (user, date) |
+| #46 | May 12 | feat(admin) — Admin chat log viewer + story browser. Migration adds `admin_list_students` / `admin_chat_messages` / `admin_stories_browse` RPCs. Two new cards on `/admin` with student dropdown, pretty-printed `suggested_*_json` blocks, raw-text-vs-STAR side-by-side |
+| #47 | May 12 | fix(deploy) — `vercel.json` SPA rewrite so deep routes (`/admin`, etc.) resolve client-side |
 
 **Currently in flight:**
-- Wk 3 Daily Action Card + admin tooling pair (chat log viewer + story browser) **not started**
-- Wk 2 Admin SQL views still **in progress** (Isaac's queue per ROADMAP)
+- Isaac's Wk 3 slice — Story Bank Phase 2 (Mon), Daily Action Card UI (Wed), calibration loop validation (Fri)
+- Wk 4 (Eli) up next: LinkedIn import + Internship Finder Phase 1 (LinkedIn archive zip parser, `linkedin_imports` / `linkedin_connections` / `linkedin_change_events` schema, connection cross-reference)
 
 ---
 
@@ -71,6 +77,14 @@ Pilot is **CONFIRMED** — Reichman professor + Dr. Miller personally vouching. 
 **Domain libraries** (Israeli market context, ~170 roles + skills + proof signals + role-skill mappings): `supabase/functions/<slug>/shared/libraries/00_role_library.ts` etc. Each function copies the libraries it needs — keep in sync if editing. Edits require explicit cross-review by the other dev.
 
 **Tier scoring:** `src/lib/scoreApplication.js` (`tierFromScores`) mirrors `assignTierWithGoal` in `generate-career-analysis`. LLM-derived alignment uses tighter thresholds than the deterministic path.
+
+**Deployment (live since 2026-05-12):**
+- **Repo:** `getajob-careers/get-a-job` on GitHub (transferred from `isaac613/get-a-job` 2026-05-12)
+- **Hosting:** Vercel — auto-deploys from `main` on push
+- **Domain:** `getajob.careers` (Cloudflare DNS → Vercel)
+- **Supabase Auth URL configuration:** set to `https://getajob.careers` for magic-link redirects
+- **`vercel.json`:** SPA rewrite at the repo root so deep routes (`/admin`, `/Tracker`, etc.) resolve through React Router instead of returning 404 from Vercel's static handler (PR #47)
+- **Observability:** Langfuse Cloud (per-call LLM traces with userId filtering) + Supabase `function_metrics` table (per-call latency/cost/tokens) + Supabase edge function logs dashboard
 
 ---
 
@@ -249,7 +263,9 @@ Pulled from ROADMAP.md, scoped to your 2.5 days/week through launch.
 
 ## How to work with Claude Code
 
-We're using Claude (Opus 4.7 in 1M-context mode) as a pair programmer in two surfaces: **Claude Code** (terminal — direct file edits, command execution, runs lint/build) and **Claude.ai** (browser — research, deep planning, prompt-writing). The patterns below are how we've actually worked in PRs #20–35.
+We're using Claude (Opus 4.7 in 1M-context mode) as a pair programmer in two surfaces: **Claude Code** (terminal — direct file edits, command execution, runs lint/build) and **Claude.ai** (browser — research, deep planning, prompt-writing). The patterns below are how we've actually worked in PRs #20–#47.
+
+The repo now also has **production Claude Code hooks** at `.claude/settings.json` (shipped PR #40) that enforce the conventions automatically: every file edit runs Prettier + ESLint, protected paths (migrations, voice-rules, libraries, .env, package-lock) require confirmation, and dangerous bash commands (`rm -rf`, destructive SQL, `git push --force`, `--no-verify`) are blocked outright. Both Eli and Isaac inherit these when they run Claude Code in this repo — no setup needed beyond `jq` (Homebrew).
 
 ### The ask-don't-tell pattern
 
@@ -337,7 +353,7 @@ Direct Postgres queries against the live project. Used for migration verificatio
 
 ### gh CLI (Claude Code terminal)
 
-GitHub from the terminal — opening PRs, commenting on issues, listing PRs/issues, checking PR CI status. Used for every PR opened in PRs #30–35.
+GitHub from the terminal — opening PRs, commenting on issues, listing PRs/issues, checking PR CI status. Used for every PR opened in PRs #30–#47.
 
 ```bash
 gh pr create --title "..." --body "$(cat <<'EOF'
@@ -366,6 +382,21 @@ Why: Claude.ai is better at scoping work; Claude Code is better at executing it.
 Before non-trivial work, Claude surfaces numbered decisions with options + leans (described above under "How to work with Claude Code"). This is the explicit form of ask-don't-tell.
 
 Eli has saved feedback: "Surface decisions for confirmation; don't lock in unilaterally even when broader scope is approved." If you're working with Claude and you notice it diving into multi-file work without checking architectural calls, redirect — the prompt was probably under-scoped.
+
+### Installed Claude Code skills + MCPs
+
+Installed in user scope on Eli's setup, available across all projects. Isaac should mirror these.
+
+| Plugin | Source | What it gives you |
+|---|---|---|
+| **superpowers** | `obra/superpowers-marketplace` | Multi-agent dev workflow — TDD, code review, subagent execution, planning, brainstorming, verification-before-completion. The most-used pack |
+| **document-skills** (Anthropic) | `anthropics/skills` (alias `anthropic-agent-skills`) | docx / pdf / pptx / xlsx authoring, frontend-design, webapp-testing, skill-creator, claude-api, theme-factory, brand-guidelines |
+| **example-skills** (Anthropic) | `anthropics/skills` | Same surface as document-skills but with the example pack |
+| **ui-ux-pro-max** | `nextlevelbuilder/ui-ux-pro-max-skill` | 50+ UI styles, 161 color palettes, 57 font pairings, 99 UX guidelines, 161 product types, 25 chart types across 10 stacks |
+| **marketing-skills** (Corey Haines) | `coreyhaines31/marketingskills` | 32 marketing skills: copywriting, page-cro, email-sequence, seo-audit, ad-creative, churn-prevention, etc. Critical for the landing page |
+| **Context7 MCP** | `https://mcp.context7.com/mcp` (HTTP transport) | Fetches latest docs for React / Tailwind / shadcn / Supabase / Deno / Langfuse — reduces hallucinated APIs |
+
+See `docs/strategy/installation-checklist.md` for the full installation roadmap (THIS WEEK / PRE-LAUNCH / POST-LAUNCH).
 
 ### Other tools worth knowing
 
